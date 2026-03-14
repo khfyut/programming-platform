@@ -1,0 +1,75 @@
+# 项目根目录.gitignore文件
+
+# 依赖包
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 构建输出
+dist/
+build/
+target/
+
+# 编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+*.log
+logs/
+
+# 测试文件
+coverage/
+.nyc_output/
+
+# 临时文件
+tmp/
+temp/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 备份文件
+*.bak
+*.backup
+
+# 编译生成的文件
+*.class
+*.jar
+*.war
+
+# 前端构建文件
+frontend/dist/
+frontend/node_modules/
+
+# 后端构建文件
+System/target/
+System/.idea/
+
+# 工具生成的文件
+System/tools/*.csv
+System/tools/*.xlsx
+System/tools/*.sql
+
+# 技能相关文件
+skills/
+
+# 备份文件
+backup.sql

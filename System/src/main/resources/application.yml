@@ -1,0 +1,47 @@
+spring:
+  # 数据库配置
+  datasource:
+    url: jdbc:mysql://192.168.59.133:3306/programming_system?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # Redis配置
+  data:
+    redis:
+      host: 192.168.59.133
+      port: 6379
+      password:
+      database: 0
+
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mybatis/*.xml
+  type-aliases-package: com.programming.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 项目配置
+programming:
+  # JWT配置
+  jwt:
+    secret: programming_system_2026_secret_key
+    expire: 86400000 # 24小时
+  # Docker配置
+  docker:
+    host: tcp://192.168.59.133:2375
+    timeout: 2000 # 代码运行超时时间（ms）
+    memory: 134217728 # 内存限制（128M）
+  # AI接口配置
+  ai:
+    api-key: sk-6f9f19985db340ed98bbec290e53432b
+    api-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    prompt: 你是专业的编程助教，只回答编程相关问题，给出清晰的思路和示例代码，不要直接给出完整答案，帮助用户理解原理。
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8080

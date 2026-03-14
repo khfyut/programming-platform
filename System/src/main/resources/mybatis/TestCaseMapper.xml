@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.TestCaseMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.TestCase">
+        <id column="id" property="id"/>
+        <result column="problem_id" property="problemId"/>
+        <result column="input" property="input"/>
+        <result column="output" property="output"/>
+        <result column="is_sample" property="isSample"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="getTestCase" resultMap="BaseResultMap">
+        SELECT * FROM test_case WHERE problem_id = #{problemId} AND is_sample = 1 LIMIT 1
+    </select>
+
+    <select id="getTestCases" resultMap="BaseResultMap">
+        SELECT * FROM test_case WHERE problem_id = #{problemId} ORDER BY sort_order
+    </select>
+
+    <select id="findByProblemId" resultMap="BaseResultMap">
+        SELECT * FROM test_case WHERE problem_id = #{problemId} ORDER BY sort_order
+    </select>
+
+    <select id="findSampleByProblemId" resultMap="BaseResultMap">
+        SELECT * FROM test_case WHERE problem_id = #{problemId} AND is_sample = 1 ORDER BY sort_order
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM test_case WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.TestCase" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO test_case (problem_id, input, output, is_sample, sort_order)
+        VALUES (#{problemId}, #{input}, #{output}, #{isSample}, #{sortOrder})
+    </insert>
+
+    <insert id="batchInsert" parameterType="com.programming.entity.TestCase" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO test_case (problem_id, input, output, is_sample, sort_order) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.problemId}, #{item.input}, #{item.output}, #{item.isSample}, #{item.sortOrder})
+        </foreach>
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.TestCase">
+        UPDATE test_case
+        SET problem_id = #{problemId},
+            input = #{input},
+            output = #{output},
+            is_sample = #{isSample},
+            sort_order = #{sortOrder},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM test_case WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByProblemId">
+        DELETE FROM test_case WHERE problem_id = #{problemId}
+    </delete>
+
+    <select id="countByProblemId" resultType="int">
+        SELECT COUNT(*) FROM test_case WHERE problem_id = #{problemId}
+    </select>
+
+    <select id="countSampleByProblemId" resultType="int">
+        SELECT COUNT(*) FROM test_case WHERE problem_id = #{problemId} AND is_sample = 1
+    </select>
+
+</mapper>

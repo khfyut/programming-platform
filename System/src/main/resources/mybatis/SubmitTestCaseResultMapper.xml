@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.SubmitTestCaseResultMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.SubmitTestCaseResult">
+        <id column="id" property="id"/>
+        <result column="submit_id" property="submitId"/>
+        <result column="test_case_id" property="testCaseId"/>
+        <result column="result" property="result"/>
+        <result column="time_cost" property="timeCost"/>
+        <result column="memory_cost" property="memoryCost"/>
+        <result column="actual_output" property="actualOutput"/>
+        <result column="error_message" property="errorMessage"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <insert id="batchInsert" parameterType="com.programming.entity.SubmitTestCaseResult" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO submit_test_case_result (
+            submit_id, test_case_id, result, time_cost, memory_cost, actual_output, error_message
+        ) VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.submitId}, #{item.testCaseId}, #{item.result}, #{item.timeCost}, #{item.memoryCost}, #{item.actualOutput}, #{item.errorMessage})
+        </foreach>
+    </insert>
+
+    <select id="findBySubmitId" resultMap="BaseResultMap">
+        SELECT * FROM submit_test_case_result WHERE submit_id = #{submitId} ORDER BY id
+    </select>
+
+</mapper>

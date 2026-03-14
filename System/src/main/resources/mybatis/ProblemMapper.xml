@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.ProblemMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.Problem">
+        <id column="id" property="id"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="input" property="input"/>
+        <result column="output" property="output"/>
+        <result column="difficulty" property="difficulty"/>
+        <result column="language" property="language"/>
+        <result column="time_limit" property="timeLimit"/>
+        <result column="memory_limit" property="memoryLimit"/>
+        <result column="tags" property="tags"/>
+        <result column="knowledge_points" property="knowledgePoints"/>
+        <result column="hints" property="hints"/>
+        <result column="sample_explanation" property="sampleExplanation"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT * FROM problem
+        <where>
+            <if test="difficulty != null">
+                AND difficulty = #{difficulty}
+            </if>
+            <if test="language != null and language != ''">
+                AND language = #{language}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM problem WHERE id = #{id}
+    </select>
+
+    <select id="findByTitle" resultMap="BaseResultMap">
+        SELECT * FROM problem WHERE title = #{title} LIMIT 1
+    </select>
+
+    <select id="count" resultType="int">
+        SELECT COUNT(*) FROM problem
+        <where>
+            <if test="difficulty != null">
+                AND difficulty = #{difficulty}
+            </if>
+            <if test="language != null and language != ''">
+                AND language = #{language}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.Problem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO problem (title, content, input, output, difficulty, language, time_limit, memory_limit, tags, knowledge_points, hints, sample_explanation)
+        VALUES (#{title}, #{content}, #{input}, #{output}, #{difficulty}, #{language}, #{timeLimit}, #{memoryLimit}, #{tags}, #{knowledgePoints}, #{hints}, #{sampleExplanation})
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.Problem">
+        UPDATE problem SET
+            title = #{title},
+            content = #{content},
+            input = #{input},
+            output = #{output},
+            difficulty = #{difficulty},
+            language = #{language},
+            time_limit = #{timeLimit},
+            memory_limit = #{memoryLimit},
+            tags = #{tags},
+            knowledge_points = #{knowledgePoints},
+            hints = #{hints},
+            sample_explanation = #{sampleExplanation},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM problem WHERE id = #{id}
+    </delete>
+
+    <select id="findByTags" resultMap="BaseResultMap">
+        SELECT * FROM problem
+        WHERE FIND_IN_SET(#{tag}, tags) > 0
+        ORDER BY id DESC
+    </select>
+
+    <select id="findByDifficulty" resultMap="BaseResultMap">
+        SELECT * FROM problem
+        WHERE difficulty = #{difficulty}
+        ORDER BY id DESC
+    </select>
+
+</mapper>

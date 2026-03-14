@@ -1,0 +1,161 @@
+:root {
+  /* 品牌主色 - 力扣同款蓝 */
+  --brand-primary: #007AFF;
+  --brand-primary-hover: #0066CC;
+  --brand-primary-light: rgba(0, 122, 255, 0.1);
+  
+  /* 功能色 */
+  --success-color: #00B42A;
+  --success-hover: #009620;
+  --success-light: rgba(0, 180, 42, 0.1);
+  
+  --warning-color: #FFB400;
+  --warning-hover: #E6A200;
+  --warning-light: rgba(255, 180, 0, 0.1);
+  
+  --error-color: #EE4D38;
+  --error-hover: #D63820;
+  --error-light: rgba(238, 77, 56, 0.1);
+  
+  --info-color: #86909C;
+  --info-hover: #6B7280;
+  --info-light: rgba(134, 144, 156, 0.1);
+  
+  /* 暗色主题（VS Code同款） */
+  --dark-bg-primary: #1E1E1E;
+  --dark-bg-secondary: #2D2D2D;
+  --dark-bg-tertiary: #3E3E3E;
+  --dark-border-color: #3E3E3E;
+  --dark-border-light: #2D2D2D;
+  --dark-text-primary: #E5E5E5;
+  --dark-text-secondary: #B0B0B0;
+  --dark-text-tertiary: #858585;
+  --dark-text-disabled: #6B7280;
+  
+  /* 亮色主题 */
+  --light-bg-primary: #F8FAFC;
+  --light-bg-secondary: #FFFFFF;
+  --light-bg-tertiary: #F1F5F9;
+  --light-border-color: #E5E6EB;
+  --light-border-light: #F1F5F9;
+  --light-text-primary: #1E293B;
+  --light-text-secondary: #475569;
+  --light-text-tertiary: #64748B;
+  --light-text-disabled: #94A3B8;
+  
+  /* 难度标签 - 严格对标力扣 */
+  --difficulty-easy-bg: rgba(0, 180, 42, 0.1);
+  --difficulty-easy-color: #00B42A;
+  --difficulty-medium-bg: rgba(255, 180, 0, 0.1);
+  --difficulty-medium-color: #FFB400;
+  --difficulty-hard-bg: rgba(238, 77, 56, 0.1);
+  --difficulty-hard-color: #EE4D38;
+  
+  /* 通用变量 */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --card-radius: 8px;
+  --button-radius: 8px;
+  --input-radius: 8px;
+  
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* 渐变 */
+  --gradient-brand: linear-gradient(135deg, #007AFF 0%, #0052CC 100%);
+  --gradient-success: linear-gradient(135deg, #00B42A 0%, #009620 100%);
+  --gradient-warning: linear-gradient(135deg, #FFB400 0%, #E6A200 100%);
+  --gradient-error: linear-gradient(135deg, #EE4D38 0%, #D63820 100%);
+  
+  /* 过渡 */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* 字体 */
+  --font-primary: 'Inter', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-code: 'Fira Code', 'Monaco', 'Consolas', 'Courier New', monospace;
+}
+
+/* 暗色主题 */
+.dark {
+  --bg-primary: var(--dark-bg-primary);
+  --bg-secondary: var(--dark-bg-secondary);
+  --bg-tertiary: var(--dark-bg-tertiary);
+  --bg-card: var(--dark-bg-secondary);
+  --bg-input: var(--dark-bg-tertiary);
+  
+  --text-primary: var(--dark-text-primary);
+  --text-secondary: var(--dark-text-secondary);
+  --text-tertiary: var(--dark-text-tertiary);
+  --text-disabled: var(--dark-text-disabled);
+  
+  --border-color: var(--dark-border-color);
+  --border-light: var(--dark-border-light);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+}
+
+/* 亮色主题 */
+.light {
+  --bg-primary: var(--light-bg-primary);
+  --bg-secondary: var(--light-bg-secondary);
+  --bg-tertiary: var(--light-bg-tertiary);
+  --bg-card: var(--light-bg-secondary);
+  --bg-input: var(--light-bg-tertiary);
+  
+  --text-primary: var(--light-text-primary);
+  --text-secondary: var(--light-text-secondary);
+  --text-tertiary: var(--light-text-tertiary);
+  --text-disabled: var(--light-text-disabled);
+  
+  --border-color: var(--light-border-color);
+  --border-light: var(--light-border-light);
+}
+
+/* 侧边栏 */
+.sidebar {
+  --sidebar-bg: var(--dark-bg-secondary);
+  --sidebar-active: var(--brand-primary);
+  --sidebar-hover: var(--dark-bg-tertiary);
+  --sidebar-text: var(--dark-text-secondary);
+  --sidebar-text-active: var(--dark-text-primary);
+}
+
+.light .sidebar {
+  --sidebar-bg: #FFFFFF;
+  --sidebar-active: var(--brand-primary);
+  --sidebar-hover: #F1F5F9;
+  --sidebar-text: var(--light-text-secondary);
+  --sidebar-text-active: var(--light-text-primary);
+}
+
+/* 顶部导航栏 */
+.header {
+  --header-bg: var(--bg-card);
+  --header-border: var(--border-color);
+}
+
+/* Monaco编辑器主题 */
+.monaco-editor {
+  --monaco-bg-dark: #1E1E1E;
+  --monaco-bg-light: #FFFFFF;
+  --monaco-border-dark: #3E3E3E;
+  --monaco-border-light: #E5E6EB;
+}
+
+.dark .monaco-editor {
+  --monaco-bg: var(--monaco-bg-dark);
+  --monaco-border: var(--monaco-border-dark);
+}
+
+.light .monaco-editor {
+  --monaco-bg: var(--monaco-bg-light);
+  --monaco-border: var(--monaco-border-light);
+}

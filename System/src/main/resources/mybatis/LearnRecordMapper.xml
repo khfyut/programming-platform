@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.LearnRecordMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.LearnRecord">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="problem_count" property="problemCount"/>
+        <result column="correct_count" property="correctCount"/>
+        <result column="last_problem_id" property="lastProblemId"/>
+        <result column="last_learn_time" property="lastLearnTime"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT * FROM learn_record WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.LearnRecord">
+        INSERT INTO learn_record (user_id, problem_count, correct_count, last_problem_id, last_learn_time)
+        VALUES (#{userId}, #{problemCount}, #{correctCount}, #{lastProblemId}, NOW())
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.LearnRecord">
+        UPDATE learn_record
+        SET problem_count = #{problemCount},
+            correct_count = #{correctCount},
+            last_problem_id = #{lastProblemId},
+            last_learn_time = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

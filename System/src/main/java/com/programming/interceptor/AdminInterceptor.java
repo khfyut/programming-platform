@@ -18,9 +18,17 @@ public class AdminInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        String requestUri = request.getRequestURI();
+        
+        // 白名单接口，不需要管理员认证
+        if ("/api/admin/home/statistics".equals(requestUri)) {
+            log.info("管理员拦截器 - 白名单接口，跳过认证: {}", requestUri);
+            return true;
+        }
+        
         String token = request.getHeader("Authorization");
         
-        log.info("管理员拦截器 - 请求路径: {}, Authorization: {}", request.getRequestURI(), token);
+        log.info("管理员拦截器 - 请求路径: {}, Authorization: {}", requestUri, token);
         
         if (token == null || token.isEmpty()) {
             log.warn("管理员拦截器 - token为空");

@@ -2,13 +2,24 @@ package com.programming.controller;
 
 import com.programming.entity.Problem;
 import com.programming.entity.TestCase;
+import com.programming.entity.User;
 import com.programming.service.ProblemService;
 import com.programming.service.TestCaseService;
+import com.programming.service.UserService;
+import com.programming.util.JwtUtil;
 import com.programming.util.ResultUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/problem")
@@ -20,14 +31,35 @@ public class ProblemController {
     @Autowired
     private TestCaseService testCaseService;
 
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
     @GetMapping("/list")
     public ResultUtil getProblemList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Integer difficulty,
-            @RequestParam(required = false) String language) {
+            @RequestParam(required = false) String language,
+            @RequestParam(required = false) String knowledge,
+            HttpServletRequest request) {
         try {
-            return ResultUtil.success(problemService.getProblemList(page, size, difficulty, language));
+            // 获取当前登录用户ID
+            Long userId = null;
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+                if (jwtUtil.validateToken(token)) {
+                    userId = jwtUtil.getUserIdFromToken(token);
+                }
+            }
+            
+            return ResultUtil.success(problemService.getProblemList(page, size, difficulty, language, knowledge, userId));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -117,11 +149,49 @@ public class ProblemController {
         }
     }
 
-    @GetMapping("/difficulty/{difficulty}")
-    public ResultUtil<List<Problem>> getProblemsByDifficulty(@PathVariable Integer difficulty) {
+    @GetMapping("/languages")
+    public ResultUtil getLanguages() {
         try {
-            List<Problem> problems = problemService.getProblemsByDifficulty(difficulty);
-            return ResultUtil.success(problems);
+            return ResultUtil.success(problemService.getLanguages());
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/test-jdbc")
+    public ResultUtil<Map<String, Object>> testJdbcQuery() {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            
+            Connection conn = dataSource.getConnection();
+            
+            result.put("url", conn.getMetaData().getURL());
+            result.put("user", conn.getMetaData().getUserName());
+            result.put("database", conn.getCatalog());
+            
+            Statement stmt = conn.createStatement();
+            
+            ResultSet rs1 = stmt.executeQuery("SELECT COUNT(*) as cnt FROM problem");
+            if (rs1.next()) {
+                result.put("total", rs1.getInt("cnt"));
+            }
+            
+            ResultSet rs2 = stmt.executeQuery("SELECT id, title FROM problem ORDER BY id DESC LIMIT 5");
+            List<Map<String, Object>> problems = new ArrayList<>();
+            while (rs2.next()) {
+                Map<String, Object> p = new HashMap<>();
+                p.put("id", rs2.getLong("id"));
+                p.put("title", rs2.getString("title"));
+                problems.add(p);
+            }
+            result.put("latestProblems", problems);
+            
+            rs1.close();
+            rs2.close();
+            stmt.close();
+            conn.close();
+            
+            return ResultUtil.success(result);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.KnowledgePointMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.KnowledgePoint">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="level" property="level"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <resultMap id="KnowledgeWithChildrenMap" type="com.programming.entity.KnowledgePoint" extends="BaseResultMap">
+        <collection property="children" ofType="com.programming.entity.KnowledgePoint">
+            <id column="c_id" property="id"/>
+            <result column="c_name" property="name"/>
+            <result column="c_parent_id" property="parentId"/>
+            <result column="c_level" property="level"/>
+            <result column="c_description" property="description"/>
+        </collection>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM knowledge_point ORDER BY level ASC, id ASC
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM knowledge_point WHERE id = #{id}
+    </select>
+
+    <select id="findByParentId" resultMap="BaseResultMap">
+        SELECT * FROM knowledge_point WHERE parent_id = #{parentId} ORDER BY id ASC
+    </select>
+
+    <select id="findRootPoints" resultMap="BaseResultMap">
+        SELECT * FROM knowledge_point WHERE parent_id IS NULL ORDER BY id ASC
+    </select>
+
+    <select id="findByLevel" resultMap="BaseResultMap">
+        SELECT * FROM knowledge_point WHERE level = #{level} ORDER BY id ASC
+    </select>
+
+    <select id="findKnowledgeTree" resultMap="KnowledgeWithChildrenMap">
+        SELECT 
+            kp.*,
+            c.id as c_id, c.name as c_name, c.parent_id as c_parent_id, 
+            c.level as c_level, c.description as c_description
+        FROM knowledge_point kp
+        LEFT JOIN knowledge_point c ON kp.id = c.parent_id
+        WHERE kp.parent_id IS NULL
+        ORDER BY kp.id ASC, c.id ASC
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.KnowledgePoint" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO knowledge_point (name, parent_id, level, description, create_time, update_time)
+        VALUES (#{name}, #{parentId}, #{level}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.KnowledgePoint">
+        UPDATE knowledge_point 
+        SET name = #{name}, parent_id = #{parentId}, level = #{level}, 
+            description = #{description}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete" parameterType="java.lang.Long">
+        DELETE FROM knowledge_point WHERE id = #{id}
+    </delete>
+
+</mapper>

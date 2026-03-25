@@ -57,4 +57,24 @@
         SELECT * FROM submit WHERE id = #{id}
     </select>
 
+    <select id="countPassedByUserId" resultType="int">
+        SELECT COUNT(DISTINCT problem_id) FROM submit WHERE user_id = #{userId} AND result = 0
+    </select>
+
+    <select id="findPassedProblemIdsByUserId" resultType="java.lang.Long">
+        SELECT DISTINCT problem_id FROM submit WHERE user_id = #{userId} AND result = 0
+    </select>
+
+    <select id="findAttemptedProblemIdsByUserId" resultType="java.lang.Long">
+        SELECT DISTINCT problem_id FROM submit WHERE user_id = #{userId} AND result != 0
+    </select>
+
+    <select id="countByProblemId" resultType="java.util.Map">
+        SELECT 
+            COUNT(*) as totalCount,
+            SUM(CASE WHEN result = 0 THEN 1 ELSE 0 END) as passedCount
+        FROM submit 
+        WHERE problem_id = #{problemId}
+    </select>
+
 </mapper>

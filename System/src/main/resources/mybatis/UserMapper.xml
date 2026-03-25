@@ -8,8 +8,26 @@
         <result column="password" property="password"/>
         <result column="role" property="role"/>
         <result column="language" property="language"/>
+        <result column="ability_profile" property="abilityProfile"/>
+        <result column="status" property="status"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
+        <result column="bio" property="bio"/>
+        <result column="avatar_url" property="avatarUrl"/>
+        <result column="github_url" property="githubUrl"/>
+        <result column="blog_url" property="blogUrl"/>
+        <result column="total_solved" property="totalSolved"/>
+        <result column="total_submissions" property="totalSubmissions"/>
+        <result column="study_hours" property="studyHours"/>
+        <result column="ranking" property="ranking"/>
+    </resultMap>
+
+    <resultMap id="UserWithRolesMap" type="com.programming.entity.User" extends="BaseResultMap">
+        <collection property="roles" ofType="com.programming.entity.Role">
+            <id column="r_id" property="id"/>
+            <result column="r_name" property="name"/>
+            <result column="r_description" property="description"/>
+        </collection>
     </resultMap>
 
     <select id="findByUsername" resultMap="BaseResultMap">
@@ -17,16 +35,28 @@
     </select>
 
     <insert id="insert" parameterType="com.programming.entity.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user (username, password, role, language)
-        VALUES (#{username}, #{password}, #{role}, #{language})
+        INSERT INTO user (username, password, role, language, ability_profile, status, create_time, update_time)
+        VALUES (#{username}, #{password}, #{role}, #{language}, #{abilityProfile}, #{status}, NOW(), NOW())
     </insert>
 
-    <select id="findById" resultMap="BaseResultMap">
-        SELECT * FROM user WHERE id = #{id}
+    <select id="findById" resultMap="UserWithRolesMap">
+        SELECT u.*, r.id as r_id, r.name as r_name, r.description as r_description
+        FROM user u
+        LEFT JOIN user_role ur ON u.id = ur.user_id
+        LEFT JOIN role r ON ur.role_id = r.id
+        WHERE u.id = #{id}
     </select>
 
     <update id="updateLanguage">
-        UPDATE user SET language = #{language} WHERE id = #{id}
+        UPDATE user SET language = #{language}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE user SET status = #{status}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateRole">
+        UPDATE user_role SET role_id = #{roleId} WHERE user_id = #{id}
     </update>
 
     <select id="findByPage" resultMap="BaseResultMap">
@@ -36,5 +66,34 @@
     <select id="count" resultType="int">
         SELECT COUNT(*) FROM user
     </select>
+
+    <select id="countActiveUsers" resultType="int">
+        SELECT COUNT(DISTINCT user_id) FROM submit 
+        WHERE create_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+    </select>
+
+    <update id="updateAbilityProfile">
+        UPDATE user SET ability_profile = #{abilityProfile}, update_time = NOW() WHERE id = #{id}
+    </update>
+
+    <update id="updateProfile">
+        UPDATE user 
+        SET bio = #{bio}, 
+            avatar_url = #{avatarUrl}, 
+            github_url = #{githubUrl}, 
+            blog_url = #{blogUrl}, 
+            update_time = NOW() 
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStudyStats">
+        UPDATE user 
+        SET total_solved = #{totalSolved}, 
+            total_submissions = #{totalSubmissions}, 
+            study_hours = #{studyHours}, 
+            ranking = #{ranking}, 
+            update_time = NOW() 
+        WHERE id = #{id}
+    </update>
 
 </mapper>

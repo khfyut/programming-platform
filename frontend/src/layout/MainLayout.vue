@@ -1,8 +1,9 @@
 <template>
-  <div class="leetcode-layout">
-    <el-header class="leetcode-header">
+  <div class="leetcode-layout" :class="{ 'hide-header': route.meta.hideHeader }">
+    <el-header v-if="!route.meta.hideHeader" class="leetcode-header">
       <div class="header-container">
         <div class="header-left">
+
           <div class="logo" @click="router.push('/')">
             <div class="logo-icon">
               <el-icon :size="24"><Edit /></el-icon>
@@ -10,6 +11,14 @@
             </div>
             <span class="logo-text">CodeMaster</span>
           </div>
+          <!-- 移动端汉堡菜单按钮 -->
+          <el-button 
+            class="mobile-menu-btn" 
+            @click="mobileMenuVisible = !mobileMenuVisible"
+            :icon="mobileMenuVisible ? Close : Menu"
+            circle
+          />
+          <!-- 桌面端导航菜单 -->
           <nav class="nav-menu">
             <router-link to="/" class="nav-item" :class="{ active: route.path === '/' }">
               首页
@@ -17,17 +26,8 @@
             <router-link to="/problems" class="nav-item" :class="{ active: route.path === '/problems' || route.path.startsWith('/problem') }">
               题库
             </router-link>
-            <router-link to="/code-run" class="nav-item" :class="{ active: route.path === '/code-run' }">
-              在线运行
-            </router-link>
-            <router-link to="/ai" class="nav-item" :class="{ active: route.path === '/ai' }">
-              AI答疑
-            </router-link>
-            <router-link to="/learn" class="nav-item" :class="{ active: route.path === '/learn' }">
-              学习记录
-            </router-link>
-            <router-link to="/submissions" class="nav-item" :class="{ active: route.path === '/submissions' }">
-              提交记录
+            <router-link to="/community" class="nav-item" :class="{ active: route.path.startsWith('/community') }">
+              学习社区
             </router-link>
           </nav>
         </div>
@@ -53,8 +53,8 @@
               circle
             />
           </el-tooltip>
-          <el-dropdown @command="handleCommand" trigger="click">
-            <div class="user-info">
+          <el-dropdown @command="handleCommand" trigger="click" popper-class="user-dropdown-panel">
+            <div class="user-info-trigger">
               <div class="user-avatar-wrapper">
                 <el-avatar :size="36" :icon="UserFilled" />
                 <div class="online-indicator"></div>
@@ -63,25 +63,112 @@
               <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="language">
-                  <el-icon><Setting /></el-icon>
-                  设置语言
-                </el-dropdown-item>
-                <el-dropdown-item v-if="userStore.userInfo?.role === 1" command="admin">
-                  <el-icon><Setting /></el-icon>
-                  管理后台
-                </el-dropdown-item>
-                <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon>
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
+              <div class="user-menu-panel">
+                <!-- 用户信息头部 -->
+                <div class="user-menu-header">
+                  <el-avatar :size="48" :icon="UserFilled" class="user-menu-avatar" />
+                  <div class="user-menu-info">
+                    <div class="user-menu-name">{{ userStore.userInfo?.username }}</div>
+                    <div class="user-menu-role">{{ userStore.userInfo?.role === 1 ? '管理员' : '普通用户' }}</div>
+                  </div>
+                </div>
+                
+                <!-- 数据统计卡片 -->
+                <div class="user-stats-grid">
+                  <div class="stat-card" @click="goToProfile('solved')">
+                    <div class="stat-icon solved">
+                      <el-icon><CircleCheck /></el-icon>
+                    </div>
+                    <div class="stat-value">{{ userStats.solved }}</div>
+                    <div class="stat-label">已解决</div>
+                  </div>
+                  <div class="stat-card" @click="goToProfile('submissions')">
+                    <div class="stat-icon submissions">
+                      <el-icon><Document /></el-icon>
+                    </div>
+                    <div class="stat-value">{{ userStats.submissions }}</div>
+                    <div class="stat-label">提交次数</div>
+                  </div>
+                  <div class="stat-card" @click="goToProfile('passRate')">
+                    <div class="stat-icon pass-rate">
+                      <el-icon><TrendCharts /></el-icon>
+                    </div>
+                    <div class="stat-value">{{ userStats.passRate }}%</div>
+                    <div class="stat-label">通过率</div>
+                  </div>
+                  <div class="stat-card" @click="goToProfile('streak')">
+                    <div class="stat-icon streak">
+                      <el-icon><Timer /></el-icon>
+                    </div>
+                    <div class="stat-value">{{ userStats.streak }}</div>
+                    <div class="stat-label">连续天数</div>
+                  </div>
+                </div>
+                
+                <!-- 菜单项 -->
+                <div class="user-menu-list">
+                  <div class="menu-item" @click="handleCommand('profile')">
+                    <el-icon><User /></el-icon>
+                    <span>个人主页</span>
+                  </div>
+                  <div class="menu-item" @click="handleCommand('language')">
+                    <el-icon><Setting /></el-icon>
+                    <span>设置语言</span>
+                  </div>
+                  <div v-if="userStore.userInfo?.role === 1" class="menu-item" @click="handleCommand('admin')">
+                    <el-icon><Monitor /></el-icon>
+                    <span>管理后台</span>
+                  </div>
+                  <div class="menu-divider"></div>
+                  <div class="menu-item logout" @click="handleCommand('logout')">
+                    <el-icon><SwitchButton /></el-icon>
+                    <span>退出登录</span>
+                  </div>
+                </div>
+              </div>
             </template>
           </el-dropdown>
         </div>
       </div>
     </el-header>
+    
+    <!-- 侧边栏 -->
+    <el-aside v-if="!route.meta.hideHeader" class="leetcode-sidebar" width="240px">
+      <div class="sidebar-content">
+        <div class="sidebar-section">
+          <h3 class="sidebar-section-title">学习资源</h3>
+          <ul class="sidebar-menu">
+            <li class="sidebar-menu-item" :class="{ active: route.path === '/ai' }">
+              <router-link to="/ai" class="sidebar-menu-link">
+                <el-icon class="sidebar-menu-icon"><Cpu /></el-icon>
+                <span>AI答疑</span>
+              </router-link>
+            </li>
+            <li class="sidebar-menu-item" :class="{ active: route.path.startsWith('/learn') }">
+              <router-link to="/learn" class="sidebar-menu-link">
+                <el-icon class="sidebar-menu-icon"><Reading /></el-icon>
+                <span>学习中心</span>
+              </router-link>
+            </li>
+            <li class="sidebar-menu-item" :class="{ active: route.path === '/wrong-book' }">
+              <router-link to="/wrong-book" class="sidebar-menu-link">
+                <el-icon class="sidebar-menu-icon"><Warning /></el-icon>
+                <span>错题本</span>
+              </router-link>
+            </li>
+            <li class="sidebar-menu-item" :class="{ active: route.path === '/submissions' }">
+              <router-link to="/submissions" class="sidebar-menu-link">
+                <el-icon class="sidebar-menu-icon"><Document /></el-icon>
+                <span>提交记录</span>
+              </router-link>
+            </li>
+          </ul>
+        </div>
+        
+
+      </div>
+    </el-aside>
+    
     <el-main class="leetcode-main">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
@@ -100,6 +187,78 @@
         <el-button type="primary" @click="handleUpdateLanguage">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 移动端导航菜单 -->
+    <el-drawer
+      v-model="mobileMenuVisible"
+      direction="ltr"
+      size="80%"
+      class="mobile-menu-drawer"
+    >
+      <div class="mobile-menu-content">
+        <div class="mobile-menu-header">
+          <div class="logo" @click="router.push('/')">
+            <div class="logo-icon">
+              <el-icon :size="20"><Edit /></el-icon>
+              <div class="logo-dot"></div>
+            </div>
+            <span class="logo-text">CodeMaster</span>
+          </div>
+          <el-button 
+            @click="mobileMenuVisible = false"
+            :icon="Close"
+            circle
+            class="close-btn"
+          />
+        </div>
+        <nav class="mobile-nav-menu">
+          <router-link to="/" class="mobile-nav-item" :class="{ active: route.path === '/' }" @click="mobileMenuVisible = false">
+            首页
+          </router-link>
+          <router-link to="/problems" class="mobile-nav-item" :class="{ active: route.path === '/problems' || route.path.startsWith('/problem') }" @click="mobileMenuVisible = false">
+            题库
+          </router-link>
+          <router-link to="/ai" class="mobile-nav-item" :class="{ active: route.path === '/ai' }" @click="mobileMenuVisible = false">
+            AI答疑
+          </router-link>
+          <router-link to="/learn" class="mobile-nav-item" :class="{ active: route.path.startsWith('/learn') }" @click="mobileMenuVisible = false">
+            学习中心
+          </router-link>
+          <router-link to="/wrong-book" class="mobile-nav-item" :class="{ active: route.path === '/wrong-book' }" @click="mobileMenuVisible = false">
+            错题本
+          </router-link>
+          <router-link to="/submissions" class="mobile-nav-item" :class="{ active: route.path === '/submissions' }" @click="mobileMenuVisible = false">
+            提交记录
+          </router-link>
+          <router-link to="/community" class="mobile-nav-item" :class="{ active: route.path.startsWith('/community') }" @click="mobileMenuVisible = false">
+            学习社区
+          </router-link>
+          <router-link to="/profile" class="mobile-nav-item" :class="{ active: route.path.startsWith('/profile') }" @click="mobileMenuVisible = false">
+            个人主页
+          </router-link>
+        </nav>
+        <div class="mobile-menu-footer">
+          <div class="user-info">
+            <div class="user-avatar-wrapper">
+              <el-avatar :size="40" :icon="UserFilled" />
+              <div class="online-indicator"></div>
+            </div>
+            <div class="user-details">
+              <span class="username">{{ userStore.userInfo?.username || '未登录' }}</span>
+              <el-button 
+                v-if="!userStore.userInfo" 
+                type="primary" 
+                size="small" 
+                class="login-btn"
+                @click="router.push('/login'); mobileMenuVisible = false"
+              >
+                登录
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -115,9 +274,22 @@ import {
   Setting,
   UserFilled,
   SwitchButton,
-  ArrowDown,
   Sunny,
-  Moon
+  Moon,
+  Close,
+  Menu,
+  User,
+  CircleCheck,
+  Document,
+  TrendCharts,
+  Timer,
+  Monitor,
+  ArrowDown,
+  Cpu,
+  Reading,
+  Warning,
+  DataAnalysis,
+  Collection
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -129,6 +301,34 @@ const isDark = computed(() => themeStore.isDark)
 const searchKeyword = ref('')
 const languageDialogVisible = ref(false)
 const selectedLanguage = ref(userStore.userInfo?.language || 'java')
+const mobileMenuVisible = ref(false)
+const sidebarVisible = ref(true)
+
+// 用户统计数据
+const userStats = ref({
+  solved: 0,
+  submissions: 0,
+  passRate: 0,
+  streak: 0
+})
+
+// 获取用户统计数据
+const fetchUserStats = async () => {
+  try {
+    userStats.value = {
+      solved: userStore.userInfo?.solvedCount || 0,
+      submissions: userStore.userInfo?.submissionCount || 0,
+      passRate: userStore.userInfo?.passRate || 0,
+      streak: userStore.userInfo?.streak || 0
+    }
+  } catch (error) {
+    console.error('获取用户统计失败:', error)
+  }
+}
+
+const goToProfile = (tab) => {
+  router.push(`/profile?tab=${tab}`)
+}
 
 const toggleTheme = () => {
   themeStore.toggleTheme()
@@ -158,6 +358,8 @@ const handleCommand = async (command) => {
     } catch {
       return
     }
+  } else if (command === 'profile') {
+    router.push('/profile')
   } else if (command === 'language') {
     selectedLanguage.value = userStore.userInfo?.language || 'java'
     languageDialogVisible.value = true
@@ -185,6 +387,8 @@ const handleUpdateLanguage = async () => {
   flex-direction: column;
 }
 
+
+
 .leetcode-header {
   height: 60px;
   background: var(--leetcode-bg, #FFFFFF);
@@ -211,7 +415,107 @@ const handleUpdateLanguage = async () => {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 16px;
+}
+
+/* 侧边栏切换按钮 */
+.sidebar-toggle-btn {
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border: 1px solid var(--leetcode-border, #E5E7EB);
+  color: var(--leetcode-text-secondary, #6B7280);
+  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--leetcode-primary, #0066FF);
+  border-color: var(--leetcode-primary, #0066FF);
+  color: white;
+}
+
+/* 侧边栏样式 */
+.leetcode-sidebar {
+  background: var(--leetcode-bg, #FFFFFF);
+  border-right: 1px solid var(--leetcode-border, #E5E7EB);
+  padding: 20px 0;
+  position: fixed;
+  top: 60px;
+  left: 0;
+  bottom: 0;
+  z-index: 999;
+  overflow: hidden;
+}
+
+.sidebar-content {
+  height: 100%;
+  overflow-y: auto;
+  padding: 0 16px;
+}
+
+.sidebar-section {
+  margin-bottom: 32px;
+}
+
+.sidebar-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--leetcode-text-secondary, #6B7280);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding: 0 12px;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-menu-item {
+  margin-bottom: 4px;
+}
+
+.sidebar-menu-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--leetcode-text, #24292F);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.sidebar-menu-link:hover {
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  color: var(--leetcode-primary, #0066FF);
+}
+
+.sidebar-menu-item.active .sidebar-menu-link {
+  background: var(--leetcode-primary, #0066FF);
+  color: white;
+}
+
+.sidebar-menu-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+}
+
+/* 主内容区域调整 */
+.leetcode-main {
+  margin-top: 60px;
+  margin-left: 240px;
+  padding: 0;
+  background: var(--bg-primary);
+  min-height: calc(100vh - 60px);
 }
 
 .logo {
@@ -311,7 +615,6 @@ const handleUpdateLanguage = async () => {
   background-clip: text;
 }
 
-/* 深色模式适配 */
 .dark .logo-text {
   background: linear-gradient(135deg, #F1F5F9 0%, #94A3B8 100%);
   -webkit-background-clip: text;
@@ -343,6 +646,9 @@ const handleUpdateLanguage = async () => {
   border-radius: 6px;
   transition: all 0.2s ease;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .nav-item:hover {
@@ -355,8 +661,6 @@ const handleUpdateLanguage = async () => {
   background: var(--leetcode-bg-secondary, #F7F8FA);
   font-weight: 600;
 }
-
-
 
 .header-right {
   display: flex;
@@ -416,6 +720,21 @@ const handleUpdateLanguage = async () => {
   transform: rotate(180deg);
 }
 
+.user-info-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.user-info-trigger:hover {
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -460,9 +779,166 @@ const handleUpdateLanguage = async () => {
   transition: transform 0.2s ease;
 }
 
-.user-info:hover .dropdown-icon {
+.user-info:hover .dropdown-icon,
+.user-info-trigger:hover .dropdown-icon {
   transform: rotate(180deg);
   color: var(--leetcode-primary, #0066FF);
+}
+
+/* 用户下拉面板样式 */
+:deep(.user-dropdown-panel) {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+.user-menu-panel {
+  width: 280px;
+  background: #fff;
+}
+
+.user-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.user-menu-avatar {
+  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
+}
+
+.user-menu-info {
+  flex: 1;
+}
+
+.user-menu-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.user-menu-role {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* 统计卡片网格 */
+.user-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  background: #f8fafc;
+}
+
+.stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.stat-icon.solved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.stat-icon.submissions {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.stat-icon.pass-rate {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.stat-icon.streak {
+  background: #fce7f3;
+  color: #db2777;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* 菜单列表 */
+.user-menu-list {
+  padding: 8px 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #334155;
+}
+
+.menu-item:hover {
+  background: #f8fafc;
+  color: #1890ff;
+}
+
+.menu-item .el-icon {
+  font-size: 16px;
+  color: #64748b;
+}
+
+.menu-item:hover .el-icon {
+  color: #1890ff;
+}
+
+.menu-item.logout {
+  color: #ef4444;
+}
+
+.menu-item.logout:hover {
+  background: #fef2f2;
+}
+
+.menu-item.logout .el-icon {
+  color: #ef4444;
+}
+
+.menu-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 8px 16px;
 }
 
 .leetcode-main {
@@ -470,6 +946,12 @@ const handleUpdateLanguage = async () => {
   padding: 0;
   background: var(--bg-primary);
   min-height: calc(100vh - 60px);
+}
+
+/* 隐藏头部时的样式 */
+.leetcode-layout.hide-header .leetcode-main {
+  margin-top: 0;
+  min-height: 100vh;
 }
 
 .fade-enter-active,
@@ -585,6 +1067,10 @@ const handleUpdateLanguage = async () => {
     display: none;
   }
 
+  .mobile-menu-btn {
+    display: flex;
+  }
+
   .search-input {
     width: 160px;
   }
@@ -596,6 +1082,151 @@ const handleUpdateLanguage = async () => {
 
   .user-info {
     padding: 4px 6px;
+  }
+  
+  /* 移动端隐藏侧边栏 */
+  .leetcode-sidebar {
+    display: none;
+  }
+  
+  .leetcode-main.sidebar-visible {
+    margin-left: 0;
+  }
+  
+  .sidebar-toggle-btn {
+    display: none;
+  }
+}
+
+/* 移动端菜单样式 */
+.mobile-menu-btn {
+  display: none;
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border: 1px solid var(--leetcode-border, #E5E7EB);
+  color: var(--leetcode-text-secondary, #6B7280);
+  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
+  margin-right: 12px;
+}
+
+.mobile-menu-btn:hover {
+  background: var(--leetcode-primary, #0066FF);
+  border-color: var(--leetcode-primary, #0066FF);
+  color: white;
+}
+
+.mobile-menu-drawer {
+  background: var(--leetcode-bg, #FFFFFF);
+  border-right: 1px solid var(--leetcode-border, #E5E7EB);
+}
+
+.mobile-menu-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+}
+
+.mobile-menu-header .logo {
+  margin: 0;
+}
+
+.close-btn {
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border: 1px solid var(--leetcode-border, #E5E7EB);
+  color: var(--leetcode-text-secondary, #6B7280);
+  transition: all 0.2s ease;
+  width: 36px;
+  height: 36px;
+}
+
+.close-btn:hover {
+  background: var(--leetcode-primary, #0066FF);
+  border-color: var(--leetcode-primary, #0066FF);
+  color: white;
+}
+
+.mobile-nav-menu {
+  flex: 1;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-nav-item {
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--leetcode-text, #24292F);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+}
+
+.mobile-nav-item:hover {
+  color: var(--leetcode-primary, #0066FF);
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border-left-color: var(--leetcode-primary, #0066FF);
+}
+
+.mobile-nav-item.active {
+  color: var(--leetcode-primary, #0066FF);
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border-left-color: var(--leetcode-primary, #0066FF);
+  font-weight: 600;
+}
+
+.mobile-menu-footer {
+  padding: 20px;
+  border-top: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+}
+
+.mobile-menu-footer .user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  padding: 0;
+}
+
+.mobile-menu-footer .user-details {
+  flex: 1;
+}
+
+.mobile-menu-footer .username {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--leetcode-text, #24292F);
+  margin-bottom: 8px;
+}
+
+.login-btn {
+  width: 100%;
+}
+
+/* 响应式调整 */
+@media (max-width: 480px) {
+  .mobile-menu-drawer {
+    size: '90%';
+  }
+
+  .mobile-nav-item {
+    padding: 14px 16px;
+    font-size: 15px;
+  }
+
+  .search-input {
+    width: 120px;
   }
 }
 </style>

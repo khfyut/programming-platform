@@ -14,4 +14,10 @@ public interface UserMapper {
     int updateLanguage(@Param("id") Long id, @Param("language") String language);
     List<User> findByPage(@Param("page") int page, @Param("size") int size);
     int count();
+    int countActiveUsers();
+    void updateStatus(@Param("id") Long id, @Param("status") Integer status);
+    void updateRole(@Param("id") Long id, @Param("roleId") Long roleId);
+    void updateAbilityProfile(@Param("id") Long id, @Param("abilityProfile") String abilityProfile);
+    void updateProfile(@Param("id") Long id, @Param("bio") String bio, @Param("avatarUrl") String avatarUrl, @Param("githubUrl") String githubUrl, @Param("blogUrl") String blogUrl);
+    void updateStudyStats(@Param("id") Long id, @Param("totalSolved") Integer totalSolved, @Param("totalSubmissions") Integer totalSubmissions, @Param("studyHours") Integer studyHours, @Param("ranking") Integer ranking);
 }

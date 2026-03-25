@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.programming.mapper.WrongBookMapper">
+    <!-- 错题本相关 -->
+    <select id="selectWrongBookByUserId" resultType="com.programming.entity.WrongBook">
+        SELECT * FROM wrong_book WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insertWrongBook" parameterType="com.programming.entity.WrongBook">
+        INSERT INTO wrong_book (user_id, create_time, update_time)
+        VALUES (#{userId}, NOW(), NOW())
+    </insert>
+
+    <!-- 错题项相关 -->
+    <select id="selectWrongBookItems" resultType="com.programming.entity.WrongBookItem">
+        SELECT * FROM wrong_book_item 
+        WHERE wrong_book_id = #{wrongBookId}
+        <if test="knowledgePoint != null and knowledgePoint != ''">
+            AND knowledge_points LIKE CONCAT('%', #{knowledgePoint}, '%')
+        </if>
+        <if test="difficulty != null">
+            AND difficulty = #{difficulty}
+        </if>
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectWrongBookItemById" resultType="com.programming.entity.WrongBookItem">
+        SELECT * FROM wrong_book_item WHERE id = #{id}
+    </select>
+
+    <select id="selectWrongBookItemByProblemId" resultType="com.programming.entity.WrongBookItem">
+        SELECT * FROM wrong_book_item 
+        WHERE wrong_book_id = #{wrongBookId} AND problem_id = #{problemId}
+    </select>
+
+    <insert id="insertWrongBookItem" parameterType="com.programming.entity.WrongBookItem">
+        INSERT INTO wrong_book_item (wrong_book_id, problem_id, submit_id, code, language, 
+            error_message, knowledge_points, review_status, last_review_time, create_time, update_time)
+        VALUES (#{wrongBookId}, #{problemId}, #{submitId}, #{code}, #{language}, 
+            #{errorMessage}, #{knowledgePoints}, #{reviewStatus}, #{lastReviewTime}, NOW(), NOW())
+    </insert>
+
+    <update id="updateWrongBookItem" parameterType="com.programming.entity.WrongBookItem">
+        UPDATE wrong_book_item 
+        SET review_status = #{reviewStatus}, last_review_time = #{lastReviewTime}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteWrongBookItem" parameterType="java.lang.Long">
+        DELETE FROM wrong_book_item WHERE id = #{id}
+    </delete>
+
+    <!-- 复习计划相关 -->
+    <select id="selectReviewPlansByUserId" resultType="com.programming.entity.ReviewPlan">
+        SELECT * FROM review_plan WHERE user_id = #{userId} ORDER BY next_review_time ASC
+    </select>
+
+    <select id="selectPendingReviewPlans" resultType="com.programming.entity.ReviewPlan">
+        SELECT * FROM review_plan 
+        WHERE user_id = #{userId} AND next_review_time &lt;= #{currentTime} AND status = 0
+        ORDER BY next_review_time ASC
+    </select>
+
+    <select id="selectReviewPlanByWrongItemId" resultType="com.programming.entity.ReviewPlan">
+        SELECT * FROM review_plan WHERE wrong_item_id = #{wrongItemId}
+    </select>
+
+    <insert id="insertReviewPlan" parameterType="com.programming.entity.ReviewPlan">
+        INSERT INTO review_plan (user_id, wrong_item_id, next_review_time, review_count, status, create_time, update_time)
+        VALUES (#{userId}, #{wrongItemId}, #{nextReviewTime}, #{reviewCount}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="updateReviewPlan" parameterType="com.programming.entity.ReviewPlan">
+        UPDATE review_plan 
+        SET next_review_time = #{nextReviewTime}, review_count = #{reviewCount}, 
+            status = #{status}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteReviewPlan" parameterType="java.lang.Long">
+        DELETE FROM review_plan WHERE id = #{id}
+    </delete>
+
+    <!-- 统计信息 -->
+    <select id="getWrongBookStatistics" resultType="java.util.Map">
+        SELECT 
+            COUNT(*) as totalCount,
+            COUNT(CASE WHEN review_status = 1 THEN 1 END) as reviewedCount,
+            COUNT(CASE WHEN review_status = 0 THEN 1 END) as pendingCount
+        FROM wrong_book_item
+        WHERE wrong_book_id = (SELECT id FROM wrong_book WHERE user_id = #{userId})
+    </select>
+
+    <select id="getWrongDistributionByKnowledgePoint" resultType="java.util.Map">
+        SELECT 
+            knowledge_points as knowledgePoint,
+            COUNT(*) as count
+        FROM wrong_book_item
+        WHERE wrong_book_id = (SELECT id FROM wrong_book WHERE user_id = #{userId})
+        GROUP BY knowledge_points
+        ORDER BY count DESC
+    </select>
+
+    <select id="getWrongDistributionByDifficulty" resultType="java.util.Map">
+        SELECT 
+            p.difficulty,
+            COUNT(*) as count
+        FROM wrong_book_item wbi
+        JOIN problem p ON wbi.problem_id = p.id
+        WHERE wbi.wrong_book_id = (SELECT id FROM wrong_book WHERE user_id = #{userId})
+        GROUP BY p.difficulty
+        ORDER BY p.difficulty ASC
+    </select>
+
+    <!-- 推荐题目 -->
+    <select id="selectRecommendedProblems" resultType="com.programming.entity.Problem">
+        SELECT * FROM problem
+        WHERE knowledge_points LIKE CONCAT('%', #{knowledgePoints}, '%')
+        AND difficulty = #{difficulty}
+        ORDER BY RAND()
+        LIMIT #{limit}
+    </select>
+</mapper>

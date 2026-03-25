@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.SystemMonitorMapper">
+
+    <resultMap id="SystemMonitorResultMap" type="com.programming.entity.SystemMonitor">
+        <id column="id" property="id"/>
+        <result column="metric_name" property="metricName"/>
+        <result column="metric_value" property="metricValue"/>
+        <result column="metric_unit" property="metricUnit"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <resultMap id="ApiMetricResultMap" type="com.programming.entity.ApiMetric">
+        <id column="id" property="id"/>
+        <result column="api_path" property="apiPath"/>
+        <result column="method" property="method"/>
+        <result column="response_time" property="responseTime"/>
+        <result column="status_code" property="statusCode"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <resultMap id="SandboxStatusResultMap" type="com.programming.entity.SandboxStatus">
+        <id column="id" property="id"/>
+        <result column="container_id" property="containerId"/>
+        <result column="status" property="status"/>
+        <result column="cpu_usage" property="cpuUsage"/>
+        <result column="memory_usage" property="memoryUsage"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <resultMap id="SystemLogResultMap" type="com.programming.entity.SystemLog">
+        <id column="id" property="id"/>
+        <result column="level" property="level"/>
+        <result column="category" property="category"/>
+        <result column="message" property="message"/>
+        <result column="stack_trace" property="stackTrace"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <resultMap id="AlertConfigResultMap" type="com.programming.entity.AlertConfig">
+        <id column="id" property="id"/>
+        <result column="metric_name" property="metricName"/>
+        <result column="threshold" property="threshold"/>
+        <result column="operator" property="operator"/>
+        <result column="alert_level" property="alertLevel"/>
+        <result column="enabled" property="enabled"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <resultMap id="AlertRecordResultMap" type="com.programming.entity.AlertRecord">
+        <id column="id" property="id"/>
+        <result column="config_id" property="configId"/>
+        <result column="metric_value" property="metricValue"/>
+        <result column="message" property="message"/>
+        <result column="status" property="status"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="getLatest" resultMap="SystemMonitorResultMap">
+        SELECT * FROM system_monitor 
+        ORDER BY create_time DESC 
+        LIMIT 1
+    </select>
+
+    <select id="getByMetricName" resultMap="SystemMonitorResultMap">
+        SELECT * FROM system_monitor 
+        WHERE metric_name = #{metricName} 
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insertMetric" parameterType="com.programming.entity.SystemMonitor">
+        INSERT INTO system_monitor (metric_name, metric_value, metric_unit, create_time)
+        VALUES (#{metricName}, #{metricValue}, #{metricUnit}, NOW())
+    </insert>
+
+    <select id="getApiMetrics" resultMap="ApiMetricResultMap">
+        SELECT * FROM api_metric 
+        ORDER BY create_time DESC 
+        LIMIT 100
+    </select>
+
+    <select id="getApiMetricsByPath" resultMap="ApiMetricResultMap">
+        SELECT * FROM api_metric 
+        WHERE api_path = #{apiPath} 
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insertApiMetric" parameterType="com.programming.entity.ApiMetric">
+        INSERT INTO api_metric (api_path, method, response_time, status_code, create_time)
+        VALUES (#{apiPath}, #{method}, #{responseTime}, #{statusCode}, NOW())
+    </insert>
+
+    <select id="getSandboxStatus" resultMap="SandboxStatusResultMap">
+        SELECT * FROM sandbox_status 
+        ORDER BY update_time DESC
+    </select>
+
+    <insert id="insertSandboxStatus" parameterType="com.programming.entity.SandboxStatus">
+        INSERT INTO sandbox_status (container_id, status, cpu_usage, memory_usage, create_time, update_time)
+        VALUES (#{containerId}, #{status}, #{cpuUsage}, #{memoryUsage}, NOW(), NOW())
+    </insert>
+
+    <update id="updateSandboxStatus" parameterType="com.programming.entity.SandboxStatus">
+        UPDATE sandbox_status 
+        SET status = #{status}, cpu_usage = #{cpuUsage}, memory_usage = #{memoryUsage}, update_time = NOW()
+        WHERE container_id = #{containerId}
+    </update>
+
+    <select id="getSystemLogs" resultMap="SystemLogResultMap">
+        SELECT * FROM system_log 
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <select id="getSystemLogsByLevel" resultMap="SystemLogResultMap">
+        SELECT * FROM system_log 
+        WHERE level = #{level} 
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <insert id="insertSystemLog" parameterType="com.programming.entity.SystemLog">
+        INSERT INTO system_log (level, category, message, stack_trace, create_time)
+        VALUES (#{level}, #{category}, #{message}, #{stackTrace}, NOW())
+    </insert>
+
+    <select id="getAlertConfigs" resultMap="AlertConfigResultMap">
+        SELECT * FROM alert_config WHERE enabled = true
+    </select>
+
+    <insert id="insertAlertConfig" parameterType="com.programming.entity.AlertConfig">
+        INSERT INTO alert_config (metric_name, threshold, operator, alert_level, enabled, create_time, update_time)
+        VALUES (#{metricName}, #{threshold}, #{operator}, #{alertLevel}, #{enabled}, NOW(), NOW())
+    </insert>
+
+    <insert id="insertAlertRecord" parameterType="com.programming.entity.AlertRecord">
+        INSERT INTO alert_record (config_id, metric_value, message, status, create_time, update_time)
+        VALUES (#{configId}, #{metricValue}, #{message}, #{status}, NOW(), NOW())
+    </insert>
+
+    <select id="getAlertRecords" resultMap="AlertRecordResultMap">
+        SELECT * FROM alert_record 
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+</mapper>

@@ -29,6 +29,9 @@
             <if test="language != null and language != ''">
                 AND language = #{language}
             </if>
+            <if test="knowledge != null and knowledge != ''">
+                AND FIND_IN_SET(#{knowledge}, knowledge_points) > 0
+            </if>
         </where>
         ORDER BY id DESC
         LIMIT #{size} OFFSET #{page}
@@ -50,6 +53,9 @@
             </if>
             <if test="language != null and language != ''">
                 AND language = #{language}
+            </if>
+            <if test="knowledge != null and knowledge != ''">
+                AND FIND_IN_SET(#{knowledge}, knowledge_points) > 0
             </if>
         </where>
     </select>
@@ -91,6 +97,20 @@
         SELECT * FROM problem
         WHERE difficulty = #{difficulty}
         ORDER BY id DESC
+    </select>
+
+    <select id="findByKnowledgePoint" resultMap="BaseResultMap">
+        SELECT * FROM problem
+        WHERE FIND_IN_SET(#{knowledgePointId}, knowledge_points) > 0
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+    
+    <select id="getLanguageStats" resultType="java.util.Map">
+        SELECT language, COUNT(*) as problemCount
+        FROM problem
+        GROUP BY language
+        ORDER BY problemCount DESC
     </select>
 
 </mapper>

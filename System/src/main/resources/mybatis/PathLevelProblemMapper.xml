@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.PathLevelProblemMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.PathLevelProblem">
+        <id column="id" property="id"/>
+        <result column="level_id" property="levelId"/>
+        <result column="problem_id" property="problemId"/>
+        <result column="order_num" property="orderNum"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="findByLevelId" resultMap="BaseResultMap">
+        SELECT * FROM path_level_problem 
+        WHERE level_id = #{levelId} 
+        ORDER BY order_num ASC
+    </select>
+
+    <select id="findProblemsByLevelId" resultMap="com.programming.mapper.ProblemMapper.BaseResultMap">
+        SELECT p.* FROM problem p
+        INNER JOIN path_level_problem plp ON p.id = plp.problem_id
+        WHERE plp.level_id = #{levelId}
+        ORDER BY plp.order_num ASC
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.PathLevelProblem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO path_level_problem (level_id, problem_id, order_num, create_time, update_time)
+        VALUES (#{levelId}, #{problemId}, #{orderNum}, NOW(), NOW())
+    </insert>
+
+    <delete id="deleteByLevelIdAndProblemId">
+        DELETE FROM path_level_problem 
+        WHERE level_id = #{levelId} AND problem_id = #{problemId}
+    </delete>
+
+    <delete id="deleteByLevelId">
+        DELETE FROM path_level_problem WHERE level_id = #{levelId}
+    </delete>
+
+    <insert id="batchInsert">
+        INSERT INTO path_level_problem (level_id, problem_id, order_num, create_time, update_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.levelId}, #{item.problemId}, #{item.orderNum}, NOW(), NOW())
+        </foreach>
+    </insert>
+
+</mapper>

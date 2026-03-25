@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.programming.mapper.CommunityMapper">
+    <!-- 帖子相关 -->
+    <select id="selectPosts" resultType="com.programming.entity.CommunityPost">
+        SELECT * FROM community_post
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="pathId != null">
+                AND path_id = #{pathId}
+            </if>
+            <if test="chapterId != null">
+                AND chapter_id = #{chapterId}
+            </if>
+            <if test="levelId != null">
+                AND level_id = #{levelId}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <select id="selectPostById" resultType="com.programming.entity.CommunityPost">
+        SELECT * FROM community_post WHERE id = #{id}
+    </select>
+
+    <insert id="insertPost" parameterType="com.programming.entity.CommunityPost">
+        INSERT INTO community_post (user_id, title, content, type, path_id, chapter_id, level_id, likes, comments, views, create_time, update_time)
+        VALUES (#{userId}, #{title}, #{content}, #{type}, #{pathId}, #{chapterId}, #{levelId}, 0, 0, 0, NOW(), NOW())
+    </insert>
+
+    <update id="updatePost" parameterType="com.programming.entity.CommunityPost">
+        UPDATE community_post
+        SET title = #{title}, content = #{content}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deletePost">
+        DELETE FROM community_post WHERE id = #{id}
+    </delete>
+
+    <update id="incrementPostLikes">
+        UPDATE community_post SET likes = likes + 1 WHERE id = #{id}
+    </update>
+
+    <update id="incrementPostViews">
+        UPDATE community_post SET views = views + 1 WHERE id = #{id}
+    </update>
+
+    <!-- 评论相关 -->
+    <select id="selectCommentsByPostId" resultType="com.programming.entity.CommunityComment">
+        SELECT * FROM community_comment
+        WHERE post_id = #{postId}
+        ORDER BY create_time ASC
+    </select>
+
+    <insert id="insertComment" parameterType="com.programming.entity.CommunityComment">
+        INSERT INTO community_comment (post_id, user_id, content, parent_id, likes, create_time, update_time)
+        VALUES (#{postId}, #{userId}, #{content}, #{parentId}, 0, NOW(), NOW())
+    </insert>
+
+    <update id="updateComment" parameterType="com.programming.entity.CommunityComment">
+        UPDATE community_comment
+        SET content = #{content}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteComment">
+        DELETE FROM community_comment WHERE id = #{id}
+    </delete>
+
+    <update id="incrementCommentLikes">
+        UPDATE community_comment SET likes = likes + 1 WHERE id = #{id}
+    </update>
+
+    <!-- 用户相关 -->
+    <select id="selectPostsByUserId" resultType="com.programming.entity.CommunityPost">
+        SELECT * FROM community_post
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <select id="selectCommentsByUserId" resultType="com.programming.entity.CommunityComment">
+        SELECT * FROM community_comment
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <!-- 统计相关 -->
+    <select id="countTotalPosts" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM community_post
+    </select>
+
+    <select id="countTotalComments" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM community_comment
+    </select>
+
+    <select id="countActiveUsers" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT user_id) FROM (
+            SELECT user_id FROM community_post WHERE create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            UNION
+            SELECT user_id FROM community_comment WHERE create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ) AS active_users
+    </select>
+
+    <select id="countTodayPosts" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM community_post
+        WHERE DATE(create_time) = DATE(NOW())
+    </select>
+
+    <select id="selectHotTopics" resultType="java.util.Map">
+        SELECT
+            CASE type
+                WHEN 'discussion' THEN '讨论'
+                WHEN 'question' THEN '问答'
+                WHEN 'share' THEN '分享'
+                ELSE IFNULL(type, '其他')
+            END AS name,
+            COUNT(*) AS count
+        FROM community_post
+        GROUP BY type
+        ORDER BY count DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

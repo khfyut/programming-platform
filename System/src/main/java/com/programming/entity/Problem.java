@@ -20,9 +20,13 @@ public class Problem {
     private String knowledgePoints;
     private String hints;
     private String sampleExplanation;
+    private Long chapterId;
+    private Long levelId;
     
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     
     private List<TestCase> testCases;
+    private PathChapter chapter;
+    private PathLevel level;
 }

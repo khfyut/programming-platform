@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.programming.mapper.KnowledgeMasteryMapper">
+    <!-- 知识点相关 -->
+    <select id="selectAllKnowledgePoints" resultType="com.programming.entity.KnowledgePoint">
+        SELECT * FROM knowledge_point ORDER BY level ASC, id ASC
+    </select>
+
+    <select id="selectKnowledgePointById" resultType="com.programming.entity.KnowledgePoint">
+        SELECT * FROM knowledge_point WHERE id = #{id}
+    </select>
+
+    <select id="selectKnowledgePointsByParentId" resultType="com.programming.entity.KnowledgePoint">
+        SELECT * FROM knowledge_point WHERE parent_id = #{parentId} ORDER BY id ASC
+    </select>
+
+    <insert id="insertKnowledgePoint" parameterType="com.programming.entity.KnowledgePoint">
+        INSERT INTO knowledge_point (name, parent_id, level, description, create_time, update_time)
+        VALUES (#{name}, #{parentId}, #{level}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="updateKnowledgePoint" parameterType="com.programming.entity.KnowledgePoint">
+        UPDATE knowledge_point 
+        SET name = #{name}, parent_id = #{parentId}, level = #{level}, 
+            description = #{description}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteKnowledgePoint" parameterType="java.lang.Long">
+        DELETE FROM knowledge_point WHERE id = #{id}
+    </delete>
+
+    <!-- 知识点关系 -->
+    <select id="selectRelationshipsBySourceId" resultType="com.programming.entity.KnowledgeRelationship">
+        SELECT * FROM knowledge_relationship WHERE source_id = #{sourceId}
+    </select>
+
+    <select id="selectRelationshipsByTargetId" resultType="com.programming.entity.KnowledgeRelationship">
+        SELECT * FROM knowledge_relationship WHERE target_id = #{targetId}
+    </select>
+
+    <insert id="insertKnowledgeRelationship" parameterType="com.programming.entity.KnowledgeRelationship">
+        INSERT INTO knowledge_relationship (source_id, target_id, relation_type, create_time)
+        VALUES (#{sourceId}, #{targetId}, #{relationType}, NOW())
+    </insert>
+
+    <delete id="deleteKnowledgeRelationship" parameterType="java.lang.Long">
+        DELETE FROM knowledge_relationship WHERE id = #{id}
+    </delete>
+
+    <!-- 用户知识点掌握度 -->
+    <select id="selectUserKnowledgeMastery" resultType="com.programming.entity.UserKnowledgeMastery">
+        SELECT * FROM user_knowledge_mastery 
+        WHERE user_id = #{userId} AND knowledge_id = #{knowledgeId}
+    </select>
+
+    <select id="selectUserKnowledgeMasteriesByUserId" resultType="com.programming.entity.UserKnowledgeMastery">
+        SELECT * FROM user_knowledge_mastery 
+        WHERE user_id = #{userId}
+        ORDER BY mastery_level ASC
+    </select>
+
+    <select id="selectUserWeakKnowledgePoints" resultType="com.programming.entity.UserKnowledgeMastery">
+        SELECT * FROM user_knowledge_mastery 
+        WHERE user_id = #{userId} AND mastery_level &lt; #{threshold}
+        ORDER BY mastery_level ASC
+    </select>
+
+    <insert id="insertUserKnowledgeMastery" parameterType="com.programming.entity.UserKnowledgeMastery">
+        INSERT INTO user_knowledge_mastery (user_id, knowledge_id, mastery_level, score, 
+            last_practice_time, practice_count, correct_count, create_time, update_time)
+        VALUES (#{userId}, #{knowledgeId}, #{masteryLevel}, #{score}, 
+            #{lastPracticeTime}, #{practiceCount}, #{correctCount}, NOW(), NOW())
+    </insert>
+
+    <update id="updateUserKnowledgeMastery" parameterType="com.programming.entity.UserKnowledgeMastery">
+        UPDATE user_knowledge_mastery 
+        SET mastery_level = #{masteryLevel}, score = #{score}, 
+            last_practice_time = #{lastPracticeTime}, practice_count = #{practiceCount}, 
+            correct_count = #{correctCount}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 学习报告 -->
+    <select id="selectWeeklyReport" resultType="java.util.Map">
+        SELECT 
+            COUNT(DISTINCT s.problem_id) as problemCount,
+            SUM(CASE WHEN s.result = 0 THEN 1 ELSE 0 END) as correctCount,
+            ROUND(SUM(CASE WHEN s.result = 0 THEN 1 ELSE 0 END) / COUNT(*) * 100, 2) as correctRate,
+            COUNT(DISTINCT k.knowledge_id) as newMasteredKnowledge
+        FROM submit s
+        LEFT JOIN problem p ON s.problem_id = p.id
+        LEFT JOIN user_knowledge_mastery k ON s.user_id = k.user_id 
+            AND k.last_practice_time BETWEEN #{startDate} AND #{endDate}
+        WHERE s.user_id = #{userId}
+        AND s.create_time BETWEEN #{startDate} AND #{endDate}
+    </select>
+
+    <select id="selectMonthlyReport" resultType="java.util.Map">
+        SELECT 
+            COUNT(DISTINCT s.problem_id) as problemCount,
+            SUM(CASE WHEN s.result = 0 THEN 1 ELSE 0 END) as correctCount,
+            ROUND(SUM(CASE WHEN s.result = 0 THEN 1 ELSE 0 END) / COUNT(*) * 100, 2) as correctRate,
+            COUNT(DISTINCT k.knowledge_id) as newMasteredKnowledge
+        FROM submit s
+        LEFT JOIN problem p ON s.problem_id = p.id
+        LEFT JOIN user_knowledge_mastery k ON s.user_id = k.user_id 
+            AND DATE_FORMAT(k.last_practice_time, '%Y-%m') = CONCAT(#{year}, '-', LPAD(#{month}, 2, '0'))
+        WHERE s.user_id = #{userId}
+        AND DATE_FORMAT(s.create_time, '%Y-%m') = CONCAT(#{year}, '-', LPAD(#{month}, 2, '0'))
+    </select>
+
+    <!-- 统计数据 -->
+    <select id="selectKnowledgeMasteryDistribution" resultType="java.util.Map">
+        SELECT 
+            mastery_level as level,
+            COUNT(*) as count
+        FROM user_knowledge_mastery
+        WHERE user_id = #{userId}
+        GROUP BY mastery_level
+        ORDER BY mastery_level ASC
+    </select>
+
+    <select id="selectGlobalKnowledgeMasteryDistribution" resultType="java.util.Map">
+        SELECT 
+            k.name as knowledgeName,
+            AVG(km.mastery_level) as avgMasteryLevel,
+            COUNT(km.user_id) as userCount
+        FROM knowledge_point k
+        LEFT JOIN user_knowledge_mastery km ON k.id = km.knowledge_id
+        GROUP BY k.id, k.name
+        ORDER BY avgMasteryLevel ASC
+    </select>
+
+    <!-- 高频错误分析 -->
+    <select id="selectHighFrequencyErrors" resultType="java.util.Map">
+        SELECT 
+            p.knowledge_points as knowledgePoints,
+            COUNT(*) as errorCount
+        FROM submit s
+        JOIN problem p ON s.problem_id = p.id
+        WHERE s.user_id = #{userId}
+        AND s.result != 0
+        GROUP BY p.knowledge_points
+        ORDER BY errorCount DESC
+        LIMIT #{limit}
+    </select>
+    
+    <!-- 获取知识点及其绑定的题目数量 -->
+    <select id="selectKnowledgePointWithProblemCount" resultType="java.util.Map">
+        SELECT 
+            kp.id,
+            kp.name,
+            kp.parent_id as parentId,
+            kp.level,
+            kp.description,
+            COUNT(DISTINCT p.id) as problemCount
+        FROM knowledge_point kp
+        LEFT JOIN problem p ON FIND_IN_SET(kp.name, p.knowledge_points) > 0
+        GROUP BY kp.id, kp.name, kp.parent_id, kp.level, kp.description
+        ORDER BY problemCount DESC, kp.id ASC
+    </select>
+</mapper>

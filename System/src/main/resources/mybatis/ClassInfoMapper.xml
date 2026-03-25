@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.ClassInfoMapper">
+
+    <resultMap id="ClassInfoResultMap" type="com.programming.entity.ClassInfo">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="ClassInfoResultMap">
+        SELECT * FROM class_info ORDER BY create_time DESC
+    </select>
+
+    <select id="findById" resultMap="ClassInfoResultMap">
+        SELECT * FROM class_info WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.ClassInfo" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO class_info (name, description, create_time, update_time)
+        VALUES (#{name}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.ClassInfo">
+        UPDATE class_info 
+        SET name = #{name}, description = #{description}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete" parameterType="java.lang.Long">
+        DELETE FROM class_info WHERE id = #{id}
+    </delete>
+
+    <select id="findUsersByClassId" resultType="com.programming.entity.User">
+        SELECT u.* FROM user u
+        INNER JOIN user_class uc ON u.id = uc.user_id
+        WHERE uc.class_id = #{classId}
+        ORDER BY u.id ASC
+    </select>
+
+    <insert id="insertUserClass">
+        INSERT INTO user_class (user_id, class_id, role, create_time)
+        VALUES (#{userId}, #{classId}, #{role}, NOW())
+    </insert>
+
+    <delete id="deleteUserClass">
+        DELETE FROM user_class 
+        WHERE user_id = #{userId} AND class_id = #{classId}
+    </delete>
+
+    <select id="findClassesByUserId" resultMap="ClassInfoResultMap">
+        SELECT c.* FROM class_info c
+        INNER JOIN user_class uc ON c.id = uc.class_id
+        WHERE uc.user_id = #{userId}
+        ORDER BY c.create_time DESC
+    </select>
+
+</mapper>

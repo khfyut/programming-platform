@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.programming.mapper.LearningPathMapper">
+    <!-- 学习路径相关 -->
+    <select id="selectAllPaths" resultType="com.programming.entity.LearningPath">
+        SELECT * FROM learning_path ORDER BY create_time DESC
+    </select>
+
+    <select id="selectPathById" resultType="com.programming.entity.LearningPath">
+        SELECT * FROM learning_path WHERE id = #{id}
+    </select>
+
+    <select id="selectPathsByLanguageAndDirection" resultType="com.programming.entity.LearningPath">
+        SELECT * FROM learning_path 
+        <where>
+            <if test="language != null and language != 'all'">
+                AND (language = #{language} OR language = '通用')
+            </if>
+            <if test="direction != null and direction != 'all'">
+                AND direction = #{direction}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+
+    <insert id="insertPath" parameterType="com.programming.entity.LearningPath">
+        INSERT INTO learning_path (name, direction, language, description, create_time, update_time)
+        VALUES (#{name}, #{direction}, #{language}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="updatePath" parameterType="com.programming.entity.LearningPath">
+        UPDATE learning_path 
+        SET name = #{name}, direction = #{direction}, language = #{language}, 
+            description = #{description}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deletePath" parameterType="java.lang.Long">
+        DELETE FROM learning_path WHERE id = #{id}
+    </delete>
+
+    <!-- 章节相关 -->
+    <select id="selectChaptersByPathId" resultType="com.programming.entity.PathChapter">
+        SELECT * FROM path_chapter 
+        WHERE path_id = #{pathId} 
+        ORDER BY order_num ASC
+    </select>
+
+    <select id="selectChapterById" resultType="com.programming.entity.PathChapter">
+        SELECT * FROM path_chapter WHERE id = #{id}
+    </select>
+
+    <insert id="insertChapter" parameterType="com.programming.entity.PathChapter">
+        INSERT INTO path_chapter (path_id, name, order_num, description, create_time, update_time)
+        VALUES (#{pathId}, #{name}, #{orderNum}, #{description}, NOW(), NOW())
+    </insert>
+
+    <update id="updateChapter" parameterType="com.programming.entity.PathChapter">
+        UPDATE path_chapter 
+        SET name = #{name}, order_num = #{orderNum}, description = #{description}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteChapter" parameterType="java.lang.Long">
+        DELETE FROM path_chapter WHERE id = #{id}
+    </delete>
+
+    <!-- 关卡相关 -->
+    <select id="selectLevelsByChapterId" resultType="com.programming.entity.PathLevel">
+        SELECT * FROM path_level 
+        WHERE chapter_id = #{chapterId} 
+        ORDER BY order_num ASC
+    </select>
+
+    <select id="selectLevelById" resultType="com.programming.entity.PathLevel">
+        SELECT * FROM path_level WHERE id = #{id}
+    </select>
+
+    <insert id="insertLevel" parameterType="com.programming.entity.PathLevel">
+        INSERT INTO path_level (chapter_id, name, order_num, problem_ids, knowledge_points, unlock_condition, create_time, update_time)
+        VALUES (#{chapterId}, #{name}, #{orderNum}, #{problemIds}, #{knowledgePoints}, #{unlockCondition}, NOW(), NOW())
+    </insert>
+
+    <update id="updateLevel" parameterType="com.programming.entity.PathLevel">
+        UPDATE path_level 
+        SET name = #{name}, order_num = #{orderNum}, problem_ids = #{problemIds}, 
+            knowledge_points = #{knowledgePoints}, unlock_condition = #{unlockCondition}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteLevel" parameterType="java.lang.Long">
+        DELETE FROM path_level WHERE id = #{id}
+    </delete>
+
+    <!-- 用户进度相关 -->
+    <select id="selectUserPathProgress" resultType="com.programming.entity.UserPathProgress">
+        SELECT * FROM user_path_progress 
+        WHERE user_id = #{userId} AND path_id = #{pathId}
+    </select>
+
+    <select id="selectUserProgressByUserId" resultType="com.programming.entity.UserPathProgress">
+        SELECT * FROM user_path_progress 
+        WHERE user_id = #{userId}
+        ORDER BY update_time DESC
+    </select>
+
+    <insert id="insertUserPathProgress" parameterType="com.programming.entity.UserPathProgress">
+        INSERT INTO user_path_progress (user_id, path_id, current_chapter_id, current_level_id, completed_chapters, completed_levels, create_time, update_time)
+        VALUES (#{userId}, #{pathId}, #{currentChapterId}, #{currentLevelId}, #{completedChapters}, #{completedLevels}, NOW(), NOW())
+    </insert>
+
+    <update id="updateUserPathProgress" parameterType="com.programming.entity.UserPathProgress">
+        UPDATE user_path_progress 
+        SET current_chapter_id = #{currentChapterId}, current_level_id = #{currentLevelId}, 
+            completed_chapters = #{completedChapters}, completed_levels = #{completedLevels}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 测评相关 -->
+    <select id="selectAssessmentQuestions" resultType="com.programming.entity.AssessmentQuestion">
+        SELECT * FROM assessment_question 
+        WHERE language = #{language} AND direction = #{direction}
+        ORDER BY RAND() 
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectAssessmentQuestionById" resultType="com.programming.entity.AssessmentQuestion">
+        SELECT * FROM assessment_question WHERE id = #{id}
+    </select>
+
+    <insert id="insertAssessmentQuestion" parameterType="com.programming.entity.AssessmentQuestion">
+        INSERT INTO assessment_question (language, direction, question, options, correct_answer, difficulty, knowledge_point, create_time)
+        VALUES (#{language}, #{direction}, #{question}, #{options}, #{correctAnswer}, #{difficulty}, #{knowledgePoint}, NOW())
+    </insert>
+
+    <insert id="insertUserAssessment" parameterType="com.programming.entity.UserAssessment">
+        INSERT INTO user_assessment (user_id, language, direction, score, result, ability_level, create_time)
+        VALUES (#{userId}, #{language}, #{direction}, #{score}, #{result}, #{abilityLevel}, NOW())
+    </insert>
+
+    <select id="selectUserAssessmentsByUserId" resultType="com.programming.entity.UserAssessment">
+        SELECT * FROM user_assessment 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectLatestUserAssessment" resultType="com.programming.entity.UserAssessment">
+        SELECT * FROM user_assessment 
+        WHERE user_id = #{userId} AND language = #{language} AND direction = #{direction}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+</mapper>

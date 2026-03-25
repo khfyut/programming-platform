@@ -25,6 +25,10 @@ const props = defineProps({
   height: {
     type: String,
     default: '500px'
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -106,7 +110,8 @@ onMounted(() => {
     guides: {
       bracketPairs: true,
       indentation: true
-    }
+    },
+    readOnly: props.readOnly
   })
 
   editor.onDidChangeModelContent(() => {

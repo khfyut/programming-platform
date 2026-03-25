@@ -11,6 +11,7 @@
         <result column="memory_cost" property="memoryCost"/>
         <result column="actual_output" property="actualOutput"/>
         <result column="error_message" property="errorMessage"/>
+        <result column="status" property="status"/>
         <result column="create_time" property="createTime"/>
     </resultMap>
 

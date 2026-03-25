@@ -1,0 +1,726 @@
+{
+  "problems": [
+    {
+      "id": 1,
+      "title": "变量声明与赋值",
+      "content": "编写一个程序，声明不同类型的变量（int, double, boolean, String）并赋值，然后输出它们的值。",
+      "input": "无输入",
+      "output": "各类型变量的值",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "变量,数据类型,基础",
+      "knowledge_points": "变量声明,数据类型,赋值操作",
+      "hints": "使用int声明整数，double声明浮点数，boolean声明布尔值，String声明字符串",
+      "sample_explanation": "声明变量并赋值后输出",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        int age = 25;\n        double height = 1.75;\n        boolean isStudent = true;\n        String name = \"张三\";\n        \n        System.out.println(\"姓名: \" + name);\n        System.out.println(\"年龄: \" + age);\n        System.out.println(\"身高: \" + height);\n        System.out.println(\"是否学生: \" + isStudent);\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "age = 25\nheight = 1.75\nis_student = True\nname = \"张三\"\n\nprint(f\"姓名: {name}\")\nprint(f\"年龄: {age}\")\nprint(f\"身高: {height}\")\nprint(f\"是否学生: {is_student}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "姓名: 张三\\n年龄: 25\\n身高: 1.75\\n是否学生: true",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "数据类型转换",
+      "content": "编写程序实现不同类型数据之间的转换：将字符串转换为整数，将整数转换为字符串，将整数转换为浮点数。",
+      "input": "字符串数字: 100",
+      "output": "转换后的结果",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "类型转换,数据类型,基础",
+      "knowledge_points": "类型转换,Integer.parseInt,String.valueOf",
+      "hints": "使用Integer.parseInt()将字符串转为int，使用String.valueOf()将int转为字符串",
+      "sample_explanation": "输入字符串\"100\"，转换为整数100，再转为字符串和浮点数",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        String strNum = \"100\";\n        \n        // 字符串转整数\n        int num = Integer.parseInt(strNum);\n        System.out.println(\"字符串转整数: \" + num);\n        \n        // 整数转字符串\n        String str = String.valueOf(num);\n        System.out.println(\"整数转字符串: \" + str);\n        \n        // 整数转浮点数\n        double d = (double) num;\n        System.out.println(\"整数转浮点数: \" + d);\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "str_num = \"100\"\n\n# 字符串转整数\nnum = int(str_num)\nprint(f\"字符串转整数: {num}\")\n\n# 整数转字符串\nstr_val = str(num)\nprint(f\"整数转字符串: {str_val}\")\n\n# 整数转浮点数\nd = float(num)\nprint(f\"整数转浮点数: {d}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "100",
+          "expected_output": "字符串转整数: 100\\n整数转字符串: 100\\n整数转浮点数: 100.0",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "字符串操作基础",
+      "content": "编写程序实现字符串的基本操作：获取字符串长度、提取子串、字符串拼接、字符串比较。",
+      "input": "字符串: Hello World",
+      "output": "字符串操作结果",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "字符串,基础操作",
+      "knowledge_points": "字符串长度,子串,拼接,比较",
+      "hints": "使用length()获取长度，substring()提取子串，+或concat()拼接，equals()比较",
+      "sample_explanation": "对字符串进行各种操作并输出结果",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        String str = \"Hello World\";\n        \n        // 获取长度\n        System.out.println(\"长度: \" + str.length());\n        \n        // 提取子串\n        System.out.println(\"子串(0-5): \" + str.substring(0, 5));\n        \n        // 字符串拼接\n        String result = str + \"!\";\n        System.out.println(\"拼接后: \" + result);\n        \n        // 字符串比较\n        System.out.println(\"等于'Hello World': \" + str.equals(\"Hello World\"));\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "str_val = \"Hello World\"\n\n# 获取长度\nprint(f\"长度: {len(str_val)}\")\n\n# 提取子串\nprint(f\"子串(0-5): {str_val[0:5]}\")\n\n# 字符串拼接\nresult = str_val + \"!\"\nprint(f\"拼接后: {result}\")\n\n# 字符串比较\nprint(f\"等于'Hello World': {str_val == 'Hello World'}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "Hello World",
+          "expected_output": "长度: 11\\n子串(0-5): Hello\\n拼接后: Hello World!\\n等于'Hello World': true",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "条件判断练习",
+      "content": "编写程序，根据输入的成绩判断等级：90分以上为A，80-89分为B，70-79分为C，60-69分为D，60分以下为F。",
+      "input": "成绩: 85",
+      "output": "等级: B",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "条件判断,if-else",
+      "knowledge_points": "if-else条件判断,逻辑判断",
+      "hints": "使用if-else if-else结构进行多条件判断",
+      "sample_explanation": "输入85分，输出等级B",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        int score = 85;\n        char grade;\n        \n        if (score >= 90) {\n            grade = 'A';\n        } else if (score >= 80) {\n            grade = 'B';\n        } else if (score >= 70) {\n            grade = 'C';\n        } else if (score >= 60) {\n            grade = 'D';\n        } else {\n            grade = 'F';\n        }\n        \n        System.out.println(\"等级: \" + grade);\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "score = 85\n\nif score >= 90:\n    grade = 'A'\nelif score >= 80:\n    grade = 'B'\nelif score >= 70:\n    grade = 'C'\nelif score >= 60:\n    grade = 'D'\nelse:\n    grade = 'F'\n\nprint(f\"等级: {grade}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "85",
+          "expected_output": "等级: B",
+          "is_example": 1
+        },
+        {
+          "input": "95",
+          "expected_output": "等级: A",
+          "is_example": 0
+        },
+        {
+          "input": "55",
+          "expected_output": "等级: F",
+          "is_example": 0
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "循环结构应用",
+      "content": "使用循环计算1到100的所有整数之和，并计算1到10的阶乘。",
+      "input": "无输入",
+      "output": "和与阶乘结果",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "循环,for,while",
+      "knowledge_points": "for循环,while循环,累加,阶乘",
+      "hints": "使用for循环进行累加，使用while或for计算阶乘",
+      "sample_explanation": "计算1-100的和为5050，10的阶乘为3628800",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        // 计算1到100的和\n        int sum = 0;\n        for (int i = 1; i <= 100; i++) {\n            sum += i;\n        }\n        System.out.println(\"1到100的和: \" + sum);\n        \n        // 计算10的阶乘\n        long factorial = 1;\n        for (int i = 1; i <= 10; i++) {\n            factorial *= i;\n        }\n        System.out.println(\"10的阶乘: \" + factorial);\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "# 计算1到100的和\nsum_val = sum(range(1, 101))\nprint(f\"1到100的和: {sum_val}\")\n\n# 计算10的阶乘\nfactorial = 1\nfor i in range(1, 11):\n    factorial *= i\nprint(f\"10的阶乘: {factorial}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "1到100的和: 5050\\n10的阶乘: 3628800",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "嵌套循环控制",
+      "content": "使用嵌套循环打印九九乘法表。",
+      "input": "无输入",
+      "output": "九九乘法表",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "嵌套循环,乘法表",
+      "knowledge_points": "嵌套循环,循环控制,格式化输出",
+      "hints": "外层循环控制行数，内层循环控制列数",
+      "sample_explanation": "打印1-9的乘法表",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        for (int i = 1; i <= 9; i++) {\n            for (int j = 1; j <= i; j++) {\n                System.out.print(j + \"x\" + i + \"=\" + (i * j) + \" \");\n            }\n            System.out.println();\n        }\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "for i in range(1, 10):\n    for j in range(1, i + 1):\n        print(f\"{j}x{i}={i*j}\", end=\" \")\n    print()"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "1x1=1 \\n1x2=2 2x2=4 \\n1x3=3 2x3=6 3x3=9 \\n1x4=4 2x4=8 3x4=12 4x4=16 \\n1x5=5 2x5=10 3x5=15 4x5=20 5x5=25 \\n1x6=6 2x6=12 3x6=18 4x6=24 5x6=30 6x6=36 \\n1x7=7 2x7=14 3x7=21 4x7=28 5x7=35 6x7=42 7x7=49 \\n1x8=8 2x8=16 3x8=24 4x8=32 5x8=40 6x8=48 7x8=56 8x8=64 \\n1x9=9 2x9=18 3x9=27 4x9=36 5x9=45 6x9=54 7x9=63 8x9=72 9x9=81 ",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "方法定义与调用",
+      "content": "定义一个方法，计算两个整数的最大公约数（GCD），并在主方法中调用。",
+      "input": "两个整数: 48 18",
+      "output": "最大公约数",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "方法,递归,GCD",
+      "knowledge_points": "方法定义,参数传递,递归,辗转相除法",
+      "hints": "使用辗转相除法（欧几里得算法）计算GCD",
+      "sample_explanation": "48和18的最大公约数是6",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        int a = 48, b = 18;\n        int result = gcd(a, b);\n        System.out.println(a + \"和\" + b + \"的最大公约数是: \" + result);\n    }\n    \n    public static int gcd(int a, int b) {\n        if (b == 0) {\n            return a;\n        }\n        return gcd(b, a % b);\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "def gcd(a, b):\n    if b == 0:\n        return a\n    return gcd(b, a % b)\n\na, b = 48, 18\nresult = gcd(a, b)\nprint(f\"{a}和{b}的最大公约数是: {result}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "48 18",
+          "expected_output": "48和18的最大公约数是: 6",
+          "is_example": 1
+        },
+        {
+          "input": "56 24",
+          "expected_output": "56和24的最大公约数是: 8",
+          "is_example": 0
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "数组基本操作",
+      "content": "实现数组的基本操作：查找最大值、最小值、计算平均值、数组反转。",
+      "input": "数组: [5, 2, 8, 1, 9, 3]",
+      "output": "操作结果",
+      "difficulty": 0,
+      "language": "Java",
+      "tags": "数组,查找,反转",
+      "knowledge_points": "数组遍历,查找算法,数组操作",
+      "hints": "遍历数组进行比较和计算",
+      "sample_explanation": "对数组进行各种操作",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        int[] arr = {5, 2, 8, 1, 9, 3};\n        \n        int max = arr[0], min = arr[0], sum = 0;\n        for (int num : arr) {\n            if (num > max) max = num;\n            if (num < min) min = num;\n            sum += num;\n        }\n        \n        System.out.println(\"最大值: \" + max);\n        System.out.println(\"最小值: \" + min);\n        System.out.println(\"平均值: \" + (double)sum / arr.length);\n        \n        // 数组反转\n        System.out.print(\"反转后: [\");\n        for (int i = arr.length - 1; i >= 0; i--) {\n            System.out.print(arr[i]);\n            if (i > 0) System.out.print(\", \");\n        }\n        System.out.println(\"]\");\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "arr = [5, 2, 8, 1, 9, 3]\n\nmax_val = max(arr)\nmin_val = min(arr)\navg = sum(arr) / len(arr)\n\nprint(f\"最大值: {max_val}\")\nprint(f\"最小值: {min_val}\")\nprint(f\"平均值: {avg}\")\nprint(f\"反转后: {arr[::-1]}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "5 2 8 1 9 3",
+          "expected_output": "最大值: 9\\n最小值: 1\\n平均值: 4.666666666666667\\n反转后: [3, 9, 1, 8, 2, 5]",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "数组算法应用",
+      "content": "实现数组的冒泡排序和二分查找。",
+      "input": "数组: [64, 34, 25, 12, 22, 11, 90], 查找目标: 22",
+      "output": "排序后数组和查找结果",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "排序,查找,算法",
+      "knowledge_points": "冒泡排序,二分查找,数组操作",
+      "hints": "先排序后查找，二分查找要求数组有序",
+      "sample_explanation": "对数组排序后查找目标值",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "import java.util.Arrays;\n\npublic class Main {\n    public static void main(String[] args) {\n        int[] arr = {64, 34, 25, 12, 22, 11, 90};\n        int target = 22;\n        \n        // 冒泡排序\n        for (int i = 0; i < arr.length - 1; i++) {\n            for (int j = 0; j < arr.length - 1 - i; j++) {\n                if (arr[j] > arr[j + 1]) {\n                    int temp = arr[j];\n                    arr[j] = arr[j + 1];\n                    arr[j + 1] = temp;\n                }\n            }\n        }\n        \n        System.out.println(\"排序后: \" + Arrays.toString(arr));\n        \n        // 二分查找\n        int left = 0, right = arr.length - 1;\n        int index = -1;\n        while (left <= right) {\n            int mid = left + (right - left) / 2;\n            if (arr[mid] == target) {\n                index = mid;\n                break;\n            } else if (arr[mid] < target) {\n                left = mid + 1;\n            } else {\n                right = mid - 1;\n            }\n        }\n        \n        System.out.println(\"目标\" + target + \"的索引: \" + index);\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "arr = [64, 34, 25, 12, 22, 11, 90]\ntarget = 22\n\n# 冒泡排序\nfor i in range(len(arr) - 1):\n    for j in range(len(arr) - 1 - i):\n        if arr[j] > arr[j + 1]:\n            arr[j], arr[j + 1] = arr[j + 1], arr[j]\n\nprint(f\"排序后: {arr}\")\n\n# 二分查找\nleft, right = 0, len(arr) - 1\nindex = -1\nwhile left <= right:\n    mid = left + (right - left) // 2\n    if arr[mid] == target:\n        index = mid\n        break\n    elif arr[mid] < target:\n        left = mid + 1\n    else:\n        right = mid - 1\n\nprint(f\"目标{target}的索引: {index}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "64 34 25 12 22 11 90 22",
+          "expected_output": "排序后: [11, 12, 22, 25, 34, 64, 90]\\n目标22的索引: 2",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "类的设计与实现",
+      "content": "设计一个学生类Student，包含姓名、年龄、成绩属性，以及构造方法、getter/setter方法和显示信息的方法。",
+      "input": "学生信息: 张三 20 85",
+      "output": "学生信息",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "类,面向对象,封装",
+      "knowledge_points": "类定义,属性,方法,构造方法,封装",
+      "hints": "使用private修饰属性，提供public的getter和setter方法",
+      "sample_explanation": "创建学生对象并显示信息",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "class Student {\n    private String name;\n    private int age;\n    private double score;\n    \n    public Student(String name, int age, double score) {\n        this.name = name;\n        this.age = age;\n        this.score = score;\n    }\n    \n    public String getName() { return name; }\n    public void setName(String name) { this.name = name; }\n    public int getAge() { return age; }\n    public void setAge(int age) { this.age = age; }\n    public double getScore() { return score; }\n    public void setScore(double score) { this.score = score; }\n    \n    public void displayInfo() {\n        System.out.println(\"姓名: \" + name + \", 年龄: \" + age + \", 成绩: \" + score);\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        Student stu = new Student(\"张三\", 20, 85.0);\n        stu.displayInfo();\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "class Student:\n    def __init__(self, name, age, score):\n        self.name = name\n        self.age = age\n        self.score = score\n    \n    def display_info(self):\n        print(f\"姓名: {self.name}, 年龄: {self.age}, 成绩: {self.score}\")\n\nstu = Student(\"张三\", 20, 85.0)\nstu.display_info()"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "张三 20 85",
+          "expected_output": "姓名: 张三, 年龄: 20, 成绩: 85.0",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "继承关系实现",
+      "content": "创建一个动物类Animal作为父类，包含name属性和speak方法。创建Dog和Cat类继承Animal，重写speak方法。",
+      "input": "无输入",
+      "output": "动物叫声",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "继承,多态,重写",
+      "knowledge_points": "extends继承,方法重写,super关键字",
+      "hints": "使用extends关键字继承，使用@Override注解重写方法",
+      "sample_explanation": "创建不同动物对象并调用speak方法",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "class Animal {\n    protected String name;\n    \n    public Animal(String name) {\n        this.name = name;\n    }\n    \n    public void speak() {\n        System.out.println(name + \"发出声音\");\n    }\n}\n\nclass Dog extends Animal {\n    public Dog(String name) {\n        super(name);\n    }\n    \n    @Override\n    public void speak() {\n        System.out.println(name + \"说: 汪汪汪!\");\n    }\n}\n\nclass Cat extends Animal {\n    public Cat(String name) {\n        super(name);\n    }\n    \n    @Override\n    public void speak() {\n        System.out.println(name + \"说: 喵喵喵!\");\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        Dog dog = new Dog(\"小狗\");\n        Cat cat = new Cat(\"小猫\");\n        dog.speak();\n        cat.speak();\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "class Animal:\n    def __init__(self, name):\n        self.name = name\n    \n    def speak(self):\n        print(f\"{self.name}发出声音\")\n\nclass Dog(Animal):\n    def speak(self):\n        print(f\"{self.name}说: 汪汪汪!\")\n\nclass Cat(Animal):\n    def speak(self):\n        print(f\"{self.name}说: 喵喵喵!\")\n\ndog = Dog(\"小狗\")\ncat = Cat(\"小猫\")\ndog.speak()\ncat.speak()"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "小狗说: 汪汪汪!\\n小猫说: 喵喵喵!",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "接口设计与实现",
+      "content": "定义一个图形接口Shape，包含计算面积和周长的方法。实现Circle和Rectangle类实现该接口。",
+      "input": "圆半径: 5, 矩形长宽: 4 6",
+      "output": "面积和周长",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "接口,实现,抽象",
+      "knowledge_points": "interface定义,implements实现,抽象方法",
+      "hints": "使用interface定义接口，使用implements实现接口",
+      "sample_explanation": "计算圆和矩形的面积和周长",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "interface Shape {\n    double getArea();\n    double getPerimeter();\n}\n\nclass Circle implements Shape {\n    private double radius;\n    \n    public Circle(double radius) {\n        this.radius = radius;\n    }\n    \n    public double getArea() {\n        return Math.PI * radius * radius;\n    }\n    \n    public double getPerimeter() {\n        return 2 * Math.PI * radius;\n    }\n}\n\nclass Rectangle implements Shape {\n    private double length, width;\n    \n    public Rectangle(double length, double width) {\n        this.length = length;\n        this.width = width;\n    }\n    \n    public double getArea() {\n        return length * width;\n    }\n    \n    public double getPerimeter() {\n        return 2 * (length + width);\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        Circle circle = new Circle(5);\n        Rectangle rect = new Rectangle(4, 6);\n        \n        System.out.printf(\"圆 - 面积: %.2f, 周长: %.2f%n\", circle.getArea(), circle.getPerimeter());\n        System.out.printf(\"矩形 - 面积: %.2f, 周长: %.2f%n\", rect.getArea(), rect.getPerimeter());\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "from abc import ABC, abstractmethod\nimport math\n\nclass Shape(ABC):\n    @abstractmethod\n    def get_area(self):\n        pass\n    \n    @abstractmethod\n    def get_perimeter(self):\n        pass\n\nclass Circle(Shape):\n    def __init__(self, radius):\n        self.radius = radius\n    \n    def get_area(self):\n        return math.pi * self.radius ** 2\n    \n    def get_perimeter(self):\n        return 2 * math.pi * self.radius\n\nclass Rectangle(Shape):\n    def __init__(self, length, width):\n        self.length = length\n        self.width = width\n    \n    def get_area(self):\n        return self.length * self.width\n    \n    def get_perimeter(self):\n        return 2 * (self.length + self.width)\n\ncircle = Circle(5)\nrect = Rectangle(4, 6)\n\nprint(f\"圆 - 面积: {circle.get_area():.2f}, 周长: {circle.get_perimeter():.2f}\")\nprint(f\"矩形 - 面积: {rect.get_area():.2f}, 周长: {rect.get_perimeter():.2f}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "5 4 6",
+          "expected_output": "圆 - 面积: 78.54, 周长: 31.42\\n矩形 - 面积: 24.00, 周长: 20.00",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "ArrayList操作",
+      "content": "使用ArrayList实现学生管理系统，包括添加学生、删除学生、查找学生和显示所有学生。",
+      "input": "操作序列",
+      "output": "操作结果",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "ArrayList,集合,CRUD",
+      "knowledge_points": "ArrayList,泛型,集合操作",
+      "hints": "使用add添加元素，remove删除元素，get获取元素，size获取大小",
+      "sample_explanation": "对学生列表进行增删改查操作",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "import java.util.ArrayList;\n\npublic class Main {\n    public static void main(String[] args) {\n        ArrayList<String> students = new ArrayList<>();\n        \n        // 添加学生\n        students.add(\"张三\");\n        students.add(\"李四\");\n        students.add(\"王五\");\n        System.out.println(\"添加后: \" + students);\n        \n        // 查找学生\n        int index = students.indexOf(\"李四\");\n        System.out.println(\"李四的索引: \" + index);\n        \n        // 删除学生\n        students.remove(\"李四\");\n        System.out.println(\"删除后: \" + students);\n        \n        // 显示所有学生\n        System.out.println(\"学生总数: \" + students.size());\n        System.out.print(\"所有学生: \");\n        for (String student : students) {\n            System.out.print(student + \" \");\n        }\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "students = []\n\n# 添加学生\nstudents.extend([\"张三\", \"李四\", \"王五\"])\nprint(f\"添加后: {students}\")\n\n# 查找学生\nindex = students.index(\"李四\")\nprint(f\"李四的索引: {index}\")\n\n# 删除学生\nstudents.remove(\"李四\")\nprint(f\"删除后: {students}\")\n\n# 显示所有学生\nprint(f\"学生总数: {len(students)}\")\nprint(f\"所有学生: {' '.join(students)}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "添加后: [张三, 李四, 王五]\\n李四的索引: 1\\n删除后: [张三, 王五]\\n学生总数: 2\\n所有学生: 张三 王五",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "HashMap应用",
+      "content": "使用HashMap实现一个简单的词典，支持添加单词、查询单词含义、删除单词功能。",
+      "input": "操作序列",
+      "output": "操作结果",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "HashMap,字典,映射",
+      "knowledge_points": "HashMap,键值对,映射操作",
+      "hints": "使用put添加键值对，get获取值，remove删除键值对",
+      "sample_explanation": "实现词典的基本操作",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "import java.util.HashMap;\n\npublic class Main {\n    public static void main(String[] args) {\n        HashMap<String, String> dictionary = new HashMap<>();\n        \n        // 添加单词\n        dictionary.put(\"apple\", \"苹果\");\n        dictionary.put(\"banana\", \"香蕉\");\n        dictionary.put(\"cherry\", \"樱桃\");\n        System.out.println(\"词典内容: \" + dictionary);\n        \n        // 查询单词\n        String meaning = dictionary.get(\"apple\");\n        System.out.println(\"apple的含义: \" + meaning);\n        \n        // 查询不存在的单词\n        String notFound = dictionary.get(\"orange\");\n        System.out.println(\"orange是否存在: \" + (notFound != null));\n        \n        // 删除单词\n        dictionary.remove(\"banana\");\n        System.out.println(\"删除后: \" + dictionary);\n        \n        // 词典大小\n        System.out.println(\"单词数量: \" + dictionary.size());\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "dictionary = {}\n\n# 添加单词\ndictionary[\"apple\"] = \"苹果\"\ndictionary[\"banana\"] = \"香蕉\"\ndictionary[\"cherry\"] = \"樱桃\"\nprint(f\"词典内容: {dictionary}\")\n\n# 查询单词\nmeaning = dictionary.get(\"apple\")\nprint(f\"apple的含义: {meaning}\")\n\n# 查询不存在的单词\nnot_found = \"orange\" in dictionary\nprint(f\"orange是否存在: {not_found}\")\n\n# 删除单词\ndel dictionary[\"banana\"]\nprint(f\"删除后: {dictionary}\")\n\n# 词典大小\nprint(f\"单词数量: {len(dictionary)}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "词典内容: {apple=苹果, banana=香蕉, cherry=樱桃}\\napple的含义: 苹果\\norange是否存在: false\\n删除后: {apple=苹果, cherry=樱桃}\\n单词数量: 2",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "名片管理系统",
+      "content": "实现一个简单的名片管理系统，使用面向对象和集合框架。支持添加名片、删除名片、查找名片和显示所有名片。",
+      "input": "操作序列",
+      "output": "操作结果",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "综合应用,面向对象,集合",
+      "knowledge_points": "类设计,ArrayList,HashMap,综合应用",
+      "hints": "创建Card类，使用ArrayList或HashMap存储名片",
+      "sample_explanation": "实现名片的增删改查功能",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "import java.util.ArrayList;\n\nclass Card {\n    private String name;\n    private String phone;\n    private String email;\n    \n    public Card(String name, String phone, String email) {\n        this.name = name;\n        this.phone = phone;\n        this.email = email;\n    }\n    \n    public String getName() { return name; }\n    public String toString() {\n        return name + \" - \" + phone + \" - \" + email;\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        ArrayList<Card> cards = new ArrayList<>();\n        \n        // 添加名片\n        cards.add(new Card(\"张三\", \"13800138000\", \"zhangsan@example.com\"));\n        cards.add(new Card(\"李四\", \"13900139000\", \"lisi@example.com\"));\n        \n        System.out.println(\"名片列表:\");\n        for (Card card : cards) {\n            System.out.println(card);\n        }\n        \n        // 查找名片\n        for (Card card : cards) {\n            if (card.getName().equals(\"张三\")) {\n                System.out.println(\"找到: \" + card);\n            }\n        }\n        \n        // 删除名片\n        cards.removeIf(card -> card.getName().equals(\"李四\"));\n        System.out.println(\"删除后数量: \" + cards.size());\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "class Card:\n    def __init__(self, name, phone, email):\n        self.name = name\n        self.phone = phone\n        self.email = email\n    \n    def __str__(self):\n        return f\"{self.name} - {self.phone} - {self.email}\"\n\ncards = []\n\n# 添加名片\ncards.append(Card(\"张三\", \"13800138000\", \"zhangsan@example.com\"))\ncards.append(Card(\"李四\", \"13900139000\", \"lisi@example.com\"))\n\nprint(\"名片列表:\")\nfor card in cards:\n    print(card)\n\n# 查找名片\nfor card in cards:\n    if card.name == \"张三\":\n        print(f\"找到: {card}\")\n\n# 删除名片\ncards = [card for card in cards if card.name != \"李四\"]\nprint(f\"删除后数量: {len(cards)}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "名片列表:\\n张三 - 13800138000 - zhangsan@example.com\\n李四 - 13900139000 - lisi@example.com\\n找到: 张三 - 13800138000 - zhangsan@example.com\\n删除后数量: 1",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "冒泡排序实现",
+      "content": "实现冒泡排序算法，对整数数组进行升序排序。",
+      "input": "数组: [64, 34, 25, 12, 22, 11, 90]",
+      "output": "排序后的数组",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "排序,冒泡排序,算法",
+      "knowledge_points": "冒泡排序,数组操作,算法实现",
+      "hints": "外层循环控制趟数，内层循环进行相邻元素比较和交换",
+      "sample_explanation": "使用冒泡排序对数组进行排序",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "import java.util.Arrays;\n\npublic class Main {\n    public static void main(String[] args) {\n        int[] arr = {64, 34, 25, 12, 22, 11, 90};\n        \n        System.out.println(\"排序前: \" + Arrays.toString(arr));\n        \n        // 冒泡排序\n        for (int i = 0; i < arr.length - 1; i++) {\n            for (int j = 0; j < arr.length - 1 - i; j++) {\n                if (arr[j] > arr[j + 1]) {\n                    // 交换\n                    int temp = arr[j];\n                    arr[j] = arr[j + 1];\n                    arr[j + 1] = temp;\n                }\n            }\n        }\n        \n        System.out.println(\"排序后: \" + Arrays.toString(arr));\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "arr = [64, 34, 25, 12, 22, 11, 90]\n\nprint(f\"排序前: {arr}\")\n\n# 冒泡排序\nfor i in range(len(arr) - 1):\n    for j in range(len(arr) - 1 - i):\n        if arr[j] > arr[j + 1]:\n            arr[j], arr[j + 1] = arr[j + 1], arr[j]\n\nprint(f\"排序后: {arr}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "64 34 25 12 22 11 90",
+          "expected_output": "排序前: [64, 34, 25, 12, 22, 11, 90]\\n排序后: [11, 12, 22, 25, 34, 64, 90]",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "二分查找",
+      "content": "实现二分查找算法，在有序数组中查找目标值，返回其索引。",
+      "input": "数组: [2, 5, 8, 12, 16, 23, 38, 56, 72, 91], 目标: 23",
+      "output": "目标值的索引",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "查找,二分查找,算法",
+      "knowledge_points": "二分查找,数组操作,算法实现",
+      "hints": "使用双指针，每次将搜索范围减半",
+      "sample_explanation": "在有序数组中查找目标值23",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        int[] arr = {2, 5, 8, 12, 16, 23, 38, 56, 72, 91};\n        int target = 23;\n        \n        int result = binarySearch(arr, target);\n        System.out.println(\"目标\" + target + \"的索引: \" + result);\n    }\n    \n    public static int binarySearch(int[] arr, int target) {\n        int left = 0, right = arr.length - 1;\n        \n        while (left <= right) {\n            int mid = left + (right - left) / 2;\n            \n            if (arr[mid] == target) {\n                return mid;\n            } else if (arr[mid] < target) {\n                left = mid + 1;\n            } else {\n                right = mid - 1;\n            }\n        }\n        \n        return -1;\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    \n    while left <= right:\n        mid = left + (right - left) // 2\n        \n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    \n    return -1\n\narr = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]\ntarget = 23\nresult = binary_search(arr, target)\nprint(f\"目标{target}的索引: {result}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "2 5 8 12 16 23 38 56 72 91 23",
+          "expected_output": "目标23的索引: 5",
+          "is_example": 1
+        },
+        {
+          "input": "2 5 8 12 16 23 38 56 72 91 100",
+          "expected_output": "目标100的索引: -1",
+          "is_example": 0
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "链表实现",
+      "content": "实现单链表的基本操作：创建链表、插入节点、删除节点、遍历链表。",
+      "input": "操作序列",
+      "output": "操作结果",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "链表,数据结构,实现",
+      "knowledge_points": "链表,节点,指针操作",
+      "hints": "定义Node类包含数据和next指针，实现链表操作",
+      "sample_explanation": "实现链表的基本操作",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "class Node {\n    int data;\n    Node next;\n    \n    public Node(int data) {\n        this.data = data;\n        this.next = null;\n    }\n}\n\nclass LinkedList {\n    Node head;\n    \n    public void append(int data) {\n        Node newNode = new Node(data);\n        if (head == null) {\n            head = newNode;\n            return;\n        }\n        Node current = head;\n        while (current.next != null) {\n            current = current.next;\n        }\n        current.next = newNode;\n    }\n    \n    public void display() {\n        Node current = head;\n        while (current != null) {\n            System.out.print(current.data + \" -> \");\n            current = current.next;\n        }\n        System.out.println(\"null\");\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        LinkedList list = new LinkedList();\n        list.append(1);\n        list.append(2);\n        list.append(3);\n        list.display();\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "class Node:\n    def __init__(self, data):\n        self.data = data\n        self.next = None\n\nclass LinkedList:\n    def __init__(self):\n        self.head = None\n    \n    def append(self, data):\n        new_node = Node(data)\n        if not self.head:\n            self.head = new_node\n            return\n        current = self.head\n        while current.next:\n            current = current.next\n        current.next = new_node\n    \n    def display(self):\n        current = self.head\n        while current:\n            print(current.data, end=\" -> \")\n            current = current.next\n        print(\"null\")\n\nlist = LinkedList()\nlist.append(1)\nlist.append(2)\nlist.append(3)\nlist.display()"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "1 -> 2 -> 3 -> null",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "栈的实现",
+      "content": "使用数组或链表实现栈数据结构，支持push、pop、peek操作。",
+      "input": "操作序列",
+      "output": "操作结果",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "栈,数据结构,实现",
+      "knowledge_points": "栈,后进先出,数组实现",
+      "hints": "使用数组存储元素，使用变量记录栈顶位置",
+      "sample_explanation": "实现栈的基本操作",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "class Stack {\n    private int[] arr;\n    private int top;\n    private int capacity;\n    \n    public Stack(int size) {\n        arr = new int[size];\n        capacity = size;\n        top = -1;\n    }\n    \n    public void push(int x) {\n        if (top == capacity - 1) {\n            System.out.println(\"栈满\");\n            return;\n        }\n        arr[++top] = x;\n    }\n    \n    public int pop() {\n        if (top == -1) {\n            System.out.println(\"栈空\");\n            return -1;\n        }\n        return arr[top--];\n    }\n    \n    public int peek() {\n        if (top == -1) {\n            return -1;\n        }\n        return arr[top];\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        Stack stack = new Stack(5);\n        stack.push(10);\n        stack.push(20);\n        stack.push(30);\n        \n        System.out.println(\"栈顶元素: \" + stack.peek());\n        System.out.println(\"弹出: \" + stack.pop());\n        System.out.println(\"弹出后栈顶: \" + stack.peek());\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "class Stack:\n    def __init__(self, size):\n        self.arr = []\n        self.capacity = size\n    \n    def push(self, x):\n        if len(self.arr) >= self.capacity:\n            print(\"栈满\")\n            return\n        self.arr.append(x)\n    \n    def pop(self):\n        if not self.arr:\n            print(\"栈空\")\n            return -1\n        return self.arr.pop()\n    \n    def peek(self):\n        if not self.arr:\n            return -1\n        return self.arr[-1]\n\nstack = Stack(5)\nstack.push(10)\nstack.push(20)\nstack.push(30)\n\nprint(f\"栈顶元素: {stack.peek()}\")\nprint(f\"弹出: {stack.pop()}\")\nprint(f\"弹出后栈顶: {stack.peek()}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "栈顶元素: 30\\n弹出: 30\\n弹出后栈顶: 20",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "二叉树遍历",
+      "content": "实现二叉树的前序、中序、后序遍历。",
+      "input": "二叉树结构",
+      "output": "遍历结果",
+      "difficulty": 2,
+      "language": "Java",
+      "tags": "二叉树,遍历,递归",
+      "knowledge_points": "二叉树,前序遍历,中序遍历,后序遍历,递归",
+      "hints": "前序：根-左-右，中序：左-根-右，后序：左-右-根",
+      "sample_explanation": "实现二叉树的三种遍历方式",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "class TreeNode {\n    int val;\n    TreeNode left, right;\n    \n    public TreeNode(int val) {\n        this.val = val;\n        left = right = null;\n    }\n}\n\npublic class Main {\n    public static void main(String[] args) {\n        TreeNode root = new TreeNode(1);\n        root.left = new TreeNode(2);\n        root.right = new TreeNode(3);\n        root.left.left = new TreeNode(4);\n        root.left.right = new TreeNode(5);\n        \n        System.out.print(\"前序遍历: \");\n        preorder(root);\n        System.out.println();\n        \n        System.out.print(\"中序遍历: \");\n        inorder(root);\n        System.out.println();\n        \n        System.out.print(\"后序遍历: \");\n        postorder(root);\n        System.out.println();\n    }\n    \n    static void preorder(TreeNode node) {\n        if (node == null) return;\n        System.out.print(node.val + \" \");\n        preorder(node.left);\n        preorder(node.right);\n    }\n    \n    static void inorder(TreeNode node) {\n        if (node == null) return;\n        inorder(node.left);\n        System.out.print(node.val + \" \");\n        inorder(node.right);\n    }\n    \n    static void postorder(TreeNode node) {\n        if (node == null) return;\n        postorder(node.left);\n        postorder(node.right);\n        System.out.print(node.val + \" \");\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "class TreeNode:\n    def __init__(self, val):\n        self.val = val\n        self.left = None\n        self.right = None\n\ndef preorder(node):\n    if not node:\n        return\n    print(node.val, end=\" \")\n    preorder(node.left)\n    preorder(node.right)\n\ndef inorder(node):\n    if not node:\n        return\n    inorder(node.left)\n    print(node.val, end=\" \")\n    inorder(node.right)\n\ndef postorder(node):\n    if not node:\n        return\n    postorder(node.left)\n    postorder(node.right)\n    print(node.val, end=\" \")\n\nroot = TreeNode(1)\nroot.left = TreeNode(2)\nroot.right = TreeNode(3)\nroot.left.left = TreeNode(4)\nroot.left.right = TreeNode(5)\n\nprint(\"前序遍历:\", end=\" \")\npreorder(root)\nprint()\n\nprint(\"中序遍历:\", end=\" \")\ninorder(root)\nprint()\n\nprint(\"后序遍历:\", end=\" \")\npostorder(root)\nprint()"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "",
+          "expected_output": "前序遍历: 1 2 4 5 3 \\n中序遍历: 4 2 5 1 3 \\n后序遍历: 4 5 2 3 1 ",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "动态规划基础",
+      "content": "使用动态规划解决斐波那契数列问题，计算第n项的值。",
+      "input": "n: 10",
+      "output": "斐波那契数列第n项",
+      "difficulty": 2,
+      "language": "Java",
+      "tags": "动态规划,斐波那契,算法",
+      "knowledge_points": "动态规划,记忆化,状态转移",
+      "hints": "使用数组存储已计算的结果，避免重复计算",
+      "sample_explanation": "计算斐波那契数列第10项",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        int n = 10;\n        System.out.println(\"斐波那契第\" + n + \"项: \" + fibonacci(n));\n    }\n    \n    public static long fibonacci(int n) {\n        if (n <= 1) return n;\n        \n        long[] dp = new long[n + 1];\n        dp[0] = 0;\n        dp[1] = 1;\n        \n        for (int i = 2; i <= n; i++) {\n            dp[i] = dp[i - 1] + dp[i - 2];\n        }\n        \n        return dp[n];\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "def fibonacci(n):\n    if n <= 1:\n        return n\n    \n    dp = [0] * (n + 1)\n    dp[0] = 0\n    dp[1] = 1\n    \n    for i in range(2, n + 1):\n        dp[i] = dp[i - 1] + dp[i - 2]\n    \n    return dp[n]\n\nn = 10\nprint(f\"斐波那契第{n}项: {fibonacci(n)}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "10",
+          "expected_output": "斐波那契第10项: 55",
+          "is_example": 1
+        },
+        {
+          "input": "20",
+          "expected_output": "斐波那契第20项: 6765",
+          "is_example": 0
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "HTTP请求处理",
+      "content": "使用Java或Python发送HTTP GET请求，获取指定URL的内容并输出响应状态码和内容长度。",
+      "input": "URL: https://api.github.com",
+      "output": "响应信息",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "HTTP,网络,请求",
+      "knowledge_points": "HTTP协议,GET请求,响应处理",
+      "hints": "使用HttpClient或requests库发送HTTP请求",
+      "sample_explanation": "发送HTTP请求并获取响应信息",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "import java.net.http.HttpClient;\nimport java.net.http.HttpRequest;\nimport java.net.http.HttpResponse;\nimport java.net.URI;\n\npublic class Main {\n    public static void main(String[] args) throws Exception {\n        String url = \"https://api.github.com\";\n        \n        HttpClient client = HttpClient.newHttpClient();\n        HttpRequest request = HttpRequest.newBuilder()\n            .uri(URI.create(url))\n            .header(\"User-Agent\", \"Java HttpClient\")\n            .GET()\n            .build();\n        \n        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());\n        \n        System.out.println(\"状态码: \" + response.statusCode());\n        System.out.println(\"内容长度: \" + response.body().length());\n    }\n}"
+        },
+        {
+          "language": "Python",
+          "code": "import requests\n\nurl = \"https://api.github.com\"\n\nresponse = requests.get(url, headers={\"User-Agent\": \"Python Requests\"})\n\nprint(f\"状态码: {response.status_code}\")\nprint(f\"内容长度: {len(response.text)}\")"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": "https://api.github.com",
+          "expected_output": "状态码: 200\\n内容长度: > 0",
+          "is_example": 1
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "SQL基础查询",
+      "content": "编写SQL语句查询学生表中的数据：查询所有学生、查询成绩大于80分的学生、按成绩排序。",
+      "input": "无输入",
+      "output": "SQL语句",
+      "difficulty": 1,
+      "language": "Java",
+      "tags": "SQL,查询,数据库",
+      "knowledge_points": "SELECT,WHERE,ORDER BY,SQL语法",
+      "hints": "使用SELECT *查询所有列，使用WHERE过滤，使用ORDER BY排序",
+      "sample_explanation": "编写基础SQL查询语句",
+      "supported_languages": "Java,Python",
+      "reference_solutions": [
+        {
+          "language": "Java",
+          "code": "public class Main {\n    public static void main(String[] args) {\n        // 查询所有学生\n        String sql1 = \"SELECT * FROM students\";\n        System.out.println(\"查询所有学生: \" + sql1);\n        \n        // 查询成绩大于80分

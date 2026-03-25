@@ -558,4 +558,122 @@ const handleLogin = async () => {
     padding: 12px;
   }
 }
+
+.login-container {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(0, 209, 255, 0.12), transparent 26%),
+    radial-gradient(circle at 82% 8%, rgba(0, 102, 255, 0.16), transparent 28%),
+    linear-gradient(135deg, rgba(4, 10, 20, 0.98), rgba(6, 16, 32, 0.95));
+}
+
+.visual-section::before {
+  content: '';
+  position: absolute;
+  inset: 8% 7% auto;
+  height: 1px;
+  background: var(--gradient-line);
+  opacity: 0.8;
+}
+
+.visual-section::after {
+  content: '';
+  position: absolute;
+  inset: auto 12% 14% auto;
+  width: 18rem;
+  height: 18rem;
+  background: rgba(0, 209, 255, 0.12);
+  filter: blur(72px);
+}
+
+.animated-grid {
+  background-image:
+    linear-gradient(rgba(124, 247, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 247, 255, 0.08) 1px, transparent 1px);
+}
+
+.brand-logo,
+.feature-item,
+.code-card,
+.glass-card {
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-neon);
+}
+
+.brand-logo {
+  background: rgba(0, 209, 255, 0.12);
+  color: var(--brand-accent);
+}
+
+.brand-intro h1,
+.login-header h2 {
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brand-intro h1 {
+  text-shadow: 0 0 30px rgba(0, 209, 255, 0.16);
+}
+
+.subtitle,
+.login-header p,
+.login-footer {
+  color: var(--text-secondary);
+}
+
+.feature-item {
+  background: rgba(8, 18, 34, 0.62);
+  backdrop-filter: blur(18px);
+}
+
+.feature-item span {
+  color: var(--text-primary);
+}
+
+.feature-item .el-icon {
+  color: var(--brand-primary);
+}
+
+.code-card {
+  background: rgba(6, 16, 31, 0.76);
+  color: #9fdcff;
+}
+
+.glass-card {
+  background: rgba(8, 18, 34, 0.76);
+  backdrop-filter: blur(22px);
+}
+
+:deep(.custom-input .el-input__wrapper) {
+  background: rgba(7, 19, 36, 0.88);
+  border-color: var(--border-color);
+}
+
+:deep(.custom-input .el-input__wrapper:hover),
+:deep(.custom-input .el-input__wrapper.is-focus) {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.14);
+}
+
+:deep(.custom-input .el-input__inner) {
+  color: var(--text-primary);
+}
+
+:deep(.custom-input .el-input__inner::placeholder) {
+  color: var(--text-tertiary);
+}
+
+.input-icon,
+.register-link {
+  color: var(--brand-primary);
+}
+
+.login-button {
+  background: var(--gradient-brand);
+  box-shadow: var(--shadow-neon);
+}
+
+.login-button:hover:not(:disabled) {
+  box-shadow: 0 0 0 1px rgba(0, 209, 255, 0.22), 0 0 40px rgba(0, 102, 255, 0.26);
+}
 </style>

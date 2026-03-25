@@ -1,6 +1,5 @@
 <template>
   <div class="admin-page">
-    <!-- 管理员安全提示 -->
     <div class="admin-banner">
       <el-icon class="banner-icon"><Warning /></el-icon>
       <div class="banner-content">
@@ -8,8 +7,7 @@
         <p>您正在访问管理后台，请谨慎操作。所有操作都会被记录。</p>
       </div>
     </div>
-    
-    <!-- 系统统计仪表盘 -->
+
     <div class="dashboard-header">
       <div class="dashboard-title">
         <h2>管理后台</h2>
@@ -100,133 +98,343 @@
       </el-col>
     </el-row>
 
-    <!-- 用户管理 -->
-    <el-card class="management-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">用户管理</span>
-          <el-button type="primary" link @click="fetchUsers">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
-        </div>
-      </template>
-      <el-table :data="userList" stripe v-loading="usersLoading" max-height="500" class="admin-table" table-layout="fixed">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="150" />
-        <el-table-column prop="role" label="角色" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.role === 1 ? 'danger' : 'primary'" size="small">
-              {{ row.role === 1 ? '管理员' : '普通用户' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="language" label="语言" width="100">
-          <template #default="{ row }">
-            <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="注册时间" width="180" />
-      </el-table>
-    </el-card>
-
-    <!-- 题目管理 -->
-    <el-card class="management-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">题目管理</span>
-          <div class="header-buttons">
-            <el-button type="primary" @click="showAddDialog" class="add-btn">
-              <el-icon><Plus /></el-icon>
-              添加题目
-            </el-button>
-            <el-dropdown>
-              <el-button type="success">
-                <el-icon><Upload /></el-icon>
-                导入题目
-                <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+    <el-tabs v-model="activeTab" class="admin-tabs">
+      <el-tab-pane label="用户管理" name="users">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">用户管理</span>
+              <el-button type="primary" link @click="fetchUsers">
+                <el-icon><Refresh /></el-icon>
+                刷新
               </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="showImportDialog('excel')">
-                    <el-icon><Document /></el-icon>
-                    Excel文件
-                  </el-dropdown-item>
-                  <el-dropdown-item @click="showImportDialog('csv')">
-                    <el-icon><Document /></el-icon>
-                    CSV文件
-                  </el-dropdown-item>
-                </el-dropdown-menu>
+            </div>
+          </template>
+          <el-table :data="userList" stripe v-loading="usersLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="username" label="用户名" min-width="150" />
+            <el-table-column prop="role" label="角色" width="100">
+              <template #default="{ row }">
+                <el-tag :type="row.role === 1 ? 'danger' : 'primary'" size="small">
+                  {{ row.role === 1 ? '管理员' : '普通用户' }}
+                </el-tag>
               </template>
-            </el-dropdown>
-          </div>
-        </div>
-      </template>
-      <el-table :data="problemList" stripe v-loading="problemsLoading" max-height="500" class="admin-table" table-layout="fixed">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="title" label="标题" min-width="250" />
-        <el-table-column prop="difficulty" label="难度" width="100">
-          <template #default="{ row }">
-            <span :class="['difficulty-badge', getDifficultyClass(row.difficulty)]">
-              {{ getDifficultyText(row.difficulty) }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="language" label="语言" width="100">
-          <template #default="{ row }">
-            <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="140">
-          <template #default="{ row }">
-            <el-button type="primary" link @click="showEditDialog(row)" class="action-btn">编辑</el-button>
-            <el-button type="danger" link @click="deleteProblem(row.id)" class="action-btn">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+            </el-table-column>
+            <el-table-column prop="language" label="语言" width="100">
+              <template #default="{ row }">
+                <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="注册时间" width="180" />
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="showUserRoleDialog(row)" class="action-btn">修改角色</el-button>
+                <el-button type="warning" link @click="toggleUserStatus(row)" class="action-btn">
+                  {{ row.status === 1 ? '禁用' : '启用' }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
 
-    <!-- 提交记录 -->
-    <el-card class="management-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">提交记录</span>
-          <el-button type="primary" link @click="fetchAllSubmissions">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
-        </div>
-      </template>
-      <el-table :data="submissionList" stripe v-loading="submissionsLoading" max-height="500" class="admin-table" table-layout="fixed">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="userId" label="用户ID" width="100" />
-        <el-table-column prop="problemId" label="题目ID" width="100">
-          <template #default="{ row }">
-            <span class="problem-id-link" @click="goToProblem(row.problemId)">
-              #{{ row.problemId }}
-            </span>
+      <el-tab-pane label="题目管理" name="problems">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">题目管理</span>
+              <div class="header-buttons">
+                <el-button type="primary" @click="showAddDialog" class="add-btn">
+                  <el-icon><Plus /></el-icon>
+                  添加题目
+                </el-button>
+                <el-dropdown>
+                  <el-button type="success">
+                    <el-icon><Upload /></el-icon>
+                    导入题目
+                    <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item @click="showImportDialog('excel')">
+                        <el-icon><Document /></el-icon>
+                        Excel文件
+                      </el-dropdown-item>
+                      <el-dropdown-item @click="showImportDialog('csv')">
+                        <el-icon><Document /></el-icon>
+                        CSV文件
+                      </el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="language" label="语言" width="100">
-          <template #default="{ row }">
-            <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
+          <el-table :data="problemList" stripe v-loading="problemsLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="title" label="标题" min-width="250" />
+            <el-table-column prop="difficulty" label="难度" width="100">
+              <template #default="{ row }">
+                <span :class="['difficulty-badge', getDifficultyClass(row.difficulty)]">
+                  {{ getDifficultyText(row.difficulty) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="language" label="语言" width="100">
+              <template #default="{ row }">
+                <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="140">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="showEditDialog(row)" class="action-btn">编辑</el-button>
+                <el-button type="danger" link @click="deleteProblem(row.id)" class="action-btn">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="提交记录" name="submissions">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">提交记录</span>
+              <el-button type="primary" link @click="fetchAllSubmissions">
+                <el-icon><Refresh /></el-icon>
+                刷新
+              </el-button>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="result" label="结果" width="100">
-          <template #default="{ row }">
-            <span :class="['result-tag', getResultClass(row.result)]">
-              {{ getResultText(row.result) }}
-            </span>
+          <el-table :data="submissionList" stripe v-loading="submissionsLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="userId" label="用户ID" width="100" />
+            <el-table-column prop="problemId" label="题目ID" width="100">
+              <template #default="{ row }">
+                <span class="problem-id-link" @click="goToProblem(row.problemId)">
+                  #{{ row.problemId }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="language" label="语言" width="100">
+              <template #default="{ row }">
+                <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="result" label="结果" width="100">
+              <template #default="{ row }">
+                <span :class="['result-tag', getResultClass(row.result)]">
+                  {{ getResultText(row.result) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="timeCost" label="耗时" width="100">
+              <template #default="{ row }">
+                <span class="time-cost">{{ row.timeCost }}ms</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="createTime" label="提交时间" width="180" />
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="角色权限" name="roles">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">角色权限管理</span>
+              <el-button type="primary" @click="showAddRoleDialog" class="add-btn">
+                <el-icon><Plus /></el-icon>
+                添加角色
+              </el-button>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="timeCost" label="耗时" width="100">
-          <template #default="{ row }">
-            <span class="time-cost">{{ row.timeCost }}ms</span>
+          <el-table :data="roleList" stripe v-loading="rolesLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="name" label="角色名称" min-width="150" />
+            <el-table-column prop="description" label="描述" min-width="200" />
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="showEditRoleDialog(row)" class="action-btn">编辑</el-button>
+                <el-button type="success" link @click="showPermissionDialog(row)" class="action-btn">权限</el-button>
+                <el-button type="danger" link @click="deleteRoleItem(row.id)" class="action-btn">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="班级管理" name="classes">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">班级管理</span>
+              <el-button type="primary" @click="showAddClassDialog" class="add-btn">
+                <el-icon><Plus /></el-icon>
+                添加班级
+              </el-button>
+            </div>
           </template>
-        </el-table-column>
-        <el-table-column prop="createTime" label="提交时间" width="180" />
-      </el-table>
-    </el-card>
+          <el-table :data="classList" stripe v-loading="classesLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="name" label="班级名称" min-width="150" />
+            <el-table-column prop="description" label="描述" min-width="200" />
+            <el-table-column prop="createTime" label="创建时间" width="180" />
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="showClassUsersDialog(row)" class="action-btn">成员</el-button>
+                <el-button type="warning" link @click="showEditClassDialog(row)" class="action-btn">编辑</el-button>
+                <el-button type="danger" link @click="deleteClassItem(row.id)" class="action-btn">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="知识点管理" name="knowledge">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">知识点管理</span>
+              <el-button type="primary" @click="showAddKnowledgeDialog" class="add-btn">
+                <el-icon><Plus /></el-icon>
+                添加知识点
+              </el-button>
+            </div>
+          </template>
+          <el-table :data="knowledgeList" stripe v-loading="knowledgeLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="name" label="知识点名称" min-width="150" />
+            <el-table-column prop="level" label="层级" width="100" />
+            <el-table-column prop="description" label="描述" min-width="200" />
+            <el-table-column label="操作" width="140">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="showEditKnowledgeDialog(row)" class="action-btn">编辑</el-button>
+                <el-button type="danger" link @click="deleteKnowledgeItem(row.id)" class="action-btn">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="学习路径" name="paths">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">学习路径管理</span>
+              <el-button type="primary" @click="showAddPathDialog" class="add-btn">
+                <el-icon><Plus /></el-icon>
+                添加路径
+              </el-button>
+            </div>
+          </template>
+          <el-table :data="pathList" stripe v-loading="pathsLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="name" label="路径名称" min-width="150" />
+            <el-table-column prop="direction" label="方向" width="120">
+              <template #default="{ row }">
+                <el-tag size="small">{{ getDirectionText(row.direction) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="language" label="语言" width="100">
+              <template #default="{ row }">
+                <span class="language-badge">{{ row.language ? row.language.toUpperCase() : '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="描述" min-width="200" />
+            <el-table-column label="操作" width="140">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="showEditPathDialog(row)" class="action-btn">编辑</el-button>
+                <el-button type="danger" link @click="deletePathItem(row.id)" class="action-btn">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="审计日志" name="audit">
+        <el-card class="management-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">审计日志</span>
+              <el-button type="primary" link @click="fetchAuditLogs">
+                <el-icon><Refresh /></el-icon>
+                刷新
+              </el-button>
+            </div>
+          </template>
+          <el-table :data="auditList" stripe v-loading="auditLoading" max-height="500" class="admin-table" table-layout="fixed">
+            <el-table-column prop="id" label="ID" width="80" />
+            <el-table-column prop="userId" label="用户ID" width="100" />
+            <el-table-column prop="operation" label="操作" width="120" />
+            <el-table-column prop="resourceType" label="资源类型" width="120" />
+            <el-table-column prop="resourceId" label="资源ID" width="100" />
+            <el-table-column prop="detail" label="详情" min-width="200" />
+            <el-table-column prop="ipAddress" label="IP地址" width="140" />
+            <el-table-column prop="createTime" label="时间" width="180" />
+          </el-table>
+        </el-card>
+      </el-tab-pane>
+
+      <el-tab-pane label="系统监控" name="system">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-card class="management-card" shadow="never">
+              <template #header>
+                <div class="card-header">
+                  <span class="card-title">系统状态</span>
+                  <el-button type="primary" link @click="fetchSystemStatus">
+                    <el-icon><Refresh /></el-icon>
+                    刷新
+                  </el-button>
+                </div>
+              </template>
+              <div v-loading="systemLoading" class="system-status">
+                <div class="status-item" v-for="(item, index) in systemStatus" :key="index">
+                  <div class="status-label">{{ item.metricName }}</div>
+                  <div class="status-value">{{ item.metricValue }} {{ item.metricUnit }}</div>
+                </div>
+                <el-empty v-if="systemStatus.length === 0" description="暂无系统状态数据" />
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card class="management-card" shadow="never">
+              <template #header>
+                <div class="card-header">
+                  <span class="card-title">沙箱状态</span>
+                  <el-button type="primary" link @click="fetchSandboxStatus">
+                    <el-icon><Refresh /></el-icon>
+                    刷新
+                  </el-button>
+                </div>
+              </template>
+              <div v-loading="sandboxLoading" class="sandbox-status">
+                <div class="sandbox-item" v-for="(item, index) in sandboxStatus" :key="index">
+                  <div class="sandbox-header">
+                    <span class="container-id">{{ item.containerId }}</span>
+                    <el-tag :type="item.status === 'running' ? 'success' : 'danger'" size="small">
+                      {{ item.status }}
+                    </el-tag>
+                  </div>
+                  <div class="sandbox-metrics">
+                    <div class="metric">
+                      <span class="metric-label">CPU使用率</span>
+                      <el-progress :percentage="item.cpuUsage" :stroke-width="8" />
+                    </div>
+                    <div class="metric">
+                      <span class="metric-label">内存使用率</span>
+                      <el-progress :percentage="item.memoryUsage" :stroke-width="8" color="#67C23A" />
+                    </div>
+                  </div>
+                </div>
+                <el-empty v-if="sandboxStatus.length === 0" description="暂无沙箱状态数据" />
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </el-tab-pane>
+    </el-tabs>
 
     <!-- 题目编辑弹窗 -->
     <el-dialog v-model="problemDialogVisible" :title="dialogTitle" width="600px" class="problem-dialog">
@@ -301,6 +509,141 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 角色编辑弹窗 -->
+    <el-dialog v-model="roleDialogVisible" :title="roleDialogTitle" width="500px">
+      <el-form :model="roleForm" label-width="80px">
+        <el-form-item label="角色名称">
+          <el-input v-model="roleForm.name" placeholder="请输入角色名称" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="roleForm.description" type="textarea" :rows="4" placeholder="请输入角色描述" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="roleDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveRole">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 权限分配弹窗 -->
+    <el-dialog v-model="permissionDialogVisible" title="分配权限" width="600px">
+      <el-checkbox-group v-model="selectedPermissions">
+        <el-checkbox v-for="perm in permissionList" :key="perm.id" :label="perm.id" class="permission-checkbox">
+          {{ perm.name }} - {{ perm.description }}
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="permissionDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="savePermissions">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 班级编辑弹窗 -->
+    <el-dialog v-model="classDialogVisible" :title="classDialogTitle" width="500px">
+      <el-form :model="classForm" label-width="80px">
+        <el-form-item label="班级名称">
+          <el-input v-model="classForm.name" placeholder="请输入班级名称" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="classForm.description" type="textarea" :rows="4" placeholder="请输入班级描述" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="classDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveClass">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 班级成员弹窗 -->
+    <el-dialog v-model="classUsersDialogVisible" title="班级成员" width="700px">
+      <el-table :data="classUsersList" stripe max-height="400">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="username" label="用户名" min-width="150" />
+        <el-table-column prop="email" label="邮箱" min-width="200" />
+        <el-table-column prop="role" label="角色" width="100">
+          <template #default="{ row }">
+            <el-tag :type="row.role === 1 ? 'danger' : 'primary'" size="small">
+              {{ row.role === 1 ? '管理员' : '普通用户' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      <template #footer>
+        <el-button type="primary" @click="classUsersDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 知识点编辑弹窗 -->
+    <el-dialog v-model="knowledgeDialogVisible" :title="knowledgeDialogTitle" width="500px">
+      <el-form :model="knowledgeForm" label-width="80px">
+        <el-form-item label="知识点名称">
+          <el-input v-model="knowledgeForm.name" placeholder="请输入知识点名称" />
+        </el-form-item>
+        <el-form-item label="父级ID">
+          <el-input v-model="knowledgeForm.parentId" placeholder="父级知识点ID（可选）" />
+        </el-form-item>
+        <el-form-item label="层级">
+          <el-input-number v-model="knowledgeForm.level" :min="1" :max="10" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="knowledgeForm.description" type="textarea" :rows="4" placeholder="请输入知识点描述" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="knowledgeDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveKnowledge">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 学习路径编辑弹窗 -->
+    <el-dialog v-model="pathDialogVisible" :title="pathDialogTitle" width="500px">
+      <el-form :model="pathForm" label-width="80px">
+        <el-form-item label="路径名称">
+          <el-input v-model="pathForm.name" placeholder="请输入学习路径名称" />
+        </el-form-item>
+        <el-form-item label="方向">
+          <el-select v-model="pathForm.direction" placeholder="请选择方向">
+            <el-option label="算法" value="algorithm" />
+            <el-option label="数据结构" value="data-structure" />
+            <el-option label="前端开发" value="frontend" />
+            <el-option label="后端开发" value="backend" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="语言">
+          <el-select v-model="pathForm.language" placeholder="请选择语言">
+            <el-option label="Java" value="java" />
+            <el-option label="Python" value="python" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="pathForm.description" type="textarea" :rows="4" placeholder="请输入学习路径描述" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pathDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="savePath">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 用户角色修改弹窗 -->
+    <el-dialog v-model="userRoleDialogVisible" title="修改用户角色" width="400px">
+      <el-form label-width="80px">
+        <el-form-item label="用户名">
+          <el-input :value="selectedUser?.username" disabled />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="selectedNewRole" placeholder="请选择角色">
+            <el-option label="普通用户" :value="0" />
+            <el-option label="管理员" :value="1" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="userRoleDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="updateUserRoleHandler">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -323,27 +666,69 @@ import {
 } from '@element-plus/icons-vue'
 import {
   getUserList,
+  updateUserStatus,
+  updateUserRole,
   addProblem,
   updateProblem,
   deleteProblem as deleteProblemApi,
   getAllSubmissions,
   getStatistics,
   importFromExcel,
-  importFromCsv
+  importFromCsv,
+  getRoleList,
+  addRole,
+  updateRole,
+  deleteRole,
+  getPermissionList,
+  assignRolePermissions,
+  getClassList,
+  addClass,
+  updateClass,
+  deleteClass,
+  getClassUsers,
+  addUserToClass,
+  removeUserFromClass,
+  getKnowledgeList,
+  addKnowledge,
+  updateKnowledge,
+  deleteKnowledge,
+  getPathList,
+  addPath,
+  updatePath,
+  deletePath,
+  getAuditLogs,
+  getSystemStatus,
+  getSandboxStatus
 } from '@/api/admin'
 import { getProblemList } from '@/api/problem'
 
 const router = useRouter()
 
+const activeTab = ref('users')
 const statsLoading = ref(false)
 const usersLoading = ref(false)
 const problemsLoading = ref(false)
 const submissionsLoading = ref(false)
+const rolesLoading = ref(false)
+const classesLoading = ref(false)
+const knowledgeLoading = ref(false)
+const pathsLoading = ref(false)
+const auditLoading = ref(false)
+const systemLoading = ref(false)
+const sandboxLoading = ref(false)
 
 const statistics = ref({})
 const userList = ref([])
 const problemList = ref([])
 const submissionList = ref([])
+const roleList = ref([])
+const classList = ref([])
+const knowledgeList = ref([])
+const pathList = ref([])
+const auditList = ref([])
+const systemStatus = ref([])
+const sandboxStatus = ref([])
+const permissionList = ref([])
 
 const problemDialogVisible = ref(false)
 const dialogTitle = ref('添加题目')
@@ -357,7 +742,6 @@ const problemForm = reactive({
   output: ''
 })
 
-// 导入功能相关变量
 const importDialogVisible = ref(false)
 const importDialogTitle = ref('导入题目')
 const importType = ref('excel')
@@ -365,6 +749,54 @@ const importFileType = ref('.xlsx')
 const importFileExt = ref('Excel')
 const selectedFile = ref(null)
 const importLoading = ref(false)
+
+const roleDialogVisible = ref(false)
+const roleDialogTitle = ref('添加角色')
+const roleForm = reactive({
+  id: null,
+  name: '',
+  description: ''
+})
+
+const permissionDialogVisible = ref(false)
+const selectedRoleId = ref(null)
+const selectedPermissions = ref([])
+
+const classDialogVisible = ref(false)
+const classDialogTitle = ref('添加班级')
+const classForm = reactive({
+  id: null,
+  name: '',
+  description: ''
+})
+
+const classUsersDialogVisible = ref(false)
+const currentClassId = ref(null)
+const classUsersList = ref([])
+
+const knowledgeDialogVisible = ref(false)
+const knowledgeDialogTitle = ref('添加知识点')
+const knowledgeForm = reactive({
+  id: null,
+  name: '',
+  parentId: null,
+  level: 1,
+  description: ''
+})
+
+const pathDialogVisible = ref(false)
+const pathDialogTitle = ref('添加学习路径')
+const pathForm = reactive({
+  id: null,
+  name: '',
+  direction: '',
+  language: 'java',
+  description: ''
+})
+
+const userRoleDialogVisible = ref(false)
+const selectedUser = ref(null)
+const selectedNewRole = ref(null)
 
 const getDifficultyClass = (difficulty) => {
   const classes = { 0: 'difficulty-easy', 1: 'difficulty-medium', 2: 'difficulty-hard' }
@@ -574,11 +1006,449 @@ const importProblems = async () => {
   }
 }
 
+const getDirectionText = (direction) => {
+  const texts = {
+    'algorithm': '算法',
+    'data-structure': '数据结构',
+    'frontend': '前端开发',
+    'backend': '后端开发'
+  }
+  return texts[direction] || direction
+}
+
+const showUserRoleDialog = (user) => {
+  selectedUser.value = user
+  selectedNewRole.value = user.role
+  userRoleDialogVisible.value = true
+}
+
+const toggleUserStatus = async (user) => {
+  try {
+    const newStatus = user.status === 1 ? 0 : 1
+    const res = await updateUserStatus({ userId: user.id, status: newStatus })
+    if (res.code === 200) {
+      ElMessage.success(newStatus === 1 ? '用户已启用' : '用户已禁用')
+      fetchUsers()
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const updateUserRoleHandler = async () => {
+  try {
+    const res = await updateUserRole({ userId: selectedUser.value.id, roleId: selectedNewRole.value })
+    if (res.code === 200) {
+      ElMessage.success('角色修改成功')
+      userRoleDialogVisible.value = false
+      fetchUsers()
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const fetchRoles = async () => {
+  rolesLoading.value = true
+  try {
+    const res = await getRoleList()
+    if (res.code === 200) {
+      roleList.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取角色列表失败:', error)
+  } finally {
+    rolesLoading.value = false
+  }
+}
+
+const showAddRoleDialog = () => {
+  roleDialogTitle.value = '添加角色'
+  roleForm.id = null
+  roleForm.name = ''
+  roleForm.description = ''
+  roleDialogVisible.value = true
+}
+
+const showEditRoleDialog = (role) => {
+  roleDialogTitle.value = '编辑角色'
+  roleForm.id = role.id
+  roleForm.name = role.name
+  roleForm.description = role.description
+  roleDialogVisible.value = true
+}
+
+const saveRole = async () => {
+  try {
+    let res
+    if (roleForm.id) {
+      res = await updateRole(roleForm)
+    } else {
+      res = await addRole(roleForm)
+    }
+
+    if (res.code === 200) {
+      ElMessage.success(roleForm.id ? '更新成功' : '添加成功')
+      roleDialogVisible.value = false
+      fetchRoles()
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const deleteRoleItem = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该角色吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const res = await deleteRole(id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      fetchRoles()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败，请重试')
+    }
+  }
+}
+
+const showPermissionDialog = async (role) => {
+  selectedRoleId.value = role.id
+  try {
+    const res = await getPermissionList()
+    if (res.code === 200) {
+      permissionList.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取权限列表失败:', error)
+  }
+  permissionDialogVisible.value = true
+}
+
+const savePermissions = async () => {
+  try {
+    const res = await assignRolePermissions({
+      roleId: selectedRoleId.value,
+      permissionIds: selectedPermissions.value
+    })
+    if (res.code === 200) {
+      ElMessage.success('权限分配成功')
+      permissionDialogVisible.value = false
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const fetchClasses = async () => {
+  classesLoading.value = true
+  try {
+    const res = await getClassList()
+    if (res.code === 200) {
+      classList.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取班级列表失败:', error)
+  } finally {
+    classesLoading.value = false
+  }
+}
+
+const showAddClassDialog = () => {
+  classDialogTitle.value = '添加班级'
+  classForm.id = null
+  classForm.name = ''
+  classForm.description = ''
+  classDialogVisible.value = true
+}
+
+const showEditClassDialog = (cls) => {
+  classDialogTitle.value = '编辑班级'
+  classForm.id = cls.id
+  classForm.name = cls.name
+  classForm.description = cls.description
+  classDialogVisible.value = true
+}
+
+const saveClass = async () => {
+  try {
+    let res
+    if (classForm.id) {
+      res = await updateClass(classForm)
+    } else {
+      res = await addClass(classForm)
+    }
+
+    if (res.code === 200) {
+      ElMessage.success(classForm.id ? '更新成功' : '添加成功')
+      classDialogVisible.value = false
+      fetchClasses()
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const deleteClassItem = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该班级吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const res = await deleteClass(id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      fetchClasses()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败，请重试')
+    }
+  }
+}
+
+const showClassUsersDialog = async (cls) => {
+  currentClassId.value = cls.id
+  try {
+    const res = await getClassUsers(cls.id)
+    if (res.code === 200) {
+      classUsersList.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取班级成员失败:', error)
+  }
+  classUsersDialogVisible.value = true
+}
+
+const fetchKnowledge = async () => {
+  knowledgeLoading.value = true
+  try {
+    const res = await getKnowledgeList()
+    if (res.code === 200) {
+      knowledgeList.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取知识点列表失败:', error)
+  } finally {
+    knowledgeLoading.value = false
+  }
+}
+
+const showAddKnowledgeDialog = () => {
+  knowledgeDialogTitle.value = '添加知识点'
+  knowledgeForm.id = null
+  knowledgeForm.name = ''
+  knowledgeForm.parentId = null
+  knowledgeForm.level = 1
+  knowledgeForm.description = ''
+  knowledgeDialogVisible.value = true
+}
+
+const showEditKnowledgeDialog = (knowledge) => {
+  knowledgeDialogTitle.value = '编辑知识点'
+  knowledgeForm.id = knowledge.id
+  knowledgeForm.name = knowledge.name
+  knowledgeForm.parentId = knowledge.parentId
+  knowledgeForm.level = knowledge.level
+  knowledgeForm.description = knowledge.description
+  knowledgeDialogVisible.value = true
+}
+
+const saveKnowledge = async () => {
+  try {
+    let res
+    if (knowledgeForm.id) {
+      res = await updateKnowledge(knowledgeForm)
+    } else {
+      res = await addKnowledge(knowledgeForm)
+    }
+
+    if (res.code === 200) {
+      ElMessage.success(knowledgeForm.id ? '更新成功' : '添加成功')
+      knowledgeDialogVisible.value = false
+      fetchKnowledge()
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const deleteKnowledgeItem = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该知识点吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const res = await deleteKnowledge(id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      fetchKnowledge()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败，请重试')
+    }
+  }
+}
+
+const fetchPaths = async () => {
+  pathsLoading.value = true
+  try {
+    const res = await getPathList()
+    if (res.code === 200) {
+      pathList.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取学习路径列表失败:', error)
+  } finally {
+    pathsLoading.value = false
+  }
+}
+
+const showAddPathDialog = () => {
+  pathDialogTitle.value = '添加学习路径'
+  pathForm.id = null
+  pathForm.name = ''
+  pathForm.direction = ''
+  pathForm.language = 'java'
+  pathForm.description = ''
+  pathDialogVisible.value = true
+}
+
+const showEditPathDialog = (path) => {
+  pathDialogTitle.value = '编辑学习路径'
+  pathForm.id = path.id
+  pathForm.name = path.name
+  pathForm.direction = path.direction
+  pathForm.language = path.language
+  pathForm.description = path.description
+  pathDialogVisible.value = true
+}
+
+const savePath = async () => {
+  try {
+    let res
+    if (pathForm.id) {
+      res = await updatePath(pathForm)
+    } else {
+      res = await addPath(pathForm)
+    }
+
+    if (res.code === 200) {
+      ElMessage.success(pathForm.id ? '更新成功' : '添加成功')
+      pathDialogVisible.value = false
+      fetchPaths()
+    } else {
+      ElMessage.error(res.msg || '操作失败')
+    }
+  } catch (error) {
+    ElMessage.error('操作失败，请重试')
+  }
+}
+
+const deletePathItem = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该学习路径吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const res = await deletePath(id)
+    if (res.code === 200) {
+      ElMessage.success('删除成功')
+      fetchPaths()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败，请重试')
+    }
+  }
+}
+
+const fetchAuditLogs = async () => {
+  auditLoading.value = true
+  try {
+    const res = await getAuditLogs({ page: 1, size: 100 })
+    if (res.code === 200) {
+      auditList.value = res.data?.list || []
+    }
+  } catch (error) {
+    console.error('获取审计日志失败:', error)
+  } finally {
+    auditLoading.value = false
+  }
+}
+
+const fetchSystemStatus = async () => {
+  systemLoading.value = true
+  try {
+    const res = await getSystemStatus()
+    if (res.code === 200) {
+      systemStatus.value = res.data ? [res.data] : []
+    }
+  } catch (error) {
+    console.error('获取系统状态失败:', error)
+  } finally {
+    systemLoading.value = false
+  }
+}
+
+const fetchSandboxStatus = async () => {
+  sandboxLoading.value = true
+  try {
+    const res = await getSandboxStatus()
+    if (res.code === 200) {
+      sandboxStatus.value = res.data?.statuses || []
+    }
+  } catch (error) {
+    console.error('获取沙箱状态失败:', error)
+  } finally {
+    sandboxLoading.value = false
+  }
+}
+
 onMounted(() => {
   fetchStatistics()
   fetchUsers()
   fetchProblems()
   fetchAllSubmissions()
+  fetchRoles()
+  fetchClasses()
+  fetchKnowledge()
+  fetchPaths()
+  fetchAuditLogs()
+  fetchSystemStatus()
+  fetchSandboxStatus()
 })
 </script>
 
@@ -1183,5 +2053,129 @@ onMounted(() => {
   :deep(.admin-table) {
     font-size: 12px;
   }
+}
+
+/* Tabs 样式 */
+.admin-tabs {
+  margin-top: 24px;
+}
+
+:deep(.admin-tabs .el-tabs__header) {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+}
+
+:deep(.admin-tabs .el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+:deep(.admin-tabs .el-tabs__item) {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 0 20px;
+  height: 44px;
+  line-height: 44px;
+  transition: all 0.2s ease;
+}
+
+:deep(.admin-tabs .el-tabs__item:hover) {
+  color: var(--brand-primary);
+}
+
+:deep(.admin-tabs .el-tabs__item.is-active) {
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+:deep(.admin-tabs .el-tabs__active-bar) {
+  background-color: var(--brand-primary);
+  height: 3px;
+  border-radius: 2px;
+}
+
+/* 系统状态样式 */
+.system-status {
+  min-height: 200px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+}
+
+.status-item:last-child {
+  border-bottom: none;
+}
+
+.status-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.status-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 沙箱状态样式 */
+.sandbox-status {
+  min-height: 200px;
+}
+
+.sandbox-item {
+  padding: 16px;
+  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+}
+
+.sandbox-item:last-child {
+  border-bottom: none;
+}
+
+.sandbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.container-id {
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sandbox-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* 权限复选框样式 */
+.permission-checkbox {
+  display: block;
+  margin-bottom: 12px;
+  margin-left: 0 !important;
+}
+
+:deep(.permission-checkbox .el-checkbox__label) {
+  font-size: 14px;
+  color: var(--text-primary);
 }
 </style>

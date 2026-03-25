@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.ReferenceSolutionMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.ReferenceSolution">
+        <id column="id" property="id"/>
+        <result column="problem_id" property="problemId"/>
+        <result column="language" property="language"/>
+        <result column="solution_code" property="solutionCode"/>
+        <result column="time_complexity" property="timeComplexity"/>
+        <result column="space_complexity" property="spaceComplexity"/>
+        <result column="explanation" property="explanation"/>
+        <result column="hints" property="hints"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="findByProblemIdAndLanguage" resultMap="BaseResultMap">
+        SELECT * FROM reference_solution 
+        WHERE problem_id = #{problemId} 
+        AND language = #{language}
+    </select>
+
+    <select id="findByProblemId" resultMap="BaseResultMap">
+        SELECT * FROM reference_solution 
+        WHERE problem_id = #{problemId}
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.ReferenceSolution" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO reference_solution (problem_id, language, solution_code, time_complexity, space_complexity, explanation, hints, create_time, update_time)
+        VALUES (#{problemId}, #{language}, #{solutionCode}, #{timeComplexity}, #{spaceComplexity}, #{explanation}, #{hints}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.ReferenceSolution">
+        UPDATE reference_solution 
+        SET language = #{language}, 
+            solution_code = #{solutionCode}, 
+            time_complexity = #{timeComplexity}, 
+            space_complexity = #{spaceComplexity}, 
+            explanation = #{explanation}, 
+            hints = #{hints}, 
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete" parameterType="java.lang.Long">
+        DELETE FROM reference_solution WHERE id = #{id}
+    </delete>
+
+    <select id="findLanguagesByProblemId" resultType="java.lang.String">
+        SELECT DISTINCT language FROM reference_solution 
+        WHERE problem_id = #{problemId}
+    </select>
+
+</mapper>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.programming.mapper.FavoriteMapper">
+    <insert id="insert" parameterType="com.programming.entity.Favorite">
+        INSERT INTO favorite (user_id, target_type, target_id, create_time)
+        VALUES (#{userId}, #{targetType}, #{targetId}, #{createTime})
+    </insert>
+
+    <delete id="delete">
+        DELETE FROM favorite
+        WHERE user_id = #{userId} AND target_type = #{targetType} AND target_id = #{targetId}
+    </delete>
+
+    <select id="exists" resultType="java.lang.Boolean">
+        SELECT EXISTS(
+            SELECT 1 FROM favorite
+            WHERE user_id = #{userId} AND target_type = #{targetType} AND target_id = #{targetId}
+        )
+    </select>
+
+    <select id="findByUserIdAndType" resultType="com.programming.entity.Favorite">
+        SELECT * FROM favorite
+        WHERE user_id = #{userId} AND target_type = #{targetType}
+        ORDER BY create_time DESC
+        LIMIT #{size} OFFSET #{page} * #{size}
+    </select>
+
+    <select id="findProblemIdsByUserId" resultType="java.lang.Long">
+        SELECT target_id FROM favorite
+        WHERE user_id = #{userId} AND target_type = 'problem'
+    </select>
+</mapper>

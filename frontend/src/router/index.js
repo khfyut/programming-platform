@@ -21,7 +21,9 @@ const routes = [
     children: [
       {
         path: '',
-        redirect: '/problems'
+        name: 'Home',
+        component: () => import('@/views/Home.vue'),
+        meta: { title: '首页' }
       },
       {
         path: 'problems',
@@ -33,13 +35,7 @@ const routes = [
         path: 'problem/:id',
         name: 'ProblemDetail',
         component: () => import('@/views/ProblemDetail.vue'),
-        meta: { title: '题目详情' }
-      },
-      {
-        path: 'code-run',
-        name: 'CodeRun',
-        component: () => import('@/views/CodeRun.vue'),
-        meta: { title: '在线运行' }
+        meta: { title: '题目详情', hideHeader: true }
       },
       {
         path: 'ai',
@@ -51,7 +47,37 @@ const routes = [
         path: 'learn',
         name: 'Learn',
         component: () => import('@/views/Learn.vue'),
-        meta: { title: '学习记录' }
+        meta: { title: '学习中心' }
+      },
+      {
+        path: 'learn/path/:id',
+        name: 'LearningPath',
+        component: () => import('@/views/LearningPath.vue'),
+        meta: { title: '学习路径' }
+      },
+      {
+        path: 'learn/path/:pathId/level/:levelId',
+        name: 'LevelDetail',
+        component: () => import('@/views/LevelDetail.vue'),
+        meta: { title: '关卡详情' }
+      },
+      {
+        path: 'learn/assessment',
+        name: 'Assessment',
+        component: () => import('@/views/Assessment.vue'),
+        meta: { title: '能力测评' }
+      },
+      {
+        path: 'learn/knowledge-graph',
+        name: 'KnowledgeGraph',
+        component: () => import('@/views/KnowledgeGraph.vue'),
+        meta: { title: '知识图谱' }
+      },
+      {
+        path: 'wrong-book',
+        name: 'WrongBook',
+        component: () => import('@/views/WrongBook.vue'),
+        meta: { title: '错题本' }
       },
       {
         path: 'submissions',
@@ -64,6 +90,30 @@ const routes = [
         name: 'Admin',
         component: () => import('@/views/Admin.vue'),
         meta: { title: '管理后台', requiresAdmin: true }
+      },
+      {
+        path: 'community',
+        name: 'Community',
+        component: () => import('@/views/Community.vue'),
+        meta: { title: '学习社区' }
+      },
+      {
+        path: 'community/post/:id',
+        name: 'CommunityPost',
+        component: () => import('@/views/CommunityPost.vue'),
+        meta: { title: '帖子详情' }
+      },
+      {
+        path: 'profile',
+        name: 'UserProfile',
+        component: () => import('@/views/UserProfile.vue'),
+        meta: { title: '个人主页' }
+      },
+      {
+        path: 'profile/:userId',
+        name: 'UserProfileById',
+        component: () => import('@/views/UserProfile.vue'),
+        meta: { title: '用户主页' }
       }
     ]
   }

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.PermissionMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.Permission">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="code" property="code"/>
+        <result column="description" property="description"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM permission ORDER BY id ASC
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM permission WHERE id = #{id}
+    </select>
+
+    <select id="findByCode" resultMap="BaseResultMap">
+        SELECT * FROM permission WHERE code = #{code}
+    </select>
+
+    <select id="findByRoleId" resultMap="BaseResultMap">
+        SELECT p.* FROM permission p
+        INNER JOIN role_permission rp ON p.id = rp.permission_id
+        WHERE rp.role_id = #{roleId}
+        ORDER BY p.id ASC
+    </select>
+
+    <insert id="insert" parameterType="com.programming.entity.Permission" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO permission (name, code, description, create_time)
+        VALUES (#{name}, #{code}, #{description}, NOW())
+    </insert>
+
+    <update id="update" parameterType="com.programming.entity.Permission">
+        UPDATE permission 
+        SET name = #{name}, code = #{code}, description = #{description}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete" parameterType="java.lang.Long">
+        DELETE FROM permission WHERE id = #{id}
+    </delete>
+
+</mapper>

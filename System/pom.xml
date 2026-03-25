@@ -38,6 +38,20 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- 热重载 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- WebSocket -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- 工具类 -->
         <dependency>
             <groupId>org.projectlombok</groupId>

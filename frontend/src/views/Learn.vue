@@ -1,206 +1,326 @@
 <template>
-  <div class="leetcode-learn">
+  <div class="learning-plan-page">
     <div class="learn-container">
+      <!-- 页面头部 -->
       <div class="page-header">
-        <h1 class="page-title">学习记录</h1>
-        <p class="page-subtitle">查看您的学习进度和成就</p>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon solved">
-            <el-icon><CircleCheck /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.solved }}</div>
-            <div class="stat-label">已解决</div>
-          </div>
+        <div class="header-left">
+          <h1 class="page-title">学习计划</h1>
         </div>
-
-        <div class="stat-card">
-          <div class="stat-icon submitted">
-            <el-icon><Document /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.submitted }}</div>
-            <div class="stat-label">提交次数</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon accuracy">
-            <el-icon><TrendCharts /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.accuracy }}%</div>
-            <div class="stat-label">通过率</div>
-          </div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon streak">
-            <el-icon><Trophy /></el-icon>
-          </div>
-          <div class="stat-content">
-            <div class="stat-value">{{ stats.streak }}</div>
-            <div class="stat-label">连续天数</div>
-          </div>
+        <div class="header-right">
+          <el-button class="my-plan-btn" @click="goToMyPlan">
+            我的学习计划
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
         </div>
       </div>
 
-      <div class="content-sections">
-        <div class="section-card">
-          <div class="section-header">
-            <h2 class="section-title">难度分布</h2>
-          </div>
-          <div class="difficulty-stats">
-            <div class="difficulty-item easy">
-              <div class="difficulty-label">简单</div>
-              <div class="difficulty-bar">
-                <div class="bar-fill" :style="{ width: getBarWidth(difficultyStats.easy) + '%' }"></div>
-              </div>
-              <div class="difficulty-count">{{ difficultyStats.easy }}</div>
+      <!-- 进行中 -->
+      <section class="section-container" v-if="inProgressPaths.length > 0">
+        <h2 class="section-title">进行中</h2>
+        <div class="progress-cards">
+          <div 
+            v-for="path in inProgressPaths" 
+            :key="path.id"
+            class="progress-card"
+            @click="goToPath(path.id)"
+          >
+            <div class="progress-icon" :style="{ background: path.gradient }">
+              <el-icon :size="32"><component :is="path.icon" /></el-icon>
             </div>
-            <div class="difficulty-item medium">
-              <div class="difficulty-label">中等</div>
-              <div class="difficulty-bar">
-                <div class="bar-fill" :style="{ width: getBarWidth(difficultyStats.medium) + '%' }"></div>
+            <div class="progress-info">
+              <h3 class="progress-name">{{ path.name }}</h3>
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: path.progress + '%' }"></div>
+                </div>
+                <span class="progress-text">完成进度</span>
+                <span class="progress-count">{{ path.completed }} / {{ path.total }}</span>
               </div>
-              <div class="difficulty-count">{{ difficultyStats.medium }}</div>
-            </div>
-            <div class="difficulty-item hard">
-              <div class="difficulty-label">困难</div>
-              <div class="difficulty-bar">
-                <div class="bar-fill" :style="{ width: getBarWidth(difficultyStats.hard) + '%' }"></div>
-              </div>
-              <div class="difficulty-count">{{ difficultyStats.hard }}</div>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="section-card">
-          <div class="section-header">
-            <h2 class="section-title">最近提交</h2>
-            <router-link to="/submissions" class="view-all-link">
-              查看全部
-              <el-icon><ArrowRight /></el-icon>
-            </router-link>
+      <!-- 精选 -->
+      <section class="section-container">
+        <h2 class="section-title">精选</h2>
+        <div class="featured-grid">
+          <div 
+            v-for="path in featuredPaths" 
+            :key="path.id"
+            class="featured-card"
+            :style="{ background: path.gradient }"
+            @click="goToPath(path.id)"
+          >
+            <div class="featured-content">
+              <h3 class="featured-name">{{ path.name }}</h3>
+              <p class="featured-desc">{{ path.description }}</p>
+            </div>
+            <div class="featured-icon">
+              <el-icon :size="48"><component :is="path.icon" /></el-icon>
+            </div>
           </div>
-          <div class="recent-submissions">
-            <div 
-              v-for="submission in recentSubmissions" 
-              :key="submission.id"
-              class="submission-item"
-            >
-              <div class="submission-info">
-                <div class="submission-title">{{ submission.problemTitle }}</div>
-                <div class="submission-meta">
-                  <span :class="['result-badge', getResultClass(submission.result)]">
-                    {{ getResultText(submission.result) }}
-                  </span>
-                  <span class="submission-time">{{ formatTime(submission.submitTime) }}</span>
+        </div>
+      </section>
+
+      <!-- 所有学习路径 -->
+      <section class="section-container">
+        <div class="section-header-with-filter">
+          <h2 class="section-title">全部路径</h2>
+          <div class="filter-controls">
+            <el-select v-model="languageFilter" size="small" placeholder="语言" @change="handleFilterChange">
+              <el-option label="全部" value="all" />
+              <el-option label="Java" value="java" />
+              <el-option label="Python" value="python" />
+            </el-select>
+            <el-select v-model="directionFilter" size="small" placeholder="方向" @change="handleFilterChange">
+              <el-option label="全部" value="all" />
+              <el-option label="语言基础" value="language" />
+              <el-option label="算法与数据结构" value="algorithm" />
+              <el-option label="后端开发" value="backend" />
+            </el-select>
+          </div>
+        </div>
+        
+        <div v-if="learningPaths.length > 0" class="paths-grid">
+          <div 
+            v-for="path in paginatedLearningPaths" 
+            :key="path.id" 
+            class="path-card"
+            @click="goToPath(path.id)"
+          >
+            <div class="path-icon-wrapper" :style="{ background: path.gradient }">
+              <el-icon :size="28"><component :is="path.icon" /></el-icon>
+            </div>
+            <div class="path-content">
+              <div class="path-header">
+                <span class="path-language-tag" :class="path.language">{{ getLanguageLabel(path.language) }}</span>
+                <span class="path-direction-tag">{{ getDirectionLabel(path.direction) }}</span>
+              </div>
+              <h3 class="path-name">{{ path.name }}</h3>
+              <p class="path-description">{{ path.description }}</p>
+              <div class="path-meta">
+                <span class="problem-count">{{ path.problemCount || 0 }} 题</span>
+                <div v-if="path.progress > 0" class="path-progress">
+                  <div class="mini-progress-bar">
+                    <div class="mini-progress-fill" :style="{ width: path.progress + '%' }"></div>
+                  </div>
+                  <span class="mini-progress-text">{{ path.progress }}%</span>
                 </div>
               </div>
-              <el-icon class="arrow-icon"><ArrowRight /></el-icon>
-            </div>
-            
-            <div v-if="recentSubmissions.length === 0" class="empty-submissions">
-              <el-empty description="暂无提交记录" />
             </div>
           </div>
         </div>
-      </div>
+        
+        <div v-else class="empty-state">
+          <el-empty description="暂无学习路径" />
+        </div>
+
+        <div class="pagination-container" v-if="learningPaths.length > 0">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[8, 12, 16, 20]"
+            layout="total, sizes, prev, pager, next"
+            :total="total"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { getMyLearnStats } from '@/api/learn'
-import { getMySubmissions } from '@/api/submit'
-import { 
-  CircleCheck, 
-  Document, 
-  TrendCharts, 
-  Trophy, 
-  ArrowRight 
+import { ref, reactive, computed, onMounted, markRaw } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import {
+  ArrowRight,
+  Coffee,
+  DataLine,
+  Document,
+  Cpu,
+  Connection,
+  Collection,
+  Grid,
+  Histogram,
+  Menu,
+  OfficeBuilding,
+  Opportunity,
+  Platform,
+  Reading,
+  School,
+  TrendCharts
 } from '@element-plus/icons-vue'
+import { getAvailablePaths, getPathProgress } from '@/api/learn'
 
-const stats = ref({
-  solved: 0,
-  submitted: 0,
-  accuracy: 0,
-  streak: 0
+const router = useRouter()
+
+// 数据
+const inProgressPaths = ref([])
+const featuredPaths = ref([])
+const learningPaths = ref([])
+const currentPage = ref(1)
+const pageSize = ref(8)
+const total = ref(0)
+const languageFilter = ref('all')
+const directionFilter = ref('all')
+
+// 计算属性
+const paginatedLearningPaths = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return learningPaths.value.slice(start, end)
 })
 
-const difficultyStats = ref({
-  easy: 0,
-  medium: 0,
-  hard: 0
-})
-
-const recentSubmissions = ref([])
-
-const getResultClass = (result) => {
-  const classes = { 0: 'success', 1: 'error', 2: 'error', 3: 'warning', 4: 'warning' }
-  return classes[result] || 'info'
+// 获取图标组件
+const getIconComponent = (iconName) => {
+  const iconMap = {
+    'Coffee': markRaw(Coffee),
+    'DataLine': markRaw(DataLine),
+    'Document': markRaw(Document),
+    'Cpu': markRaw(Cpu),
+    'Connection': markRaw(Connection),
+    'Collection': markRaw(Collection),
+    'Grid': markRaw(Grid),
+    'Histogram': markRaw(Histogram),
+    'Menu': markRaw(Menu),
+    'OfficeBuilding': markRaw(OfficeBuilding),
+    'Opportunity': markRaw(Opportunity),
+    'Platform': markRaw(Platform),
+    'Reading': markRaw(Reading),
+    'School': markRaw(School),
+    'TrendCharts': markRaw(TrendCharts),
+    'ArrowRight': markRaw(ArrowRight)
+  }
+  return iconMap[iconName] || markRaw(Document)
 }
 
-const getResultText = (result) => {
-  const texts = { 0: '通过', 1: '答案错误', 2: '运行错误', 3: '超时', 4: '内存超限' }
-  return texts[result] || '未知'
+// 获取语言标签
+const getLanguageLabel = (language) => {
+  const labels = {
+    'java': 'Java',
+    'python': 'Python',
+    'cpp': 'C++',
+    'all': '通用'
+  }
+  return labels[language] || language
 }
 
-const formatTime = (time) => {
-  if (!time) return '未知'
-  const date = new Date(time)
-  if (isNaN(date.getTime())) return '未知'
-  const now = new Date()
-  const diff = now - date
-  
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  return `${Math.floor(diff / 86400000)}天前`
+// 获取方向标签
+const getDirectionLabel = (direction) => {
+  const labels = {
+    'language': '语言基础',
+    'algorithm': '算法与数据结构',
+    'backend': '后端开发',
+    'frontend': '前端开发',
+    'database': '数据库',
+    'system': '系统设计'
+  }
+  return labels[direction] || direction
 }
 
-const getBarWidth = (count) => {
-  const total = difficultyStats.value.easy + difficultyStats.value.medium + difficultyStats.value.hard
-  if (total === 0) return 0
-  return Math.min((count / total) * 100, 100)
-}
-
-const fetchStats = async () => {
+// 获取进行中的路径
+const fetchInProgressPaths = async () => {
   try {
-    const res = await getMyLearnStats()
-    if (res.code === 200) {
-      stats.value = res.data.stats || res.data
-      difficultyStats.value = res.data.difficultyStats || { easy: 0, medium: 0, hard: 0 }
+    const res = await getPathProgress()
+    if (res.code === 200 && res.data) {
+      const paths = Array.isArray(res.data) ? res.data : (res.data.paths || [])
+      inProgressPaths.value = paths.map(path => ({
+        ...path,
+        icon: getIconComponent(path.icon || 'Document'),
+        gradient: path.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }))
     }
   } catch (error) {
-    console.error('获取学习统计失败:', error)
+    console.error('获取进行中的路径失败:', error)
+    inProgressPaths.value = []
   }
 }
 
-const fetchRecentSubmissions = async () => {
+// 获取精选路径
+const fetchFeaturedPaths = async () => {
   try {
-    const res = await getMySubmissions({ page: 1, size: 5 })
-    if (res.code === 200) {
-      recentSubmissions.value = res.data.list || []
+    const res = await getAvailablePaths({ featured: true })
+    if (res.code === 200 && res.data) {
+      const paths = Array.isArray(res.data) ? res.data : (res.data.paths || [])
+      featuredPaths.value = paths.map(path => ({
+        ...path,
+        icon: getIconComponent(path.icon || 'Document'),
+        gradient: path.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }))
     }
   } catch (error) {
-    console.error('获取最近提交失败:', error)
+    console.error('获取精选路径失败:', error)
+    featuredPaths.value = []
   }
 }
 
+// 获取所有学习路径
+const fetchLearningPaths = async () => {
+  try {
+    const params = {}
+    if (languageFilter.value !== 'all') {
+      params.language = languageFilter.value
+    }
+    if (directionFilter.value !== 'all') {
+      params.direction = directionFilter.value
+    }
+    const res = await getAvailablePaths(params)
+    if (res.code === 200 && res.data) {
+      const paths = Array.isArray(res.data) ? res.data : (res.data.paths || [])
+      learningPaths.value = paths.map(path => ({
+        ...path,
+        icon: getIconComponent(path.icon || 'Document'),
+        gradient: path.gradient || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+      }))
+      total.value = learningPaths.value.length
+    }
+  } catch (error) {
+    console.error('获取学习路径失败:', error)
+    learningPaths.value = []
+    total.value = 0
+  }
+}
+
+// 处理筛选变化
+const handleFilterChange = () => {
+  currentPage.value = 1
+  fetchLearningPaths()
+}
+
+// 处理分页
+const handleSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+}
+
+const handleCurrentChange = (page) => {
+  currentPage.value = page
+}
+
+// 跳转到学习路径详情
+const goToPath = (pathId) => {
+  router.push(`/learn/path/${pathId}`)
+}
+
+// 跳转到我的学习计划
+const goToMyPlan = () => {
+  router.push('/learn/assessment')
+}
+
+// 初始化
 onMounted(() => {
-  fetchStats()
-  fetchRecentSubmissions()
+  fetchInProgressPaths()
+  fetchFeaturedPaths()
+  fetchLearningPaths()
 })
 </script>
 
 <style scoped>
-.leetcode-learn {
+.learning-plan-page {
   min-height: 100vh;
   background: var(--leetcode-bg-secondary, #F7F8FA);
   padding: 24px;
@@ -212,6 +332,9 @@ onMounted(() => {
 }
 
 .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 32px;
 }
 
@@ -219,299 +342,319 @@ onMounted(() => {
   font-size: 28px;
   font-weight: 700;
   color: var(--leetcode-text, #24292F);
-  margin: 0 0 8px 0;
-}
-
-.page-subtitle {
-  font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
   margin: 0;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.stat-card {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all 0.2s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.stat-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-}
-
-.stat-icon.solved {
-  background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
-}
-
-.stat-icon.submitted {
-  background: rgba(0, 102, 255, 0.1);
-  color: var(--leetcode-primary, #0066FF);
-}
-
-.stat-icon.accuracy {
-  background: rgba(255, 179, 0, 0.1);
-  color: var(--leetcode-warning, #FFB300);
-}
-
-.stat-icon.streak {
-  background: rgba(238, 77, 56, 0.1);
-  color: var(--leetcode-danger, #EE4D2E);
-}
-
-.stat-content {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--leetcode-text, #24292F);
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
-  font-weight: 500;
-}
-
-.content-sections {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.section-card {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  margin: 0;
-}
-
-.view-all-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--leetcode-primary, #0066FF);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.view-all-link:hover {
-  color: var(--leetcode-primary, #0066FF);
-  transform: translateX(4px);
-}
-
-.difficulty-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.difficulty-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.difficulty-label {
-  width: 60px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--leetcode-text, #24292F);
-}
-
-.difficulty-bar {
-  flex: 1;
-  height: 8px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease;
-}
-
-.difficulty-item.easy .bar-fill {
-  background: var(--leetcode-success, #00C853);
-}
-
-.difficulty-item.medium .bar-fill {
-  background: var(--leetcode-warning, #FFB300);
-}
-
-.difficulty-item.hard .bar-fill {
-  background: var(--leetcode-danger, #EE4D2E);
-}
-
-.difficulty-count {
-  width: 40px;
-  text-align: right;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-}
-
-.recent-submissions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.submission-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border-radius: 6px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.submission-item:hover {
-  background: #FFFFFF;
-  border-color: var(--leetcode-primary, #0066FF);
-  transform: translateX(4px);
-}
-
-.submission-info {
-  flex: 1;
-}
-
-.submission-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--leetcode-text, #24292F);
-  margin-bottom: 6px;
-}
-
-.submission-meta {
+.my-plan-btn {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.result-badge {
-  display: inline-block;
+.section-container {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--leetcode-text, #24292F);
+  margin: 0 0 16px 0;
+}
+
+.section-header-with-filter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.filter-controls {
+  display: flex;
+  gap: 12px;
+}
+
+/* 进行中卡片 */
+.progress-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.progress-card {
+  background: var(--leetcode-bg, #FFFFFF);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--leetcode-border, #E5E7EB);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  gap: 16px;
+}
+
+.progress-card:hover {
+  border-color: var(--leetcode-primary, #0066FF);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.1);
+}
+
+.progress-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+}
+
+.progress-info {
+  flex: 1;
+}
+
+.progress-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--leetcode-text, #24292F);
+  margin: 0 0 12px 0;
+}
+
+.progress-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--leetcode-primary, #0066FF);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--leetcode-text-secondary, #6B7280);
+}
+
+.progress-count {
+  font-size: 12px;
+  color: var(--leetcode-primary, #0066FF);
+  font-weight: 500;
+}
+
+/* 精选卡片 */
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.featured-card {
+  border-radius: 12px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+}
+
+.featured-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.featured-content {
+  flex: 1;
+}
+
+.featured-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.featured-desc {
+  font-size: 14px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.featured-icon {
+  opacity: 0.8;
+}
+
+/* 路径网格 */
+.paths-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.path-card {
+  background: var(--leetcode-bg, #FFFFFF);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--leetcode-border, #E5E7EB);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.path-card:hover {
+  border-color: var(--leetcode-primary, #0066FF);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.1);
+}
+
+.path-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  margin-bottom: 12px;
+}
+
+.path-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.path-language-tag {
+  font-size: 12px;
   padding: 2px 8px;
   border-radius: 4px;
+  font-weight: 500;
+}
+
+.path-language-tag.java {
+  background: #FFF3E0;
+  color: #F57C00;
+}
+
+.path-language-tag.python {
+  background: #E3F2FD;
+  color: #1976D2;
+}
+
+.path-language-tag.cpp {
+  background: #E8EAF6;
+  color: #3F51B5;
+}
+
+.path-direction-tag {
   font-size: 12px;
-  font-weight: 600;
-}
-
-.result-badge.success {
-  background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
-}
-
-.result-badge.error {
-  background: rgba(238, 77, 56, 0.1);
-  color: var(--leetcode-danger, #EE4D2E);
-}
-
-.result-badge.warning {
-  background: rgba(255, 179, 0, 0.1);
-  color: var(--leetcode-warning, #FFB300);
-}
-
-.result-badge.info {
-  background: rgba(134, 144, 156, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--leetcode-bg-secondary, #F7F8FA);
   color: var(--leetcode-text-secondary, #6B7280);
 }
 
-.submission-time {
-  font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
-}
-
-.arrow-icon {
-  color: var(--leetcode-text-secondary, #6B7280);
+.path-name {
   font-size: 16px;
+  font-weight: 600;
+  color: var(--leetcode-text, #24292F);
+  margin: 0 0 8px 0;
 }
 
-.empty-submissions {
-  padding: 40px 20px;
+.path-description {
+  font-size: 13px;
+  color: var(--leetcode-text-secondary, #6B7280);
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-@media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.path-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-  .content-sections {
-    grid-template-columns: 1fr;
-  }
+.problem-count {
+  font-size: 13px;
+  color: var(--leetcode-text-secondary, #6B7280);
+}
+
+.path-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-progress-bar {
+  width: 60px;
+  height: 4px;
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: var(--leetcode-success, #00C853);
+  border-radius: 2px;
+}
+
+.mini-progress-text {
+  font-size: 12px;
+  color: var(--leetcode-success, #00C853);
+  font-weight: 500;
+}
+
+/* 空状态 */
+.empty-state {
+  padding: 60px 20px;
+}
+
+/* 分页 */
+.pagination-container {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
-  .leetcode-learn {
+  .learning-plan-page {
     padding: 16px;
   }
-
-  .page-title {
-    font-size: 24px;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
+  
+  .page-header {
+    flex-direction: column;
     gap: 16px;
+    align-items: flex-start;
   }
-
-  .stat-card {
-    padding: 20px;
+  
+  .section-header-with-filter {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
   }
-
-  .stat-value {
-    font-size: 28px;
+  
+  .filter-controls {
+    width: 100%;
   }
-
-  .section-card {
-    padding: 20px;
+  
+  .progress-cards,
+  .featured-grid,
+  .paths-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

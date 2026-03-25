@@ -1,9 +1,11 @@
 package com.programming.service.impl;
 
 import com.programming.entity.*;
+import com.programming.handler.JudgeProgressHandler;
 import com.programming.mapper.*;
 import com.programming.service.CodeSandboxService;
 import com.programming.service.SubmitService;
+import com.programming.service.WrongBookService;
 import com.programming.vo.SubmitResultVO;
 import com.programming.vo.SubmitWithProblemVO;
 import com.programming.vo.TestCaseResultVO;
@@ -40,6 +42,12 @@ public class SubmitServiceImpl implements SubmitService {
     @Autowired
     private LearnRecordMapper learnRecordMapper;
 
+    @Autowired
+    private WrongBookService wrongBookService;
+
+    @Autowired
+    private JudgeProgressHandler judgeProgressHandler;
+
     @Override
     @Transactional
     public SubmitResultVO commit(Long userId, Long problemId, String code, String language) {
@@ -52,6 +60,14 @@ public class SubmitServiceImpl implements SubmitService {
         if (testCases == null || testCases.isEmpty()) {
             throw new RuntimeException("题目没有配置测试用例");
         }
+
+        // 发送开始判题消息
+        Map<String, Object> startMessage = Map.of(
+            "type", "start",
+            "message", "开始判题",
+            "totalTestCases", testCases.size()
+        );
+        judgeProgressHandler.sendProgress(userId, startMessage);
 
         List<String> inputs = new ArrayList<>();
         for (TestCase testCase : testCases) {
@@ -70,10 +86,20 @@ public class SubmitServiceImpl implements SubmitService {
         int maxTimeCost = 0;
         int maxMemoryCost = 0;
         List<SubmitTestCaseResult> testCaseResults = new ArrayList<>();
+        int passedCount = 0;
 
         for (int i = 0; i < testCases.size(); i++) {
             TestCase testCase = testCases.get(i);
             CodeExecutionResult execResult = executionResults.get(i);
+            
+            // 发送测试用例开始执行消息
+            Map<String, Object> testCaseStartMessage = Map.of(
+                "type", "testCaseStart",
+                "testCaseIndex", i + 1,
+                "totalTestCases", testCases.size(),
+                "message", "执行测试用例 " + (i + 1)
+            );
+            judgeProgressHandler.sendProgress(userId, testCaseStartMessage);
             
             SubmitTestCaseResult result = new SubmitTestCaseResult();
             result.setTestCaseId(testCase.getId());
@@ -81,20 +107,24 @@ public class SubmitServiceImpl implements SubmitService {
             result.setMemoryCost((int) execResult.getMemoryCost());
             result.setActualOutput(execResult.getOutput());
             
+            String testCaseStatus = "";
             if (execResult.getExitCode() == 2) {
                 result.setResult(2);
                 result.setErrorMessage(execResult.getErrorMessage());
                 finalResult = 2;
+                testCaseStatus = "编译错误";
                 log.error("编译错误 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
             } else if (execResult.getExitCode() == 3) {
                 result.setResult(3);
                 result.setErrorMessage(execResult.getErrorMessage());
                 finalResult = 3;
+                testCaseStatus = "运行错误";
                 log.error("运行错误 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
             } else if (execResult.getExitCode() == 4) {
                 result.setResult(4);
                 result.setErrorMessage(execResult.getErrorMessage());
                 finalResult = 4;
+                testCaseStatus = "运行失败";
                 log.error("运行失败 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
             } else {
                 String expectedOutput = testCase.getOutput().trim();
@@ -102,14 +132,29 @@ public class SubmitServiceImpl implements SubmitService {
                 
                 if (expectedOutput.equals(actualOutput)) {
                     result.setResult(0);
+                    testCaseStatus = "通过";
+                    passedCount++;
                     log.info("测试用例通过 - 题目ID: {}, 测试用例ID: {}, 耗时: {}ms", problemId, testCase.getId(), execResult.getTimeCost());
                 } else {
                     result.setResult(1);
                     finalResult = 1;
+                    testCaseStatus = "答案错误";
                     log.warn("答案错误 - 题目ID: {}, 测试用例ID: {}, 预期: {}, 实际: {}", 
                             problemId, testCase.getId(), expectedOutput, actualOutput);
                 }
             }
+            
+            // 发送测试用例执行完成消息
+            Map<String, Object> testCaseCompleteMessage = Map.of(
+                "type", "testCaseComplete",
+                "testCaseIndex", i + 1,
+                "totalTestCases", testCases.size(),
+                "status", testCaseStatus,
+                "timeCost", result.getTimeCost(),
+                "memoryCost", result.getMemoryCost(),
+                "passedCount", passedCount
+            );
+            judgeProgressHandler.sendProgress(userId, testCaseCompleteMessage);
             
             if (result.getTimeCost() > maxTimeCost) {
                 maxTimeCost = result.getTimeCost();
@@ -172,7 +217,7 @@ public class SubmitServiceImpl implements SubmitService {
         }
 
         List<TestCaseResultVO> testCaseResultVOs = new ArrayList<>();
-        int passedCount = 0;
+        int testCasePassedCount = 0;
         for (int i = 0; i < testCaseResults.size(); i++) {
             SubmitTestCaseResult result = testCaseResults.get(i);
             TestCase testCase = testCases.get(i);
@@ -188,12 +233,29 @@ public class SubmitServiceImpl implements SubmitService {
             testCaseResultVOs.add(vo);
             
             if (result.getResult() == 0) {
-                passedCount++;
+                testCasePassedCount++;
             }
         }
         resultVO.setTestCaseResults(testCaseResultVOs);
-        resultVO.setPassedCount(passedCount);
+        resultVO.setPassedCount(testCasePassedCount);
         resultVO.setTotalCount(testCaseResults.size());
+
+        // 自动添加错题到错题本
+        if (finalResult != 0) {
+            try {
+                wrongBookService.autoAddWrongItem(userId, submit, problem);
+            } catch (Exception e) {
+                log.error("添加错题到错题本失败", e);
+            }
+        }
+
+        // 发送判题完成消息
+        Map<String, Object> completeMessage = Map.of(
+            "type", "complete",
+            "result", resultVO,
+            "message", "判题完成"
+        );
+        judgeProgressHandler.sendComplete(userId, completeMessage);
 
         return resultVO;
     }

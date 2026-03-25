@@ -3,21 +3,85 @@ import { ElMessageBox } from 'element-plus'
 let router = null
 let userStore = null
 
+const DEFAULT_JSON_ERROR = { code: 500, msg: '服务端返回了无效响应', data: null }
+const DEFAULT_UNAUTHORIZED = { code: 401, msg: '未登录', data: null }
+const CANCELLED_UNAUTHORIZED = { code: 401, msg: '用户取消重新登录', data: null }
+
+const appendQuery = (url, params) => {
+  if (!params || typeof params !== 'object') {
+    return url
+  }
+
+  const searchParams = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== undefined && item !== null && item !== '') {
+          searchParams.append(key, item)
+        }
+      })
+      return
+    }
+
+    searchParams.append(key, value)
+  })
+
+  const query = searchParams.toString()
+  if (!query) {
+    return url
+  }
+
+  return `${url}${url.includes('?') ? '&' : '?'}${query}`
+}
+
+const normalizeRequest = (input, options = {}) => {
+  if (typeof input === 'string') {
+    return {
+      url: appendQuery(input, options.params),
+      options: { ...options, params: undefined }
+    }
+  }
+
+  if (input && typeof input === 'object' && typeof input.url === 'string') {
+    const mergedOptions = {
+      ...input,
+      ...options,
+      headers: {
+        ...(input.headers || {}),
+        ...(options.headers || {})
+      }
+    }
+
+    return {
+      url: appendQuery(input.url, mergedOptions.params),
+      options: { ...mergedOptions, url: undefined, params: undefined }
+    }
+  }
+
+  throw new Error('Invalid request config')
+}
+
+const parseJson = (response) => response.json().catch(() => DEFAULT_JSON_ERROR)
+
 const handleTokenExpired = () => {
   return ElMessageBox.confirm('登录已过期，请重新登录', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    if (userStore) {
-      userStore.clearToken()
-    }
-    if (router) {
-      router.push('/login')
-    }
-  }).catch(() => {
-    return Promise.reject(new Error('用户取消'))
   })
+    .then(() => {
+      if (userStore) {
+        userStore.clearToken()
+      }
+      if (router) {
+        router.push('/login')
+      }
+    })
+    .catch(() => Promise.reject(new Error('cancelled')))
 }
 
 export const setRequestContext = (r, u) => {
@@ -25,62 +89,55 @@ export const setRequestContext = (r, u) => {
   userStore = u
 }
 
-const request = (url, options = {}) => {
+const request = (input, options = {}) => {
+  const { url, options: normalizedOptions } = normalizeRequest(input, options)
   const token = localStorage.getItem('token')
-  console.log('========== 请求开始 ==========')
-  console.log('请求 URL:', url)
-  console.log('Token 原始值:', token)
-  console.log('Token 类型:', typeof token)
-  console.log('Token 长度:', token ? token.length : 0)
-  console.log('Token 前10个字符:', token ? token.substring(0, 10) : 'N/A')
-  
+
   const headers = {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    ...(normalizedOptions.headers || {})
   }
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-    console.log('设置 Authorization header:', headers['Authorization'])
-  }
-
-  if (options.headers) {
-    console.log('合并自定义 headers:', options.headers)
-    Object.assign(headers, options.headers)
+    headers.Authorization = `Bearer ${token}`
   }
 
   const fetchOptions = {
-    ...options,
-    headers: headers
+    ...normalizedOptions,
+    method: (normalizedOptions.method || 'GET').toUpperCase(),
+    headers
   }
 
-  if (fetchOptions.data) {
-    // 如果是FormData对象，直接使用，不进行JSON转换
+  delete fetchOptions.url
+  delete fetchOptions.params
+
+  if (fetchOptions.data !== undefined) {
     if (fetchOptions.data instanceof FormData) {
       fetchOptions.body = fetchOptions.data
-      // 删除默认的Content-Type，让浏览器自动设置
-      delete headers['Content-Type']
+      delete fetchOptions.headers['Content-Type']
     } else {
       fetchOptions.body = JSON.stringify(fetchOptions.data)
     }
     delete fetchOptions.data
   }
 
-  console.log('最终 headers:', headers)
-  console.log('Authorization header:', headers.Authorization)
-  console.log('Authorization header 类型:', typeof headers.Authorization)
-  console.log('完整请求选项:', fetchOptions)
-  console.log('========== 请求结束 ==========')
+  const runFetch = () => fetch(url, fetchOptions)
 
-  return fetch(url, fetchOptions)
-    .then(res => {
-      if (res.status === 401) {
+  return runFetch()
+    .then((response) => {
+      if (response.status === 401) {
         return handleTokenExpired()
+          .then(() => runFetch().then(parseJson).catch(() => DEFAULT_UNAUTHORIZED))
+          .catch(() => CANCELLED_UNAUTHORIZED)
       }
-      return res.json()
+
+      return parseJson(response)
     })
-    .then(data => {
+    .then((data) => {
       if (data && data.code === 401) {
         return handleTokenExpired()
+          .then(() => runFetch().then(parseJson).catch(() => DEFAULT_UNAUTHORIZED))
+          .catch(() => CANCELLED_UNAUTHORIZED)
       }
       return data
     })

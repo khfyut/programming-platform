@@ -3,7 +3,7 @@
     <div class="wrong-book-container">
       <div class="page-header">
         <h1 class="page-title">错题本</h1>
-        <p class="page-subtitle">智能错题管理，科学复习计划</p>
+        <p class="page-subtitle">集中管理做错的题目，按错误原因和知识点安排复习。</p>
       </div>
 
       <div class="stats-overview">
@@ -12,7 +12,7 @@
             <el-icon><Document /></el-icon>
           </div>
           <div class="stat-content">
-            <div class="stat-value">{{ statistics.totalCount || 0 }}</div>
+            <div class="stat-value">{{ totalCount }}</div>
             <div class="stat-label">错题总数</div>
           </div>
         </div>
@@ -45,7 +45,7 @@
                 placeholder="知识点筛选"
                 clearable
                 class="filter-select"
-                @change="fetchWrongBookList"
+                @change="handleFilterChange"
               >
                 <el-option
                   v-for="point in knowledgePoints"
@@ -59,7 +59,7 @@
                 placeholder="难度筛选"
                 clearable
                 class="filter-select"
-                @change="fetchWrongBookList"
+                @change="handleFilterChange"
               >
                 <el-option label="简单" :value="0" />
                 <el-option label="中等" :value="1" />
@@ -67,6 +67,7 @@
               </el-select>
             </div>
             <div class="filter-right">
+              <el-button @click="fetchAllData">刷新</el-button>
               <el-button type="primary" @click="showReviewPlan">
                 <el-icon><Calendar /></el-icon>
                 复习计划
@@ -74,15 +75,15 @@
             </div>
           </div>
 
-          <div class="wrong-list" v-loading="loading">
+          <div v-loading="loading" class="wrong-list">
             <div
-              v-for="item in wrongList"
+              v-for="item in pagedWrongList"
               :key="item.id"
               class="wrong-item"
               @click="showWrongDetail(item)"
             >
               <div class="wrong-left">
-                <div class="wrong-status" :class="item.reviewStatus">
+                <div class="wrong-status" :class="getStatusClass(item.reviewStatus)">
                   {{ getStatusText(item.reviewStatus) }}
                 </div>
                 <div class="wrong-info">
@@ -90,35 +91,29 @@
                   <div class="wrong-meta">
                     <span class="meta-item">
                       <el-icon><Document /></el-icon>
-                      {{ item.errorType || '未知错误' }}
+                      {{ item.errorMessage || '未知错误' }}
                     </span>
                     <span class="meta-item">
                       <el-icon><Clock /></el-icon>
-                      {{ formatTime(item.submitTime) }}
+                      {{ formatTime(item.createTime) }}
+                    </span>
+                    <span class="meta-item" v-if="item.knowledgePoints">
+                      {{ item.knowledgePoints }}
                     </span>
                   </div>
                 </div>
               </div>
               <div class="wrong-right">
-                <el-button
-                  type="primary"
-                  size="small"
-                  @click.stop="reviewItem(item)"
-                >
-                  复习
+                <el-button type="primary" size="small" @click.stop="reviewItem(item)">
+                  标记已复习
                 </el-button>
-                <el-button
-                  type="danger"
-                  size="small"
-                  text
-                  @click.stop="deleteItem(item.id)"
-                >
+                <el-button type="danger" size="small" text @click.stop="deleteItem(item.id)">
                   <el-icon><Delete /></el-icon>
                 </el-button>
               </div>
             </div>
 
-            <el-empty v-if="wrongList.length === 0 && !loading" description="暂无错题记录" />
+            <el-empty v-if="pagedWrongList.length === 0 && !loading" description="暂无错题记录" />
           </div>
 
           <div class="pagination-section">
@@ -128,8 +123,6 @@
               :total="pagination.total"
               :page-sizes="[10, 20, 50]"
               layout="total, sizes, prev, pager, next"
-              @size-change="fetchWrongBookList"
-              @current-change="fetchWrongBookList"
             />
           </div>
         </div>
@@ -137,22 +130,23 @@
         <div class="side-content">
           <div class="distribution-card">
             <h3 class="card-title">知识点分布</h3>
-            <div class="distribution-chart">
+            <div v-if="knowledgeDistribution.length > 0" class="distribution-chart">
               <div
                 v-for="item in knowledgeDistribution"
                 :key="item.knowledgePoint"
                 class="distribution-item"
               >
-                <div class="distribution-label">{{ item.knowledgePoint }}</div>
+                <div class="distribution-label">{{ item.knowledgePoint || '未分类' }}</div>
                 <div class="distribution-bar">
                   <div
                     class="bar-fill"
-                    :style="{ width: (item.count / maxKnowledgeCount * 100) + '%' }"
+                    :style="{ width: `${(item.count / maxKnowledgeCount) * 100}%` }"
                   ></div>
                 </div>
                 <div class="distribution-count">{{ item.count }}</div>
               </div>
             </div>
+            <el-empty v-else description="暂无知识点分布数据" />
           </div>
 
           <div class="distribution-card">
@@ -161,32 +155,23 @@
               <div class="difficulty-item easy">
                 <div class="difficulty-label">简单</div>
                 <div class="difficulty-bar">
-                  <div
-                    class="bar-fill"
-                    :style="{ width: getDifficultyWidth(0) + '%' }"
-                  ></div>
+                  <div class="bar-fill" :style="{ width: `${getDifficultyWidth(0)}%` }"></div>
                 </div>
-                <div class="difficulty-count">{{ difficultyDistribution.easy || 0 }}</div>
+                <div class="difficulty-count">{{ difficultyDistribution.easy }}</div>
               </div>
               <div class="difficulty-item medium">
                 <div class="difficulty-label">中等</div>
                 <div class="difficulty-bar">
-                  <div
-                    class="bar-fill"
-                    :style="{ width: getDifficultyWidth(1) + '%' }"
-                  ></div>
+                  <div class="bar-fill" :style="{ width: `${getDifficultyWidth(1)}%` }"></div>
                 </div>
-                <div class="difficulty-count">{{ difficultyDistribution.medium || 0 }}</div>
+                <div class="difficulty-count">{{ difficultyDistribution.medium }}</div>
               </div>
               <div class="difficulty-item hard">
                 <div class="difficulty-label">困难</div>
                 <div class="difficulty-bar">
-                  <div
-                    class="bar-fill"
-                    :style="{ width: getDifficultyWidth(2) + '%' }"
-                  ></div>
+                  <div class="bar-fill" :style="{ width: `${getDifficultyWidth(2)}%` }"></div>
                 </div>
-                <div class="difficulty-count">{{ difficultyDistribution.hard || 0 }}</div>
+                <div class="difficulty-count">{{ difficultyDistribution.hard }}</div>
               </div>
             </div>
           </div>
@@ -194,76 +179,70 @@
       </div>
     </div>
 
-    <el-dialog
-      v-model="detailVisible"
-      title="错题详情"
-      width="800px"
-      class="detail-dialog"
-    >
-      <div v-if="currentWrong" class="wrong-detail">
+    <el-dialog v-model="detailVisible" title="错题详情" width="800px" class="detail-dialog">
+      <div v-if="currentWrong" class="wrong-detail" v-loading="detailLoading">
         <div class="detail-section">
           <h4>题目信息</h4>
           <div class="problem-info">
-            <div class="problem-title">{{ currentWrong.problem?.title }}</div>
-            <div class="problem-content">{{ currentWrong.problem?.content }}</div>
+            <div class="problem-title">{{ currentWrong.problem?.title || currentWrong.problemTitle }}</div>
+            <div class="problem-content">
+              {{ currentWrong.problem?.content || '当前错题记录未附带完整题面，可点击下方按钮前往题目详情。' }}
+            </div>
           </div>
         </div>
         <div class="detail-section">
           <h4>错误分析</h4>
           <div class="error-analysis">
             <div class="analysis-item">
-              <span class="label">错误类型：</span>
-              <span class="value">{{ currentWrong.errorType }}</span>
-            </div>
-            <div class="analysis-item">
               <span class="label">错误信息：</span>
-              <span class="value">{{ currentWrong.errorMessage }}</span>
+              <span class="value">{{ currentWrong.errorMessage || '未知错误' }}</span>
             </div>
             <div class="analysis-item">
-              <span class="label">分析建议：</span>
-              <span class="value">{{ currentWrong.analysis }}</span>
+              <span class="label">知识点：</span>
+              <span class="value">{{ currentWrong.knowledgePoints || '未标注' }}</span>
+            </div>
+            <div class="analysis-item">
+              <span class="label">最近记录：</span>
+              <span class="value">{{ formatDateTime(currentWrong.createTime) }}</span>
             </div>
           </div>
         </div>
         <div class="detail-section">
           <h4>提交代码</h4>
-          <pre class="code-block">{{ currentWrong.submission?.code }}</pre>
+          <pre class="code-block">{{ currentWrong.code || '暂无代码记录' }}</pre>
         </div>
       </div>
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
+        <el-button v-if="currentWrong?.problemId" @click="openProblem(currentWrong.problemId)">前往题目</el-button>
         <el-button type="primary" @click="reviewCurrentItem">标记已复习</el-button>
-        <el-button type="success" @click="getRecommendations">推荐练习</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog
-      v-model="planVisible"
-      title="复习计划"
-      width="600px"
-      class="plan-dialog"
-    >
+    <el-dialog v-model="planVisible" title="复习计划" width="600px" class="plan-dialog">
       <div class="review-plan">
         <div class="plan-header">
-          <span class="plan-title">待复习题目</span>
+          <span class="plan-title">待安排复习项</span>
           <span class="plan-count">{{ reviewPlan.length }} 项</span>
         </div>
-        <div class="plan-list">
+        <div v-if="reviewPlan.length > 0" class="plan-list">
           <div
             v-for="plan in reviewPlan"
             :key="plan.id"
             class="plan-item"
-            :class="{ reviewed: plan.reviewed }"
+            :class="{ reviewed: Number(plan.status) === 1 }"
           >
             <div class="plan-info">
-              <div class="plan-title">{{ plan.problemTitle }}</div>
+              <div class="plan-title">
+                {{ getPlanTitle(plan) }}
+              </div>
               <div class="plan-time">
-                计划时间：{{ formatDateTime(plan.scheduledTime) }}
+                计划时间：{{ formatDateTime(plan.nextReviewTime) }}
               </div>
             </div>
             <div class="plan-actions">
               <el-button
-                v-if="!plan.reviewed"
+                v-if="Number(plan.status) !== 1"
                 type="primary"
                 size="small"
                 @click="markReviewed(plan)"
@@ -274,42 +253,44 @@
             </div>
           </div>
         </div>
+        <el-empty v-else description="暂无复习计划" />
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Document,
-  Clock,
-  CircleCheck,
   Calendar,
-  Delete
+  CircleCheck,
+  Clock,
+  Delete,
+  Document
 } from '@element-plus/icons-vue'
+import { getProblemDetail } from '@/api/problem'
 import {
-  getWrongBookList,
-  getWrongBookDetail,
-  reviewWrongBook,
-  getReviewPlan,
-  getPendingReviews,
-  updateReviewPlan,
-  getWrongBookStatistics,
-  getKnowledgeDistribution,
+  deleteWrongBookItem,
   getDifficultyDistribution,
-  deleteWrongBookItem
+  getKnowledgeDistribution,
+  getReviewPlan,
+  getWrongBookDetail,
+  getWrongBookList,
+  getWrongBookStatistics,
+  reviewWrongBook,
+  updateReviewPlan
 } from '@/api/wrongBook'
 
 const router = useRouter()
 
 const loading = ref(false)
+const detailLoading = ref(false)
 const wrongList = ref([])
 const statistics = ref({})
 const knowledgeDistribution = ref([])
-const difficultyDistribution = ref({})
+const difficultyDistributionRaw = ref([])
 const reviewPlan = ref([])
 const knowledgePoints = ref([])
 
@@ -328,80 +309,128 @@ const detailVisible = ref(false)
 const planVisible = ref(false)
 const currentWrong = ref(null)
 
-const pendingCount = computed(() => {
-  return wrongList.value.filter(item => item.reviewStatus === 'pending').length
+const difficultyDistribution = computed(() => {
+  const result = { easy: 0, medium: 0, hard: 0 }
+  for (const item of difficultyDistributionRaw.value) {
+    const difficulty = Number(item.difficulty)
+    const count = Number(item.count || 0)
+    if (difficulty === 0) result.easy = count
+    if (difficulty === 1) result.medium = count
+    if (difficulty === 2) result.hard = count
+  }
+  return result
 })
 
-const reviewedCount = computed(() => {
-  return wrongList.value.filter(item => item.reviewStatus === 'reviewed').length
-})
+const totalCount = computed(() => Number(statistics.value.totalCount ?? wrongList.value.length ?? 0))
+const pendingCount = computed(() => Number(statistics.value.pendingCount ?? wrongList.value.filter((item) => Number(item.reviewStatus) === 0).length))
+const reviewedCount = computed(() => Number(statistics.value.reviewedCount ?? wrongList.value.filter((item) => Number(item.reviewStatus) === 1).length))
 
 const maxKnowledgeCount = computed(() => {
   if (knowledgeDistribution.value.length === 0) return 1
-  return Math.max(...knowledgeDistribution.value.map(item => item.count))
+  return Math.max(...knowledgeDistribution.value.map((item) => Number(item.count || 0)), 1)
+})
+
+const pagedWrongList = computed(() => {
+  const start = (pagination.page - 1) * pagination.size
+  const end = start + pagination.size
+  return wrongList.value.slice(start, end)
+})
+
+const wrongItemMap = computed(() =>
+  Object.fromEntries(wrongList.value.map((item) => [item.id, item]))
+)
+
+const normalizeWrongItem = (item = {}) => ({
+  ...item,
+  problemTitle: item.problem?.title || item.problemTitle || `题目 #${item.problemId}`,
+  errorMessage: item.errorMessage || '未知错误',
+  reviewStatus: Number(item.reviewStatus ?? 0),
+  createTime: item.createTime || item.updateTime || null,
+  knowledgePoints: item.knowledgePoints || '',
+  language: (item.language || '').toUpperCase()
 })
 
 const getStatusText = (status) => {
-  const texts = {
-    pending: '待复习',
-    reviewed: '已复习',
-    mastering: '掌握中'
+  const mapping = {
+    0: '待复习',
+    1: '已复习',
+    2: '掌握中'
   }
-  return texts[status] || '未知'
+  return mapping[Number(status)] || '未知'
+}
+
+const getStatusClass = (status) => {
+  const mapping = {
+    0: 'pending',
+    1: 'reviewed',
+    2: 'mastering'
+  }
+  return mapping[Number(status)] || 'pending'
 }
 
 const formatTime = (time) => {
   if (!time) return '未知'
   const date = new Date(time)
-  const now = new Date()
-  const diff = now - date
-  
+  if (Number.isNaN(date.getTime())) return '未知'
+  const diff = Date.now() - date.getTime()
+
   if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  return `${Math.floor(diff / 86400000)}天前`
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  return `${Math.floor(diff / 86400000)} 天前`
 }
 
 const formatDateTime = (time) => {
   if (!time) return '未设置'
   const date = new Date(time)
+  if (Number.isNaN(date.getTime())) return '未设置'
   return date.toLocaleString('zh-CN')
 }
 
 const getDifficultyWidth = (difficulty) => {
-  const total = (difficultyDistribution.value.easy || 0) +
-                (difficultyDistribution.value.medium || 0) +
-                (difficultyDistribution.value.hard || 0)
+  const total =
+    difficultyDistribution.value.easy +
+    difficultyDistribution.value.medium +
+    difficultyDistribution.value.hard
   if (total === 0) return 0
-  
-  const count = difficulty === 0 ? difficultyDistribution.value.easy :
-                difficulty === 1 ? difficultyDistribution.value.medium :
-                difficultyDistribution.value.hard
-  return (count / total) * 100
+
+  if (difficulty === 0) return (difficultyDistribution.value.easy / total) * 100
+  if (difficulty === 1) return (difficultyDistribution.value.medium / total) * 100
+  return (difficultyDistribution.value.hard / total) * 100
+}
+
+const getPlanTitle = (plan) => {
+  const wrongItem = wrongItemMap.value[plan.wrongItemId]
+  return wrongItem?.problemTitle || `错题 #${plan.wrongItemId}`
 }
 
 const fetchWrongBookList = async () => {
   loading.value = true
   try {
-    const params = {
-      page: pagination.page,
-      size: pagination.size
-    }
-    
+    const params = {}
     if (filters.knowledgePoint) {
       params.knowledgePoint = filters.knowledgePoint
     }
-    if (filters.difficulty !== null) {
+    if (filters.difficulty !== null && filters.difficulty !== undefined) {
       params.difficulty = filters.difficulty
     }
-    
+
     const res = await getWrongBookList(params)
-    if (res.code === 200) {
-      wrongList.value = res.data || []
-      pagination.total = res.data?.total || 0
+    if (res?.code === 200) {
+      wrongList.value = Array.isArray(res.data) ? res.data.map(normalizeWrongItem) : []
+      pagination.total = wrongList.value.length
+      if ((pagination.page - 1) * pagination.size >= pagination.total) {
+        pagination.page = 1
+      }
+      return
     }
+
+    wrongList.value = []
+    pagination.total = 0
   } catch (error) {
     console.error('获取错题列表失败:', error)
+    wrongList.value = []
+    pagination.total = 0
   } finally {
     loading.value = false
   }
@@ -410,57 +439,99 @@ const fetchWrongBookList = async () => {
 const fetchStatistics = async () => {
   try {
     const res = await getWrongBookStatistics()
-    if (res.code === 200) {
+    if (res?.code === 200) {
       statistics.value = res.data || {}
     }
   } catch (error) {
-    console.error('获取统计数据失败:', error)
+    console.error('获取错题统计失败:', error)
   }
 }
 
 const fetchKnowledgeDistribution = async () => {
   try {
     const res = await getKnowledgeDistribution()
-    if (res.code === 200) {
-      knowledgeDistribution.value = res.data?.data || []
-      knowledgePoints.value = knowledgeDistribution.value.map(item => item.knowledgePoint)
+    if (res?.code === 200) {
+      knowledgeDistribution.value = Array.isArray(res.data) ? res.data : []
+      knowledgePoints.value = knowledgeDistribution.value
+        .map((item) => item.knowledgePoint)
+        .filter(Boolean)
+      return
     }
+
+    knowledgeDistribution.value = []
+    knowledgePoints.value = []
   } catch (error) {
     console.error('获取知识点分布失败:', error)
+    knowledgeDistribution.value = []
+    knowledgePoints.value = []
   }
 }
 
 const fetchDifficultyDistribution = async () => {
   try {
     const res = await getDifficultyDistribution()
-    if (res.code === 200) {
-      difficultyDistribution.value = res.data?.data || {}
+    if (res?.code === 200) {
+      difficultyDistributionRaw.value = Array.isArray(res.data) ? res.data : []
+      return
     }
+    difficultyDistributionRaw.value = []
   } catch (error) {
     console.error('获取难度分布失败:', error)
+    difficultyDistributionRaw.value = []
   }
 }
 
 const fetchReviewPlan = async () => {
   try {
     const res = await getReviewPlan()
-    if (res.code === 200) {
-      reviewPlan.value = res.data || []
+    if (res?.code === 200) {
+      reviewPlan.value = Array.isArray(res.data) ? res.data : []
+      return
     }
+    reviewPlan.value = []
   } catch (error) {
     console.error('获取复习计划失败:', error)
+    reviewPlan.value = []
   }
 }
 
-const showWrongDetail = async (item) => {
+const hydrateProblemDetail = async (item) => {
+  if (!item?.problemId) {
+    return item
+  }
+
   try {
-    const res = await getWrongBookDetail(item.id)
-    if (res.code === 200) {
-      currentWrong.value = res.data
-      detailVisible.value = true
+    const res = await getProblemDetail(item.problemId)
+    if (res?.code === 200) {
+      return {
+        ...item,
+        problem: res.data,
+        problemTitle: res.data?.title || item.problemTitle
+      }
     }
   } catch (error) {
-    ElMessage.error('获取详情失败')
+    console.error('获取题目详情失败:', error)
+  }
+
+  return item
+}
+
+const showWrongDetail = async (item) => {
+  detailVisible.value = true
+  detailLoading.value = true
+
+  try {
+    const res = await getWrongBookDetail(item.id)
+    if (res?.code === 200) {
+      currentWrong.value = await hydrateProblemDetail(normalizeWrongItem(res.data))
+      return
+    }
+    throw new Error('获取详情失败')
+  } catch (error) {
+    ElMessage.error(error.message || '获取详情失败')
+    currentWrong.value = await hydrateProblemDetail(item)
+  } finally {
+    detailLoading.value = false
   }
 }
 
@@ -468,12 +539,11 @@ const reviewItem = async (item) => {
   try {
     const res = await reviewWrongBook({
       id: item.id,
-      status: 'reviewed'
+      status: 1
     })
-    if (res.code === 200) {
+    if (res?.code === 200) {
       ElMessage.success('已标记为已复习')
-      fetchWrongBookList()
-      fetchStatistics()
+      await fetchAllData()
     }
   } catch (error) {
     ElMessage.error('操作失败')
@@ -493,12 +563,11 @@ const deleteItem = async (id) => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
+
     const res = await deleteWrongBookItem(id)
-    if (res.code === 200) {
+    if (res?.code === 200) {
       ElMessage.success('删除成功')
-      fetchWrongBookList()
-      fetchStatistics()
+      await fetchAllData()
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -507,36 +576,50 @@ const deleteItem = async (id) => {
   }
 }
 
-const showReviewPlan = () => {
-  fetchReviewPlan()
+const showReviewPlan = async () => {
+  await fetchReviewPlan()
   planVisible.value = true
 }
 
 const markReviewed = async (plan) => {
   try {
     const res = await updateReviewPlan({
-      id: plan.id,
+      id: plan.wrongItemId,
       reviewed: true
     })
-    if (res.code === 200) {
+    if (res?.code === 200) {
       ElMessage.success('已标记完成')
-      fetchReviewPlan()
-      fetchWrongBookList()
+      await fetchReviewPlan()
+      await fetchWrongBookList()
+      await fetchStatistics()
     }
   } catch (error) {
     ElMessage.error('操作失败')
   }
 }
 
-const getRecommendations = () => {
-  ElMessage.info('正在为您推荐相关练习题...')
+const openProblem = (problemId) => {
+  if (!problemId) return
+  detailVisible.value = false
+  router.push(`/problem/${problemId}`)
+}
+
+const handleFilterChange = () => {
+  pagination.page = 1
+  fetchWrongBookList()
+}
+
+const fetchAllData = async () => {
+  await Promise.all([
+    fetchWrongBookList(),
+    fetchStatistics(),
+    fetchKnowledgeDistribution(),
+    fetchDifficultyDistribution()
+  ])
 }
 
 onMounted(() => {
-  fetchWrongBookList()
-  fetchStatistics()
-  fetchKnowledgeDistribution()
-  fetchDifficultyDistribution()
+  fetchAllData()
 })
 </script>
 
@@ -544,7 +627,7 @@ onMounted(() => {
 .wrong-book-page {
   width: 100%;
   min-height: 100vh;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   padding: 24px;
   box-sizing: border-box;
 }
@@ -561,13 +644,13 @@ onMounted(() => {
 .page-title {
   font-size: 28px;
   font-weight: 700;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 8px 0;
+  color: var(--leetcode-text, #24292f);
+  margin: 0 0 8px;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   margin: 0;
 }
 
@@ -579,10 +662,10 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: var(--leetcode-bg, #FFFFFF);
+  background: var(--leetcode-bg, #fff);
   border-radius: 12px;
   padding: 24px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   display: flex;
   align-items: center;
   gap: 16px;
@@ -606,17 +689,17 @@ onMounted(() => {
 
 .stat-icon.total {
   background: rgba(0, 102, 255, 0.1);
-  color: var(--leetcode-primary, #0066FF);
+  color: var(--leetcode-primary, #0066ff);
 }
 
 .stat-icon.pending {
   background: rgba(255, 179, 0, 0.1);
-  color: var(--leetcode-warning, #FFB300);
+  color: var(--leetcode-warning, #ffb300);
 }
 
 .stat-icon.reviewed {
   background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
+  color: var(--leetcode-success, #00c853);
 }
 
 .stat-content {
@@ -626,14 +709,14 @@ onMounted(() => {
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-weight: 500;
 }
 
@@ -644,9 +727,9 @@ onMounted(() => {
 }
 
 .main-content {
-  background: var(--leetcode-bg, #FFFFFF);
+  background: var(--leetcode-bg, #fff);
   border-radius: 12px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   overflow: hidden;
 }
 
@@ -655,21 +738,23 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
-}
-
-.filter-left {
-  display: flex;
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
   gap: 12px;
 }
 
+.filter-left,
+.filter-right {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .filter-select {
-  width: 140px;
+  width: 160px;
 }
 
 :deep(.filter-select .el-input__wrapper) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   border-radius: 6px;
 }
 
@@ -682,13 +767,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .wrong-item:hover {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
 }
 
 .wrong-item:last-child {
@@ -700,6 +785,7 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   flex: 1;
+  min-width: 0;
 }
 
 .wrong-status {
@@ -712,33 +798,35 @@ onMounted(() => {
 
 .wrong-status.pending {
   background: rgba(255, 179, 0, 0.1);
-  color: var(--leetcode-warning, #FFB300);
+  color: var(--leetcode-warning, #ffb300);
 }
 
 .wrong-status.reviewed {
   background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
+  color: var(--leetcode-success, #00c853);
 }
 
 .wrong-status.mastering {
   background: rgba(0, 102, 255, 0.1);
-  color: var(--leetcode-primary, #0066FF);
+  color: var(--leetcode-primary, #0066ff);
 }
 
 .wrong-info {
   flex: 1;
+  min-width: 0;
 }
 
 .wrong-title {
   font-size: 16px;
   font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   margin-bottom: 8px;
 }
 
 .wrong-meta {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .meta-item {
@@ -746,7 +834,7 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .wrong-right {
@@ -758,7 +846,7 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   padding: 20px 24px;
-  border-top: 1px solid var(--leetcode-border, #E5E7EB);
+  border-top: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .side-content {
@@ -768,107 +856,87 @@ onMounted(() => {
 }
 
 .distribution-card {
-  background: var(--leetcode-bg, #FFFFFF);
+  background: var(--leetcode-bg, #fff);
   border-radius: 12px;
   padding: 20px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 16px 0;
+  color: var(--leetcode-text, #24292f);
+  margin: 0 0 16px;
 }
 
-.distribution-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.distribution-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.distribution-label {
-  width: 80px;
-  font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.distribution-bar {
-  flex: 1;
-  height: 8px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.distribution-bar .bar-fill {
-  height: 100%;
-  background: var(--leetcode-primary, #0066FF);
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.distribution-count {
-  width: 30px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  text-align: right;
-}
-
+.distribution-chart,
 .difficulty-stats {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+.distribution-item,
 .difficulty-item {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.difficulty-label {
-  width: 40px;
+.distribution-label {
+  width: 96px;
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.distribution-bar,
 .difficulty-bar {
   flex: 1;
   height: 8px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   border-radius: 4px;
   overflow: hidden;
 }
 
+.distribution-bar .bar-fill,
+.difficulty-item .bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.distribution-bar .bar-fill {
+  background: var(--leetcode-primary, #0066ff);
+}
+
 .difficulty-item.easy .bar-fill {
-  background: var(--leetcode-success, #00C853);
+  background: var(--leetcode-success, #00c853);
 }
 
 .difficulty-item.medium .bar-fill {
-  background: var(--leetcode-warning, #FFB300);
+  background: var(--leetcode-warning, #ffb300);
 }
 
 .difficulty-item.hard .bar-fill {
-  background: var(--leetcode-danger, #EE4D2E);
+  background: var(--leetcode-danger, #ee4d2e);
 }
 
+.distribution-count,
 .difficulty-count {
   width: 30px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   text-align: right;
+}
+
+.difficulty-label {
+  width: 40px;
+  font-size: 13px;
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .detail-dialog :deep(.el-dialog__body) {
@@ -885,12 +953,12 @@ onMounted(() => {
 .detail-section h4 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 12px 0;
+  color: var(--leetcode-text, #24292f);
+  margin: 0 0 12px;
 }
 
 .problem-info {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   padding: 16px;
   border-radius: 8px;
 }
@@ -898,13 +966,13 @@ onMounted(() => {
 .problem-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   margin-bottom: 12px;
 }
 
 .problem-content {
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   line-height: 1.6;
 }
 
@@ -921,16 +989,16 @@ onMounted(() => {
 
 .analysis-item .label {
   font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   white-space: nowrap;
 }
 
 .analysis-item .value {
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .code-block {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   padding: 16px;
   border-radius: 8px;
   font-family: 'Fira Code', monospace;
@@ -952,18 +1020,18 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .plan-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
 }
 
 .plan-count {
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .plan-list {
@@ -976,10 +1044,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 16px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   border-radius: 8px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .plan-item.reviewed {
@@ -993,20 +1062,20 @@ onMounted(() => {
 .plan-info .plan-title {
   font-size: 14px;
   font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   margin-bottom: 4px;
 }
 
 .plan-time {
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 @media (max-width: 1200px) {
   .content-layout {
     grid-template-columns: 1fr;
   }
-  
+
   .side-content {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1017,26 +1086,32 @@ onMounted(() => {
   .wrong-book-page {
     padding: 16px;
   }
-  
+
   .stats-overview {
     grid-template-columns: 1fr;
   }
-  
+
   .filter-section {
     flex-direction: column;
-    gap: 12px;
+    align-items: stretch;
   }
-  
-  .filter-left {
+
+  .filter-left,
+  .filter-right {
     width: 100%;
   }
-  
+
   .filter-select {
     flex: 1;
   }
-  
+
   .side-content {
     grid-template-columns: 1fr;
+  }
+
+  .wrong-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

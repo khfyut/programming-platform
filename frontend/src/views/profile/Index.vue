@@ -1,40 +1,46 @@
 <template>
-  <div class="profile-page">
-    <div class="profile-container">
-      <!-- 左侧导航 -->
-      <aside class="profile-sidebar">
-        <div class="sidebar-header">
-          <el-avatar :size="48" :src="userStore.userInfo?.avatarUrl">
-            <el-icon><User /></el-icon>
-          </el-avatar>
-          <span class="username">{{ userStore.userInfo?.username || '用户' }}</span>
+  <div class="profile-workspace">
+    <aside class="profile-sidebar">
+      <div class="sidebar-user">
+        <el-avatar :size="60" :src="userStore.userInfo?.avatarUrl">
+          <el-icon><User /></el-icon>
+        </el-avatar>
+        <div class="sidebar-user-info">
+          <div class="sidebar-username">{{ userStore.userInfo?.username || '用户' }}</div>
+          <div class="sidebar-subtitle">学习控制台</div>
         </div>
-        
-        <nav class="sidebar-nav">
-          <router-link
-            v-for="item in menuItems"
-            :key="item.name"
-            :to="{ name: item.name }"
-            class="nav-item"
-            :class="{ active: currentRoute === item.name }"
-          >
-            <el-icon :size="18">
-              <component :is="item.icon" />
-            </el-icon>
-            <span>{{ item.label }}</span>
-          </router-link>
-        </nav>
-      </aside>
+      </div>
 
-      <!-- 右侧内容区 -->
-      <main class="profile-content">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </main>
-    </div>
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in menuItems"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="nav-item"
+          :class="{ active: currentRoute === item.name }"
+        >
+          <el-icon class="nav-icon">
+            <component :is="item.icon" />
+          </el-icon>
+          <span>{{ item.label }}</span>
+        </router-link>
+      </nav>
+
+      <div class="sidebar-footer">
+        <router-link to="/wrong-book" class="footer-shortcut">
+          <el-icon><Warning /></el-icon>
+          <span>错题本快捷入口</span>
+        </router-link>
+      </div>
+    </aside>
+
+    <main class="profile-main">
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+    </main>
   </div>
 </template>
 
@@ -45,9 +51,10 @@ import { useUserStore } from '@/stores/user'
 import {
   User,
   DataLine,
-  Reading,
+  Document,
   Collection,
-  Setting
+  Setting,
+  Warning
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -56,95 +63,160 @@ const userStore = useUserStore()
 const currentRoute = computed(() => route.name)
 
 const menuItems = [
-  { name: 'ProfileOverview', label: '概览', icon: 'User' },
-  { name: 'ProfileStatistics', label: '学习数据', icon: 'DataLine' },
-  { name: 'ProfileProgress', label: '学习进度', icon: 'Reading' },
-  { name: 'ProfileContent', label: '我的内容', icon: 'Collection' },
-  { name: 'ProfileSettings', label: '设置', icon: 'Setting' }
+  { name: 'UserProfile', label: '总览', icon: User },
+  { name: 'ProfileAnalysis', label: '学习分析', icon: DataLine },
+  { name: 'ProfileSubmissions', label: '提交记录', icon: Document },
+  { name: 'ProfileCollections', label: '收藏与扩展', icon: Collection },
+  { name: 'ProfileSettings', label: '资料设置', icon: Setting }
 ]
 </script>
 
 <style scoped>
-.profile-page {
-  min-height: calc(100vh - 60px);
-  background: #f5f7fa;
-  padding: 24px;
-}
-
-.profile-container {
-  display: flex;
-  max-width: 1400px;
-  margin: 0 auto;
-  gap: 24px;
+.profile-workspace {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
   min-height: calc(100vh - 108px);
 }
 
-/* 左侧导航 */
+.profile-sidebar,
+.profile-main {
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-md);
+}
+
 .profile-sidebar {
-  width: 240px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  height: fit-content;
   position: sticky;
   top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  height: fit-content;
+  padding: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(0, 209, 255, 0.12), transparent 34%),
+    var(--bg-card);
 }
 
-.sidebar-header {
+.profile-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 30%);
+}
+
+.sidebar-user {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid #e4e7ed;
-  margin-bottom: 16px;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.username {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
+.sidebar-user-info {
+  min-width: 0;
+}
+
+.sidebar-username {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.sidebar-subtitle {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  color: #606266;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  cursor: pointer;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
 
 .nav-item:hover {
-  background: #f5f7fa;
-  color: #409eff;
+  transform: translateX(2px);
+  border-color: var(--border-color);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
 }
 
 .nav-item.active {
-  background: #ecf5ff;
-  color: #409eff;
-  font-weight: 500;
+  border-color: var(--border-strong);
+  background: var(--sidebar-active);
+  color: var(--sidebar-text-active);
+  box-shadow: inset 0 0 0 1px rgba(124, 247, 255, 0.12);
 }
 
-/* 右侧内容区 */
-.profile-content {
-  flex: 1;
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--gradient-brand);
+}
+
+.nav-icon {
+  font-size: 18px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.footer-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  color: var(--warning-color);
+  background: var(--warning-light);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.footer-shortcut:hover {
+  transform: translateY(-1px);
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.18);
+}
+
+.profile-main {
   min-width: 0;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 209, 255, 0.06), transparent 24%),
+    var(--bg-card);
 }
 
-/* 过渡动画 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.18s ease;
 }
 
 .fade-enter-from,
@@ -152,24 +224,33 @@ const menuItems = [
   opacity: 0;
 }
 
-/* 响应式 */
-@media (max-width: 768px) {
-  .profile-container {
-    flex-direction: column;
+@media (max-width: 960px) {
+  .profile-workspace {
+    grid-template-columns: 1fr;
   }
-  
+
   .profile-sidebar {
-    width: 100%;
     position: static;
   }
-  
+
   .sidebar-nav {
     flex-direction: row;
     flex-wrap: wrap;
   }
-  
-  .nav-item span {
-    display: none;
+
+  .nav-item {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-main,
+  .profile-sidebar {
+    padding: 16px;
+  }
+
+  .nav-item {
+    flex-basis: 100%;
   }
 }
 </style>

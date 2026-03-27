@@ -181,7 +181,36 @@
           </div>
 
           <!-- 提交记录 -->
-          <div v-if="activeTab === 'submissions'" class="submissions-content">
+          <div
+            v-if="activeTab === 'submissions'"
+            class="submissions-content"
+            :class="{ 'has-submissions': submissionList.length > 0 }"
+            v-loading="submissionsLoading"
+          >
+            <div class="submissions-toolbar">
+              <span class="submissions-title">当前题目最近提交</span>
+              <el-button text size="small" @click="fetchProblemSubmissions">刷新</el-button>
+            </div>
+            <div v-if="submissionList.length > 0" class="submission-list">
+              <div
+                v-for="item in submissionList"
+                :key="item.id"
+                class="submission-row"
+                @click="openSubmissionDetail(item)"
+              >
+                <div class="submission-row-main">
+                  <span :class="['submission-status', item.result === 0 ? 'success' : 'error']">
+                    {{ getResultText(item.result) }}
+                  </span>
+                  <span class="submission-language">{{ (item.language || '-').toUpperCase() }}</span>
+                </div>
+                <div class="submission-row-meta">
+                  <span>{{ item.timeCost || 0 }} ms</span>
+                  <span>{{ item.memoryCost || 0 }} KB</span>
+                  <span>{{ formatDateTime(item.submitTime || item.createTime) }}</span>
+                </div>
+              </div>
+            </div>
             <el-empty description="暂无提交记录" />
           </div>
         </div>
@@ -352,6 +381,57 @@
     </div>
 
     <!-- AI助手对话框 -->
+    <el-dialog v-model="detailDialogVisible" title="提交详情" width="800px" class="detail-dialog">
+      <div v-loading="detailLoading" class="detail-content">
+        <div v-if="currentSubmission">
+          <div class="detail-section">
+            <h3 class="detail-title">基本信息</h3>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">题目</span>
+                <span class="detail-value">{{ currentSubmission.problemTitle || problem?.title }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">结果</span>
+                <span :class="['detail-value', 'result-' + currentSubmission.result]">
+                  {{ getResultText(currentSubmission.result) }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">语言</span>
+                <span class="detail-value">{{ (currentSubmission.language || '-').toUpperCase() }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">提交时间</span>
+                <span class="detail-value">{{ formatDateTime(currentSubmission.submitTime || currentSubmission.createTime) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">执行时间</span>
+                <span class="detail-value">{{ currentSubmission.timeCost || 0 }} ms</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">内存使用</span>
+                <span class="detail-value">{{ currentSubmission.memoryCost || 0 }} KB</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3 class="detail-title">代码</h3>
+            <pre class="code-display">{{ currentSubmission.code }}</pre>
+          </div>
+
+          <div
+            v-if="currentSubmission.compileError || currentSubmission.runtimeError || currentSubmission.errorMessage || currentSubmission.error"
+            class="detail-section"
+          >
+            <h3 class="detail-title">错误信息</h3>
+            <pre class="error-display">{{ currentSubmission.compileError || currentSubmission.runtimeError || currentSubmission.errorMessage || currentSubmission.error }}</pre>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
+
     <AIDialog 
       v-model="aiDialogVisible"
       :initial-prompt="aiInitialPrompt"
@@ -373,10 +453,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getProblemDetail, getSampleTestCases } from '@/api/problem'
-import { submitCode as submitCodeApi } from '@/api/submit'
+import { submitCode as submitCodeApi, getMySubmissions, getSubmitDetail } from '@/api/submit'
 import { getHint } from '@/api/referenceSolution'
 import { getStudyStats } from '@/api/userProfile'
 import { useUserStore } from '@/stores/user'
@@ -446,7 +526,13 @@ const fetchUserStats = async () => {
 }
 
 const goToProfile = (tab) => {
-  router.push(`/profile?tab=${tab}`)
+  const routeByTab = {
+    submissions: { name: 'ProfileSubmissions' },
+    passRate: { name: 'ProfileAnalysis' },
+    solved: { name: 'UserProfile' },
+    streak: { name: 'UserProfile' }
+  }
+  router.push(routeByTab[tab] || { name: 'UserProfile' })
 }
 
 const handleUserCommand = async (command) => {
@@ -492,6 +578,11 @@ const problem = ref(null)
 const code = ref('')
 const language = ref(userStore.userInfo?.language || 'java')
 const result = ref(null)
+const submissionsLoading = ref(false)
+const submissionList = ref([])
+const detailDialogVisible = ref(false)
+const currentSubmission = ref(null)
+const detailLoading = ref(false)
 const leftPanelWidth = ref(45)
 const isResizing = ref(false)
 const canViewSolution = ref(false)
@@ -621,6 +712,28 @@ const fetchTestCases = async () => {
 }
 
 // 获取提示
+const fetchProblemSubmissions = async () => {
+  submissionsLoading.value = true
+  try {
+    const res = await getMySubmissions({
+      problemId: route.params.id,
+      page: 1,
+      size: 10
+    })
+
+    if (res.code === 200) {
+      submissionList.value = (res.data?.list || []).map((item) => ({
+        ...item,
+        submitTime: item.submitTime || item.createTime || item.createdAt
+      }))
+    }
+  } catch (error) {
+    console.error('获取当前题目提交记录失败:', error)
+  } finally {
+    submissionsLoading.value = false
+  }
+}
+
 const fetchHints = async () => {
   try {
     const hintsArray = []
@@ -686,6 +799,7 @@ const submitCode = async () => {
       activeTestcaseTab.value = 'result'
       ElMessage.success('提交成功')
       canViewSolution.value = true
+      await Promise.all([fetchProblemSubmissions(), fetchUserStats()])
     } else {
       ElMessage.error(res.msg || '提交失败')
     }
@@ -763,10 +877,64 @@ const getResultText = (resultType) => {
   return texts[resultType] || '未知错误'
 }
 
+const formatDateTime = (time) => {
+  if (!time) return '未知时间'
+  const date = new Date(time)
+  if (Number.isNaN(date.getTime())) return '未知时间'
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+const openSubmissionDetail = async (submission) => {
+  const submitId = Number(submission?.id || submission)
+  if (!submitId) return
+
+  detailLoading.value = true
+  currentSubmission.value = null
+  detailDialogVisible.value = true
+
+  try {
+    const res = await getSubmitDetail(submitId)
+    if (res.code === 200) {
+      const data = res.data || {}
+      data.problemTitle = data.problemTitle || data.title || problem.value?.title
+      data.submitTime = data.submitTime || data.createTime || data.createdAt || submission?.submitTime
+      currentSubmission.value = data
+    } else {
+      currentSubmission.value = typeof submission === 'object' ? submission : null
+    }
+  } catch (error) {
+    console.error('获取提交详情失败:', error)
+    currentSubmission.value = typeof submission === 'object' ? submission : null
+  } finally {
+    detailLoading.value = false
+  }
+}
+
 onMounted(() => {
   fetchProblemDetail()
   fetchUserStats()
+  fetchProblemSubmissions()
 })
+
+watch(activeTab, (tab) => {
+  if (tab === 'submissions') {
+    fetchProblemSubmissions()
+  }
+})
+
+watch(
+  () => route.params.id,
+  () => {
+    fetchProblemDetail()
+    fetchProblemSubmissions()
+  }
+)
 
 onBeforeUnmount(() => {
   document.removeEventListener('mousemove', resize)
@@ -1088,6 +1256,156 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow-y: auto;
   padding: 24px;
+}
+
+.submissions-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.submissions-content.has-submissions :deep(.el-empty) {
+  display: none;
+}
+
+.submissions-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.submissions-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.submission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.submission-row {
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submission-row:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.submission-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.submission-status {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.submission-status.success {
+  color: #16a34a;
+}
+
+.submission-status.error {
+  color: #dc2626;
+}
+
+.submission-language {
+  font-size: 12px;
+  color: #64748b;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.submission-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.detail-content {
+  min-height: 120px;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.detail-value {
+  font-size: 14px;
+  color: #111827;
+  word-break: break-word;
+}
+
+.detail-value.result-0 {
+  color: #16a34a;
+}
+
+.detail-value.result-1,
+.detail-value.result-2,
+.detail-value.result-3,
+.detail-value.result-4 {
+  color: #dc2626;
+}
+
+.code-display,
+.error-display {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.code-display {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.error-display {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .content-block {

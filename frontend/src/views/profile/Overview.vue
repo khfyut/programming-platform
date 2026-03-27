@@ -1,177 +1,161 @@
 <template>
-  <div class="overview-page">
-    <div class="profile-card">
-      <div class="profile-main">
-        <div class="avatar-section">
-          <el-avatar :size="80" :src="profile.avatarUrl">
-            <el-icon :size="40"><User /></el-icon>
+  <div v-loading="overviewLoading" class="overview-page">
+    <section class="hero-grid">
+      <div class="hero-card profile-card">
+        <div class="profile-main">
+          <el-avatar :size="88" :src="profile.avatarUrl">
+            <el-icon><User /></el-icon>
           </el-avatar>
-        </div>
-
-        <div class="profile-info">
-          <div class="profile-header">
-            <h2 class="username">{{ profile.username || '用户' }}</h2>
-            <el-tag :type="profile.isAdmin ? 'danger' : 'primary'" size="small">
-              {{ profile.isAdmin ? '管理员' : '学习者' }}
-            </el-tag>
-          </div>
-
-          <p class="bio">{{ profile.bio || '还没有填写个人简介。' }}</p>
-
-          <div class="social-links" v-if="profile.githubUrl || profile.blogUrl">
-            <a v-if="profile.githubUrl" :href="profile.githubUrl" target="_blank" rel="noreferrer" class="social-link">
-              <el-icon><Link /></el-icon>
-              <span>GitHub</span>
-            </a>
-            <a v-if="profile.blogUrl" :href="profile.blogUrl" target="_blank" rel="noreferrer" class="social-link">
-              <el-icon><Link /></el-icon>
-              <span>博客</span>
-            </a>
+          <div class="profile-copy">
+            <div class="profile-row">
+              <h1>{{ profile.username || userStore.userInfo?.username || '用户' }}</h1>
+              <el-tag :type="profile.isAdmin ? 'danger' : 'primary'" size="small">
+                {{ profile.isAdmin ? '管理员' : '学习者' }}
+              </el-tag>
+            </div>
+            <p class="profile-bio">
+              {{ profile.bio || '继续积累题目、路径和提交记录，让这里成为你的学习控制台。' }}
+            </p>
+            <div v-if="profile.githubUrl || profile.blogUrl" class="profile-links">
+              <a v-if="profile.githubUrl" :href="profile.githubUrl" target="_blank" rel="noreferrer">GitHub</a>
+              <a v-if="profile.blogUrl" :href="profile.blogUrl" target="_blank" rel="noreferrer">博客</a>
+            </div>
           </div>
         </div>
-
-        <div class="profile-actions">
-          <el-button type="primary" @click="showEditDialog">
-            <el-icon><Edit /></el-icon>
-            编辑资料
-          </el-button>
+        <div class="hero-actions">
+          <el-button type="primary" @click="goToSettings">编辑资料</el-button>
+          <el-button plain @click="goToWrongBook">进入错题本</el-button>
         </div>
       </div>
-    </div>
 
-    <div class="stats-grid">
-      <div v-for="stat in statsList" :key="stat.key" class="stat-card">
-        <div class="stat-value">{{ stat.value }}</div>
-        <div class="stat-label">{{ stat.label }}</div>
-        <div class="stat-trend" :class="stat.trend > 0 ? 'up' : stat.trend < 0 ? 'down' : ''">
-          <template v-if="stat.trend !== null">
-            <el-icon v-if="stat.trend !== 0"><TrendCharts /></el-icon>
-            <span>{{ formatTrend(stat.trend, stat.unit) }}</span>
-          </template>
-          <span v-else>根据提交记录实时计算</span>
+      <div class="hero-card current-path-card">
+        <div class="section-kicker">Current Path</div>
+        <template v-if="currentPath">
+          <h2>{{ currentPath.name }}</h2>
+          <p class="path-desc">
+            {{ currentPath.description || '继续沿着当前路径完成今天的学习任务。' }}
+          </p>
+          <div class="path-meta">
+            <span>{{ getLanguageLabel(currentPath.language) }}</span>
+            <span>{{ getDirectionLabel(currentPath.direction) }}</span>
+          </div>
+          <div class="path-progress-line">
+            <div class="path-progress-head">
+              <span>当前进度</span>
+              <span>{{ currentPathProgress }}%</span>
+            </div>
+            <el-progress :percentage="currentPathProgress" :show-text="false" :stroke-width="10" />
+          </div>
+          <div class="path-actions">
+            <el-button type="primary" @click="continueLearning">继续学习</el-button>
+            <el-button plain @click="goToLearnCenter">查看全部路径</el-button>
+          </div>
+        </template>
+        <template v-else>
+          <h2>还没有正在进行的学习路径</h2>
+          <p class="path-desc">
+            先从学习中心选择一条路径，之后这里会显示你的当前进度和下一步入口。
+          </p>
+          <div class="path-actions">
+            <el-button type="primary" @click="goToLearnCenter">去选择学习路径</el-button>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article v-for="item in statCards" :key="item.label" class="stat-card">
+        <div class="stat-accent"></div>
+        <div class="stat-label">{{ item.label }}</div>
+        <div class="stat-value">{{ item.value }}</div>
+        <div class="stat-hint">{{ item.hint }}</div>
+      </article>
+    </section>
+
+    <section class="dashboard-grid">
+      <div class="panel-card action-panel">
+        <div class="panel-header">
+          <div>
+            <div class="section-kicker">Quick Actions</div>
+            <h3>下一步做什么</h3>
+          </div>
+        </div>
+        <div class="action-list">
+          <button class="action-item" @click="continueLearning">
+            <div>
+              <strong>继续学习</strong>
+              <span>{{ currentPath?.name || '进入学习中心继续当前计划' }}</span>
+            </div>
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+          <button class="action-item" @click="goToWrongBook">
+            <div>
+              <strong>查看错题</strong>
+              <span>回看高频错误，优先补足薄弱点</span>
+            </div>
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+          <button class="action-item" @click="goToSubmissions">
+            <div>
+              <strong>复盘提交</strong>
+              <span>快速查看最近结果和运行表现</span>
+            </div>
+            <el-icon><ArrowRight /></el-icon>
+          </button>
         </div>
       </div>
-    </div>
 
-    <div class="quick-actions">
-      <h3 class="section-title">快捷操作</h3>
-      <div class="actions-grid">
-        <div class="action-card" @click="continueLearning">
-          <div class="action-icon primary">
-            <el-icon><VideoPlay /></el-icon>
+      <div class="panel-card submissions-panel">
+        <div class="panel-header">
+          <div>
+            <div class="section-kicker">Recent Submissions</div>
+            <h3>最近提交</h3>
           </div>
-          <div class="action-content">
-            <h4>继续学习</h4>
-            <p>{{ activePaths[0]?.name || '进入学习中心继续进度' }}</p>
-          </div>
-          <el-icon class="action-arrow"><ArrowRight /></el-icon>
+          <router-link :to="{ name: 'ProfileSubmissions' }" class="panel-link">查看全部</router-link>
         </div>
 
-        <div class="action-card" @click="goToDailyChallenge">
-          <div class="action-icon success">
-            <el-icon><Calendar /></el-icon>
+        <div v-if="recentSubmissions.length > 0" class="submission-list">
+          <div
+            v-for="item in recentSubmissions"
+            :key="item.id"
+            class="submission-item"
+            @click="openProblem(item.problemId)"
+          >
+            <div class="submission-main">
+              <div class="submission-top">
+                <span class="submission-title">{{ item.problemTitle }}</span>
+                <el-tag size="small" :type="getResultType(item.result)">
+                  {{ getResultText(item.result) }}
+                </el-tag>
+              </div>
+              <div class="submission-meta">
+                <span>{{ item.language || 'N/A' }}</span>
+                <span>{{ item.timeCost || 0 }} ms</span>
+                <span>{{ formatRelativeTime(item.submitTime || item.createTime) }}</span>
+              </div>
+            </div>
+            <el-icon><ArrowRight /></el-icon>
           </div>
-          <div class="action-content">
-            <h4>每日挑战</h4>
-            <p>继续完成今天的练习</p>
-          </div>
-          <el-icon class="action-arrow"><ArrowRight /></el-icon>
         </div>
-
-        <div class="action-card" @click="goToRecommendations">
-          <div class="action-icon warning">
-            <el-icon><Star /></el-icon>
-          </div>
-          <div class="action-content">
-            <h4>推荐题目</h4>
-            <p>查看与你当前进度相关的题目</p>
-          </div>
-          <el-icon class="action-arrow"><ArrowRight /></el-icon>
-        </div>
+        <div v-else class="empty-box">暂无提交记录</div>
       </div>
-    </div>
-
-    <div class="recent-activities">
-      <h3 class="section-title">最近活动</h3>
-      <div class="activities-list">
-        <div
-          v-for="(activity, index) in recentActivities"
-          :key="`${activity.type}-${activity.targetId}-${activity.createTime || index}`"
-          class="activity-item"
-        >
-          <div class="activity-icon" :class="activity.type">
-            <el-icon v-if="activity.type === 'SOLVE_PROBLEM'"><CircleCheck /></el-icon>
-            <el-icon v-else-if="activity.type === 'CREATE_POST'"><ChatDotRound /></el-icon>
-            <el-icon v-else><VideoPlay /></el-icon>
-          </div>
-          <div class="activity-content">
-            <p class="activity-text">{{ formatActivityText(activity) }}</p>
-            <span class="activity-time">{{ formatTime(activity.createTime) }}</span>
-          </div>
-        </div>
-
-        <el-empty v-if="recentActivities.length === 0" description="暂无活动记录" />
-      </div>
-    </div>
-
-    <el-dialog v-model="editDialogVisible" title="编辑资料" width="500px" destroy-on-close>
-      <el-form :model="editForm" label-width="100px">
-        <el-form-item label="用户名">
-          <el-input v-model="editForm.username" placeholder="请输入用户名" />
-        </el-form-item>
-        <el-form-item label="头像链接">
-          <el-input v-model="editForm.avatarUrl" placeholder="https://example.com/avatar.png" />
-        </el-form-item>
-        <el-form-item label="个人简介">
-          <el-input
-            v-model="editForm.bio"
-            type="textarea"
-            :rows="3"
-            maxlength="100"
-            show-word-limit
-            placeholder="介绍一下自己吧"
-          />
-        </el-form-item>
-        <el-form-item label="GitHub">
-          <el-input v-model="editForm.githubUrl" placeholder="https://github.com/username" />
-        </el-form-item>
-        <el-form-item label="博客链接">
-          <el-input v-model="editForm.blogUrl" placeholder="https://yourblog.com" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitEdit">保存</el-button>
-      </template>
-    </el-dialog>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
-import {
-  User,
-  Edit,
-  Link,
-  TrendCharts,
-  VideoPlay,
-  ArrowRight,
-  Calendar,
-  Star,
-  CircleCheck,
-  ChatDotRound
-} from '@element-plus/icons-vue'
-import { getProblemDetail } from '@/api/problem'
-import { getActivePaths } from '@/api/learn'
+import { ArrowRight, User } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+import { getActivePaths, getMyLearnStats } from '@/api/learn'
 import { getMySubmissions } from '@/api/submit'
-import { getStudyActivities, getStudyStats, getUserProfile, updateProfile } from '@/api/userProfile'
-import { formatDistanceToNow } from '@/utils/format'
+import { getStudyStats, getUserProfile } from '@/api/userProfile'
 
 const router = useRouter()
 const userStore = useUserStore()
+const overviewLoading = ref(false)
 
 const userId = computed(() => userStore.userInfo?.id)
 
@@ -188,35 +172,74 @@ const studyStats = ref({
   totalSolved: 0,
   totalSubmissions: 0,
   passRate: 0,
-  studyHours: 0,
-  solvedTrend: 0,
-  submittedTrend: 0,
-  accuracyTrend: 0,
-  studyHoursTrend: 0
+  streak: 0
 })
 
-const submissionList = ref([])
 const activePaths = ref([])
-const recentActivities = ref([])
+const recentSubmissions = ref([])
 
-const editDialogVisible = ref(false)
-const saving = ref(false)
-const editForm = ref({
-  username: '',
-  avatarUrl: '',
-  bio: '',
-  githubUrl: '',
-  blogUrl: ''
+const currentPath = computed(() => activePaths.value[0] || null)
+const currentPathProgress = computed(() => {
+  const progress = Number(
+    currentPath.value?.progress ??
+      currentPath.value?.progressRate ??
+      currentPath.value?.completionRate ??
+      0
+  )
+  return Math.max(0, Math.min(100, Math.round(progress)))
+})
+
+const statCards = computed(() => {
+  const rawPassRate = Number(studyStats.value.passRate || 0)
+  const passRate = rawPassRate <= 1 ? Math.round(rawPassRate * 100) : Math.round(rawPassRate)
+  const streak = Number(studyStats.value.streak) || calculateAcceptedStreak(recentSubmissions.value)
+
+  return [
+    {
+      label: '已解决题目',
+      value: studyStats.value.totalSolved || 0,
+      hint: '累计通过的题目数量'
+    },
+    {
+      label: '累计提交',
+      value: studyStats.value.totalSubmissions || 0,
+      hint: '包含历史全部提交'
+    },
+    {
+      label: '通过率',
+      value: `${passRate}%`,
+      hint: '按提交记录实时计算'
+    },
+    {
+      label: '连续学习',
+      value: `${streak} 天`,
+      hint: '优先读取后端统计，缺失时按最近记录推算'
+    }
+  ]
 })
 
 const normalizeProfile = (data = {}) => ({
-  username: data.username || '',
-  avatarUrl: data.avatarUrl || '',
+  username: data.username || userStore.userInfo?.username || '',
+  avatarUrl: data.avatarUrl || userStore.userInfo?.avatarUrl || '',
   bio: data.bio || '',
   githubUrl: data.githubUrl || '',
   blogUrl: data.blogUrl || '',
-  isAdmin: Boolean(data.isAdmin ?? data.admin)
+  isAdmin: Boolean(data.isAdmin ?? data.admin ?? userStore.userInfo?.role === 1)
 })
+
+const applyLearnStats = (data = {}) => {
+  const stats = data?.stats || data || {}
+  const rawPassRate = Number(stats.passRate ?? stats.accuracy ?? 0)
+
+  studyStats.value = {
+    totalSolved: Number(stats.totalSolved ?? stats.solved ?? studyStats.value.totalSolved ?? 0),
+    totalSubmissions: Number(
+      stats.totalSubmissions ?? stats.submitted ?? stats.submissionCount ?? studyStats.value.totalSubmissions ?? 0
+    ),
+    passRate: rawPassRate,
+    streak: Number(stats.streak ?? studyStats.value.streak ?? 0)
+  }
+}
 
 const formatDay = (date) => {
   const target = new Date(date)
@@ -229,8 +252,8 @@ const formatDay = (date) => {
 const calculateAcceptedStreak = (submissions) => {
   const acceptedDays = new Set(
     (submissions || [])
-      .filter((item) => Number(item.result) === 0 && item.createTime)
-      .map((item) => formatDay(item.createTime))
+      .filter((item) => Number(item.result) === 0 && (item.submitTime || item.createTime))
+      .map((item) => formatDay(item.submitTime || item.createTime))
   )
 
   let streak = 0
@@ -245,465 +268,466 @@ const calculateAcceptedStreak = (submissions) => {
   return streak
 }
 
-const statsList = computed(() => {
-  const passRate = Math.round((studyStats.value.passRate || 0) * 100)
+const formatRelativeTime = (time) => {
+  if (!time) return '刚刚'
+  const date = new Date(time)
+  if (Number.isNaN(date.getTime())) return '刚刚'
 
-  return [
-    {
-      key: 'solved',
-      value: studyStats.value.totalSolved || 0,
-      label: '已解决题目',
-      trend: studyStats.value.solvedTrend || 0,
-      unit: ''
-    },
-    {
-      key: 'accuracy',
-      value: `${passRate}%`,
-      label: '通过率',
-      trend: Math.round(studyStats.value.accuracyTrend || 0),
-      unit: '%'
-    },
-    {
-      key: 'streak',
-      value: calculateAcceptedStreak(submissionList.value),
-      label: '连续通过天数',
-      trend: null,
-      unit: ''
-    },
-    {
-      key: 'studyHours',
-      value: `${studyStats.value.studyHours || 0}h`,
-      label: '累计学习时长',
-      trend: studyStats.value.studyHoursTrend || 0,
-      unit: 'h'
-    }
-  ]
-})
+  const diff = Date.now() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
 
-const hydrateProblemTitles = async (items, matcher) => {
-  const targetItems = items.filter(matcher)
-  const missingIds = [...new Set(targetItems.map((item) => item.targetId).filter(Boolean))]
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes} 分钟前`
+  if (hours < 24) return `${hours} 小时前`
+  return `${days} 天前`
+}
 
-  if (missingIds.length === 0) {
-    return items
+const getLanguageLabel = (language) => {
+  const labels = {
+    JAVA: 'Java',
+    PYTHON: 'Python',
+    CPP: 'C++',
+    JAVASCRIPT: 'JavaScript',
+    java: 'Java',
+    python: 'Python',
+    通用: '通用'
+  }
+  return labels[language] || language || '通用'
+}
+
+const getDirectionLabel = (direction) => {
+  const labels = {
+    language: '语言基础',
+    algorithm: '算法与数据结构',
+    backend: '后端开发',
+    frontend: '前端开发',
+    database: '数据库',
+    system: '系统设计'
+  }
+  return labels[direction] || direction || '学习路径'
+}
+
+const getResultText = (result) => {
+  const texts = {
+    0: '通过',
+    1: '答案错误',
+    2: '运行错误',
+    3: '超时',
+    4: '内存超限'
+  }
+  return texts[result] || '未知'
+}
+
+const getResultType = (result) => {
+  const types = {
+    0: 'success',
+    1: 'danger',
+    2: 'danger',
+    3: 'warning',
+    4: 'warning'
+  }
+  return types[result] || 'info'
+}
+
+const ensureUserReady = async () => {
+  if (userStore.userInfo?.id) {
+    return userStore.userInfo.id
   }
 
-  const results = await Promise.allSettled(missingIds.map((id) => getProblemDetail(id)))
-  const titleMap = {}
+  if (!userStore.token) {
+    return null
+  }
 
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled' && result.value?.code === 200) {
-      titleMap[missingIds[index]] = result.value.data?.title
-    }
-  })
-
-  return items.map((item) => {
-    if (!matcher(item)) {
-      return item
-    }
-
-    return {
-      ...item,
-      targetName: titleMap[item.targetId] || item.targetName || `题目 ${item.targetId}`
-    }
-  })
+  try {
+    await userStore.fetchUserInfo()
+    return userStore.userInfo?.id || null
+  } catch (error) {
+    console.error('加载当前用户信息失败:', error)
+    return null
+  }
 }
 
 const fetchData = async () => {
-  if (!userId.value) {
+  const currentUserId = await ensureUserReady()
+  if (!currentUserId) {
     return
   }
 
+  overviewLoading.value = true
+
   try {
-    const [profileRes, statsRes, pathsRes, activitiesRes, submissionsRes] = await Promise.all([
-      getUserProfile(userId.value),
-      getStudyStats(userId.value),
-      getActivePaths(userId.value),
-      getStudyActivities(userId.value, 0, 5),
-      getMySubmissions({ page: 1, size: 365 })
+    profile.value = normalizeProfile(userStore.userInfo || {})
+
+    const [profileRes, statsRes, myLearnStatsRes, pathsRes, submissionsRes] = await Promise.allSettled([
+      getUserProfile(currentUserId),
+      getStudyStats(currentUserId),
+      getMyLearnStats(),
+      getActivePaths(currentUserId),
+      getMySubmissions({ page: 1, size: 5 })
     ])
 
-    if (profileRes?.code === 200) {
-      profile.value = normalizeProfile(profileRes.data)
+    let successCount = 0
+
+    if (profileRes.status === 'fulfilled' && profileRes.value?.code === 200) {
+      profile.value = normalizeProfile(profileRes.value.data)
+      successCount += 1
     }
 
-    if (statsRes?.code === 200) {
-      studyStats.value = {
-        ...studyStats.value,
-        ...statsRes.data
-      }
+    if (statsRes.status === 'fulfilled' && statsRes.value?.code === 200) {
+      applyLearnStats(statsRes.value.data)
+      successCount += 1
+    } else if (myLearnStatsRes.status === 'fulfilled' && myLearnStatsRes.value?.code === 200) {
+      applyLearnStats(myLearnStatsRes.value.data)
+      successCount += 1
     }
 
-    if (pathsRes?.code === 200) {
-      activePaths.value = pathsRes.data || []
-    }
-
-    if (submissionsRes?.code === 200) {
-      submissionList.value = submissionsRes.data?.list || []
-    }
-
-    if (activitiesRes?.code === 200) {
-      recentActivities.value = await hydrateProblemTitles(
-        activitiesRes.data || [],
-        (item) => item.type === 'SOLVE_PROBLEM' && (!item.targetName || /^Problem\b/i.test(item.targetName))
-      )
+    if (pathsRes.status === 'fulfilled' && pathsRes.value?.code === 200) {
+      activePaths.value = Array.isArray(pathsRes.value.data) ? pathsRes.value.data : []
+      successCount += 1
     } else {
-      recentActivities.value = []
+      activePaths.value = []
+    }
+
+    if (submissionsRes.status === 'fulfilled' && submissionsRes.value?.code === 200) {
+      recentSubmissions.value = (submissionsRes.value.data?.list || []).map((item) => ({
+        ...item,
+        problemTitle: item.problemTitle || item.title || item.problemName || `题目 ${item.problemId}`,
+        language: (item.language || '').toUpperCase(),
+        submitTime: item.submitTime || item.createTime
+      }))
+      successCount += 1
+    } else {
+      recentSubmissions.value = []
+    }
+
+    if (successCount === 0) {
+      ElMessage.error('个人主页总览数据加载失败')
     }
   } catch (error) {
-    console.error('获取个人主页数据失败:', error)
-  }
-}
-
-const showEditDialog = () => {
-  editForm.value = {
-    username: profile.value.username,
-    avatarUrl: profile.value.avatarUrl,
-    bio: profile.value.bio,
-    githubUrl: profile.value.githubUrl,
-    blogUrl: profile.value.blogUrl
-  }
-  editDialogVisible.value = true
-}
-
-const submitEdit = async () => {
-  saving.value = true
-  try {
-    await updateProfile(editForm.value)
-    Object.assign(profile.value, normalizeProfile(editForm.value))
-    editDialogVisible.value = false
-    ElMessage.success('资料更新成功')
-  } catch (error) {
-    ElMessage.error(error.message || '资料更新失败')
+    console.error('获取总览数据失败:', error)
+    ElMessage.error('个人主页总览数据加载失败')
   } finally {
-    saving.value = false
+    overviewLoading.value = false
   }
 }
 
 const continueLearning = () => {
-  if (activePaths.value.length > 0) {
-    router.push(`/dashboard/learn/path/${activePaths.value[0].id}`)
+  if (currentPath.value?.id) {
+    router.push(`/learn/path/${currentPath.value.id}`)
     return
   }
-
-  router.push('/dashboard/learn')
+  router.push('/learn')
 }
 
-const goToDailyChallenge = () => {
-  router.push('/dashboard/problems?type=daily')
+const goToLearnCenter = () => {
+  router.push('/learn')
 }
 
-const goToRecommendations = () => {
-  router.push('/dashboard/problems?type=recommended')
+const goToWrongBook = () => {
+  router.push('/wrong-book')
 }
 
-const formatTime = (time) => {
-  if (!time) {
-    return ''
-  }
-
-  return formatDistanceToNow(new Date(time))
+const goToSettings = () => {
+  router.push({ name: 'ProfileSettings' })
 }
 
-const formatTrend = (value, unit) => {
-  if (value === null) {
-    return ''
-  }
-
-  if (value === 0) {
-    return '较上一周期持平'
-  }
-
-  return `${value > 0 ? '+' : ''}${value}${unit}`
+const goToSubmissions = () => {
+  router.push({ name: 'ProfileSubmissions' })
 }
 
-const formatActivityText = (activity) => {
-  const targetName = activity.targetName || `内容 ${activity.targetId}`
-  const status = Number(activity.status)
-
-  if (activity.type === 'SOLVE_PROBLEM') {
-    if (status === 0) {
-      return `通过了题目《${targetName}》`
-    }
-
-    return `提交了题目《${targetName}》`
+const openProblem = (problemId) => {
+  if (!problemId) {
+    return
   }
-
-  if (activity.type === 'CREATE_POST') {
-    return `发布了帖子《${targetName}》`
-  }
-
-  return `完成了《${targetName}》相关学习`
+  router.push(`/problem/${problemId}`)
 }
 
 watch(
   userId,
-  (id) => {
-    if (id) {
+  (value) => {
+    if (value) {
       fetchData()
     }
   },
   { immediate: true }
 )
+
+watch(
+  () => userStore.token,
+  (token) => {
+    if (token && !userStore.userInfo?.id) {
+      fetchData()
+    }
+  }
+)
+
+onMounted(() => {
+  fetchData()
+})
 </script>
 
 <style scoped>
 .overview-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-.profile-card,
-.quick-actions,
-.recent-activities {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+.hero-grid,
+.dashboard-grid,
+.stats-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.hero-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.hero-card,
+.panel-card,
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-card,
+.panel-card {
+  padding: 22px;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
+    var(--bg-card);
 }
 
 .profile-main {
   display: flex;
+  gap: 18px;
   align-items: flex-start;
-  gap: 24px;
 }
 
-.avatar-section {
-  flex-shrink: 0;
-}
-
-.profile-info {
-  flex: 1;
+.profile-copy {
   min-width: 0;
 }
 
-.profile-header {
+.profile-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
-.username {
+.profile-row h1,
+.panel-card h3,
+.current-path-card h2 {
   margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
 }
 
-.bio {
-  margin: 0 0 16px;
-  color: #606266;
+.profile-row h1 {
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.current-path-card {
+  border-color: rgba(0, 209, 255, 0.28);
+  background:
+    radial-gradient(circle at top right, rgba(0, 209, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(9, 25, 46, 0.96), rgba(6, 17, 32, 0.92));
+  box-shadow: var(--shadow-neon), var(--shadow-md);
+}
+
+.profile-bio,
+.path-desc,
+.stat-hint,
+.submission-meta {
+  color: var(--text-secondary);
   line-height: 1.7;
 }
 
-.social-links {
+.profile-links {
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
 }
 
-.social-link {
+.hero-actions,
+.path-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.section-kicker {
+  margin-bottom: 8px;
+  color: var(--brand-accent);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.path-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.path-meta span {
+  padding: 5px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.path-progress-line {
+  margin: 18px 0;
+}
+
+.path-progress-head,
+.panel-header,
+.submission-top {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #409eff;
-  text-decoration: none;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .stat-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  text-align: center;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 50%),
+    var(--bg-card);
 }
 
-.stat-value {
-  font-size: 30px;
-  font-weight: 600;
-  color: #303133;
+.stat-accent {
+  width: 42px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--gradient-brand);
 }
 
 .stat-label {
-  margin-top: 8px;
-  color: #909399;
-  font-size: 14px;
-}
-
-.stat-trend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 8px;
-  font-size: 12px;
-  color: #909399;
-}
-
-.stat-trend.up {
-  color: #67c23a;
-}
-
-.stat-trend.down {
-  color: #f56c6c;
-}
-
-.section-title {
-  margin: 0 0 20px;
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.action-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  border-radius: 10px;
-  background: #f5f7fa;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.action-card:hover {
-  background: #ecf5ff;
-  transform: translateX(4px);
-}
-
-.action-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
-.action-icon.primary {
-  background: #ecf5ff;
-  color: #409eff;
-}
-
-.action-icon.success {
-  background: #f0f9eb;
-  color: #67c23a;
-}
-
-.action-icon.warning {
-  background: #fdf6ec;
-  color: #e6a23c;
-}
-
-.action-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.action-content h4 {
-  margin: 0 0 4px;
-  font-size: 16px;
-  color: #303133;
-}
-
-.action-content p {
-  margin: 0;
+  margin-top: 12px;
+  color: var(--text-tertiary);
   font-size: 13px;
-  color: #909399;
 }
 
-.action-arrow {
-  color: #c0c4cc;
-  font-size: 20px;
+.stat-value {
+  margin: 10px 0 8px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: var(--text-primary);
+  text-shadow: 0 0 24px rgba(0, 209, 255, 0.12);
 }
 
-.activities-list {
+.dashboard-grid {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+}
+
+.action-list,
+.submission-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-.activity-item {
-  display: flex;
   gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  transition: background 0.2s ease;
+  margin-top: 16px;
 }
 
-.activity-item:hover {
-  background: #f5f7fa;
-}
-
-.activity-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+.action-item,
+.submission-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
-.activity-icon.SOLVE_PROBLEM {
-  background: #f0f9eb;
-  color: #67c23a;
+.action-item:first-child {
+  border-color: rgba(0, 209, 255, 0.3);
+  background: linear-gradient(135deg, rgba(0, 209, 255, 0.14), rgba(0, 102, 255, 0.08));
 }
 
-.activity-icon.CREATE_POST {
-  background: #ecf5ff;
-  color: #409eff;
+.action-item:hover,
+.submission-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.activity-content {
-  min-width: 0;
+.action-item strong,
+.submission-title {
+  display: block;
+  margin-bottom: 4px;
 }
 
-.activity-text {
-  margin: 0 0 4px;
-  color: #303133;
-  line-height: 1.6;
+.action-item span,
+.submission-meta span {
+  font-size: 13px;
 }
 
-.activity-time {
-  font-size: 12px;
-  color: #909399;
+.panel-link {
+  color: var(--brand-primary);
+  font-weight: 700;
+}
+
+.panel-link:hover {
+  color: var(--brand-primary-hover);
+}
+
+.empty-box {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  text-align: center;
+  color: var(--text-secondary);
 }
 
 @media (max-width: 1200px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .actions-grid {
+  .hero-grid,
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 760px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .profile-main {
     flex-direction: column;
   }
+}
 
-  .profile-actions {
-    width: 100%;
-  }
-
+@media (max-width: 560px) {
   .stats-grid {
     grid-template-columns: 1fr;
   }

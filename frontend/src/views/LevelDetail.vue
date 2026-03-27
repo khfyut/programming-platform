@@ -251,14 +251,14 @@ const openResource = (resource) => {
 }
 
 const goToProblem = (problemId) => {
-  router.push(`/dashboard/problem/${problemId}`)
+  router.push({ name: 'ProblemDetail', params: { id: problemId } })
 }
 
 const goBack = () => {
   if (pathId.value) {
-    router.push(`/dashboard/learn/path/${pathId.value}`)
+    router.push({ name: 'LearningPath', params: { id: pathId.value } })
   } else {
-    router.push('/dashboard/learn')
+    router.push({ name: 'Learn' })
   }
 }
 

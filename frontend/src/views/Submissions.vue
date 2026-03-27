@@ -156,10 +156,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getMySubmissions, getSubmitDetail } from '@/api/submit'
 import { RefreshLeft, ArrowRight } from '@element-plus/icons-vue'
 
+const route = useRoute()
 const loading = ref(false)
 const submissionList = ref([])
 const detailDialogVisible = ref(false)
@@ -259,28 +261,39 @@ const fetchSubmissions = async () => {
 }
 
 const viewDetail = async (submission) => {
+  const submitId = Number(submission?.id || submission)
+  if (!submitId) return
+
   detailLoading.value = true
   currentSubmission.value = null
   detailDialogVisible.value = true
   try {
-    const res = await getSubmitDetail(submission.id)
+    const res = await getSubmitDetail(submitId)
     if (res.code === 200) {
       let data = res.data
+      const fallbackSubmission = typeof submission === 'object' ? submission : {}
       if (data) {
-        data.problemTitle = data.problemTitle || data.title || data.problemName || submission.problemTitle
-        data.difficulty = data.difficulty || submission.difficulty
-        data.submitTime = data.submitTime || data.createTime || data.createdAt || submission.submitTime
+        data.problemTitle = data.problemTitle || data.title || data.problemName || fallbackSubmission.problemTitle
+        data.difficulty = data.difficulty || fallbackSubmission.difficulty
+        data.submitTime = data.submitTime || data.createTime || data.createdAt || fallbackSubmission.submitTime
       }
       currentSubmission.value = data
     } else {
-      currentSubmission.value = submission
+      currentSubmission.value = typeof submission === 'object' ? submission : null
     }
   } catch (error) {
     console.error('获取提交详情失败:', error)
-    currentSubmission.value = submission
+    currentSubmission.value = typeof submission === 'object' ? submission : null
   } finally {
     detailLoading.value = false
   }
+}
+
+const openDetailFromRoute = async (submitId) => {
+  const id = Number(submitId)
+  if (!id) return
+  const matched = submissionList.value.find((item) => Number(item.id) === id)
+  await viewDetail(matched || id)
 }
 
 const resetFilters = () => {
@@ -293,6 +306,16 @@ const resetFilters = () => {
 onMounted(() => {
   fetchSubmissions()
 })
+
+watch(
+  () => route.query.submitId,
+  (submitId) => {
+    if (submitId) {
+      openDetailFromRoute(submitId)
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>

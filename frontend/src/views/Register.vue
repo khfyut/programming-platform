@@ -1,15 +1,12 @@
 <template>
   <div class="register-container">
-    <!-- 左侧视觉区 -->
-    <div class="visual-section">
-      <!-- 动态网格背景 -->
+    <section class="visual-section">
       <div class="animated-grid"></div>
 
-      <!-- 浮动的代码片段 -->
       <div class="floating-codes">
         <div class="code-card" style="top: 15%; left: 10%; animation-delay: 0s;">
           <pre><code>class Solution:
-    def twoSum(self, nums, target):
+    def two_sum(self, nums, target):
         seen = {}
         for i, num in enumerate(nums):
             if target - num in seen:
@@ -18,10 +15,10 @@
         </div>
         <div class="code-card" style="top: 45%; left: 20%; animation-delay: 1s;">
           <pre><code>function quickSort(arr) {
-    if (arr.length <= 1) return arr
+    if (arr.length &lt;= 1) return arr
     const pivot = arr[0]
-    const left = arr.filter(x => x < pivot)
-    const right = arr.filter(x => x > pivot)
+    const left = arr.filter(x =&gt; x &lt; pivot)
+    const right = arr.filter(x =&gt; x &gt; pivot)
     return [...quickSort(left), pivot, ...quickSort(right)]
 }</code></pre>
         </div>
@@ -29,10 +26,10 @@
           <pre><code>public class BinarySearch {
     public static int search(int[] nums, int target) {
         int left = 0, right = nums.length - 1;
-        while (left <= right) {
+        while (left &lt;= right) {
             int mid = left + (right - left) / 2;
             if (nums[mid] == target) return mid;
-            if (nums[mid] < target) left = mid + 1;
+            if (nums[mid] &lt; target) left = mid + 1;
             else right = mid - 1;
         }
         return -1;
@@ -41,7 +38,6 @@
         </div>
       </div>
 
-      <!-- 品牌介绍 -->
       <div class="brand-intro">
         <div class="brand-logo">
           <el-icon :size="48"><Edit /></el-icon>
@@ -63,17 +59,16 @@
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- 右侧注册区 -->
-    <div class="register-section">
+    <section class="register-section">
       <div class="glass-card">
         <div class="register-header">
           <h2>创建账户</h2>
           <p>填写信息开始学习</p>
         </div>
 
-        <el-form :model="form" :rules="rules" ref="formRef" class="register-form">
+        <el-form ref="formRef" :model="form" :rules="rules" class="register-form">
           <el-form-item prop="username">
             <div class="input-wrapper">
               <el-icon class="input-icon"><User /></el-icon>
@@ -95,6 +90,7 @@
                 placeholder="密码"
                 size="large"
                 class="custom-input"
+                show-password
               />
             </div>
           </el-form-item>
@@ -108,6 +104,7 @@
                 placeholder="确认密码"
                 size="large"
                 class="custom-input"
+                show-password
                 @keyup.enter="handleRegister"
               />
             </div>
@@ -118,8 +115,8 @@
               type="primary"
               size="large"
               :loading="loading"
-              @click="handleRegister"
               class="register-button"
+              @click="handleRegister"
             >
               <el-icon v-if="!loading"><Right /></el-icon>
               {{ loading ? '注册中...' : '注册' }}
@@ -132,16 +129,16 @@
           <router-link to="/login" class="login-link">立即登录</router-link>
         </div>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { Edit, Right, User, Lock, Trophy, Monitor, ChatDotRound } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -154,22 +151,23 @@ const form = reactive({
   confirmPassword: ''
 })
 
-const validateConfirmPassword = (rule, value, callback) => {
+const validateConfirmPassword = (_rule, value, callback) => {
   if (value !== form.password) {
     callback(new Error('两次输入的密码不一致'))
-  } else {
-    callback()
+    return
   }
+
+  callback()
 }
 
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度应为 3 到 20 个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少 6 个字符', trigger: 'blur' }
+    { min: 6, message: '密码长度至少为 6 个字符', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
@@ -178,7 +176,9 @@ const rules = {
 }
 
 const handleRegister = async () => {
-  const valid = await formRef.value.validate()
+  if (!formRef.value) return
+
+  const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
   loading.value = true
@@ -202,520 +202,228 @@ const handleRegister = async () => {
 .register-container {
   display: flex;
   min-height: 100vh;
-  background: var(--dark-bg-primary);
+  background: var(--dark-bg-primary, #070b14);
   overflow: hidden;
 }
 
-/* ==================== 左侧视觉区 ==================== */
 .visual-section {
-  flex: 1;
   position: relative;
-  background: var(--gradient-dark);
-  overflow: hidden;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(34, 197, 94, 0.16), transparent 35%),
+    linear-gradient(135deg, #06111f 0%, #0d1830 45%, #07121d 100%);
 }
 
-/* 动态网格背景 */
 .animated-grid {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background-image:
-    linear-gradient(rgba(0, 102, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 102, 255, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
-  animation: gridMove 20s linear infinite;
+    linear-gradient(rgba(56, 189, 248, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  animation: gridMove 18s linear infinite;
 }
 
-@keyframes gridMove {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 50px 50px;
-  }
-}
-
-/* 浮动的代码片段 */
 .floating-codes {
   position: absolute;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   pointer-events: none;
 }
 
 .code-card {
   position: absolute;
-  background: rgba(22, 27, 34, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 102, 255, 0.2);
-  border-radius: 12px;
+  width: min(280px, 40vw);
   padding: 16px;
-  font-family: var(--font-code);
+  border: 1px solid rgba(52, 211, 153, 0.24);
+  border-radius: 16px;
+  background: rgba(6, 17, 31, 0.72);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
+  color: #d1fae5;
+  font-family: var(--font-code, "Consolas", monospace);
   font-size: 12px;
-  color: var(--dark-text-secondary);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   animation: float 6s ease-in-out infinite;
-  max-width: 280px;
 }
 
 .code-card pre {
   margin: 0;
   white-space: pre-wrap;
-  word-wrap: break-word;
+  word-break: break-word;
 }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-20px) rotate(1deg);
-  }
-}
-
-/* 品牌介绍 */
 .brand-intro {
   position: relative;
-  z-index: 10;
+  z-index: 1;
+  max-width: 540px;
+  padding: 32px;
   text-align: center;
-  color: white;
-  animation: fadeInUp 1s ease-out;
+  color: #f8fbff;
 }
 
 .brand-logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
-  background: var(--gradient-brand);
-  border-radius: 20px;
+  width: 84px;
+  height: 84px;
   margin-bottom: 24px;
-  box-shadow: 0 8px 32px rgba(0, 102, 255, 0.4);
-  animation: glow 3s ease-in-out infinite;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #10b981 0%, #2563eb 100%);
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.24);
 }
 
 .brand-intro h1 {
-  font-size: 36px;
+  margin: 0 0 12px;
+  font-size: 40px;
   font-weight: 700;
-  margin-bottom: 12px;
-  background: linear-gradient(135deg, #FFFFFF 0%, #A8DADC 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .subtitle {
+  margin: 0 0 28px;
+  color: rgba(226, 232, 240, 0.86);
   font-size: 18px;
-  color: var(--dark-text-secondary);
-  margin-bottom: 32px;
 }
 
 .features {
-  display: flex;
-  gap: 24px;
+  display: inline-flex;
+  gap: 14px;
+  flex-wrap: wrap;
   justify-content: center;
 }
 
 .feature-item {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 16px 24px;
-  background: rgba(22, 27, 34, 0.6);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 102, 255, 0.2);
-  border-radius: 12px;
-  transition: all var(--transition-base);
+  padding: 10px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #dbeafe;
 }
 
-.feature-item:hover {
-  transform: translateY(-4px);
-  border-color: rgba(0, 102, 255, 0.4);
-  box-shadow: 0 8px 24px rgba(0, 102, 255, 0.2);
-}
-
-.feature-item .el-icon {
-  font-size: 24px;
-  color: var(--brand-primary);
-}
-
-.feature-item span {
-  font-size: 14px;
-  color: var(--dark-text-secondary);
-}
-
-/* ==================== 右侧注册区 ==================== */
 .register-section {
-  flex: 0 0 480px;
   display: flex;
+  width: min(440px, 100%);
   align-items: center;
   justify-content: center;
-  padding: 48px;
-  background: var(--dark-bg-secondary);
-  position: relative;
+  padding: 32px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
 }
 
-.register-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle at top left, rgba(0, 102, 255, 0.05) 0%, transparent 50%);
-  pointer-events: none;
-}
-
-/* 玻璃拟态卡片 */
 .glass-card {
   width: 100%;
-  max-width: 400px;
-  padding: 48px 40px;
-  background: rgba(22, 27, 34, 0.8);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  animation: fadeInUp 0.8s ease-out 0.3s backwards;
+  padding: 36px 32px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.14);
 }
 
 .register-header {
+  margin-bottom: 28px;
   text-align: center;
-  margin-bottom: 40px;
 }
 
 .register-header h2 {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--dark-text-primary);
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+  font-size: 30px;
+  color: #0f172a;
 }
 
 .register-header p {
-  font-size: 14px;
-  color: var(--dark-text-tertiary);
   margin: 0;
+  color: #64748b;
 }
 
-/* 注册表单 */
 .register-form {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .input-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 360px;
-  margin: 0 auto 20px;
 }
 
 .input-icon {
   position: absolute;
-  left: 16px;
-  color: var(--dark-text-tertiary);
-  font-size: 18px;
+  top: 50%;
+  left: 14px;
   z-index: 1;
+  transform: translateY(-50%);
+  color: #64748b;
 }
 
-.custom-input {
-  width: 100%;
+.custom-input :deep(.el-input__wrapper) {
+  min-height: 48px;
+  padding-left: 38px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.18) inset;
 }
 
-:deep(.custom-input .el-input__wrapper) {
-  padding-left: 48px;
-  background: rgba(33, 38, 45, 0.8);
-  border: 1px solid var(--dark-border-color);
-  border-radius: 12px;
-  box-shadow: none;
-  transition: all var(--transition-base);
-  width: 100% !important;
-  max-width: none !important;
+.custom-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #2563eb inset;
 }
 
-:deep(.custom-input .el-input__wrapper:hover) {
-  border-color: var(--brand-primary);
-  background: rgba(33, 38, 45, 0.9);
-}
-
-:deep(.custom-input .el-input__wrapper.is-focus) {
-  border-color: var(--brand-primary);
-  background: rgba(33, 38, 45, 0.9);
-  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
-}
-
-:deep(.custom-input .el-input__inner) {
-  color: var(--dark-text-primary);
-  font-size: 15px;
-  height: 48px;
-}
-
-:deep(.custom-input .el-input__inner::placeholder) {
-  color: var(--dark-text-tertiary);
-}
-
-/* 注册按钮 */
 .register-button {
   width: 100%;
-  max-width: 360px;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 600;
-  background: var(--gradient-brand);
+  min-height: 48px;
   border: none;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.3);
-  transition: all var(--transition-base);
-  margin: 0 auto;
-  display: block;
-  padding: 0 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #10b981 0%, #2563eb 100%);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.24);
 }
 
-.register-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 102, 255, 0.4);
-}
-
-.register-button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-/* 注册页脚 */
 .register-footer {
-  text-align: center;
-  font-size: 14px;
-  color: var(--dark-text-tertiary);
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  color: #64748b;
 }
 
 .login-link {
-  color: var(--brand-primary);
+  color: #2563eb;
   font-weight: 600;
   text-decoration: none;
-  transition: all var(--transition-fast);
-  margin-left: 4px;
 }
 
-.login-link:hover {
-  color: var(--brand-primary-hover);
-  text-decoration: underline;
-}
-
-/* ==================== 响应式设计 ==================== */
-@media (max-width: 1024px) {
-  .visual-section {
-    flex: 1;
+@keyframes gridMove {
+  from {
+    background-position: 0 0;
   }
-
-  .register-section {
-    flex: 0 0 400px;
-  }
-
-  .brand-intro h1 {
-    font-size: 28px;
-  }
-
-  .subtitle {
-    font-size: 16px;
-  }
-
-  .features {
-    gap: 16px;
-  }
-
-  .feature-item {
-    padding: 12px 16px;
-  }
-
-  .feature-item span {
-    font-size: 12px;
+  to {
+    background-position: 48px 48px;
   }
 }
 
-@media (max-width: 768px) {
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@media (max-width: 960px) {
   .register-container {
     flex-direction: column;
   }
 
   .visual-section {
-    flex: 0 0 40vh;
+    min-height: 40vh;
   }
 
   .register-section {
-    flex: 1;
-    padding: 24px;
-  }
-
-  .glass-card {
-    padding: 32px 24px;
-    max-width: 100%;
-  }
-
-  .code-card {
-    display: none;
-  }
-
-  .features {
-    gap: 12px;
-  }
-
-  .feature-item {
-    padding: 10px 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .register-section {
-    padding: 16px;
-  }
-
-  .glass-card {
-    padding: 24px 20px;
+    width: 100%;
   }
 
   .brand-intro h1 {
-    font-size: 24px;
+    font-size: 32px;
   }
-
-  .subtitle {
-    font-size: 14px;
-  }
-
-  .features {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .feature-item {
-    flex-direction: row;
-    justify-content: center;
-    padding: 12px;
-  }
-}
-
-.register-container {
-  background:
-    radial-gradient(circle at 10% 16%, rgba(0, 209, 255, 0.12), transparent 28%),
-    radial-gradient(circle at 84% 12%, rgba(0, 102, 255, 0.14), transparent 30%),
-    linear-gradient(135deg, rgba(4, 10, 20, 0.98), rgba(6, 16, 32, 0.95));
-}
-
-.visual-section::before {
-  content: '';
-  position: absolute;
-  inset: 8% 7% auto;
-  height: 1px;
-  background: var(--gradient-line);
-  opacity: 0.8;
-}
-
-.visual-section::after {
-  content: '';
-  position: absolute;
-  inset: auto auto 10% 6%;
-  width: 20rem;
-  height: 20rem;
-  background: rgba(0, 102, 255, 0.16);
-  filter: blur(84px);
-}
-
-.animated-grid {
-  background-image:
-    linear-gradient(rgba(124, 247, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 247, 255, 0.08) 1px, transparent 1px);
-}
-
-.brand-logo,
-.feature-item,
-.code-card,
-.glass-card {
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-neon);
-}
-
-.brand-logo {
-  background: rgba(0, 209, 255, 0.12);
-  color: var(--brand-accent);
-}
-
-.brand-intro h1,
-.register-header h2 {
-  font-family: var(--font-display);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.brand-intro h1 {
-  text-shadow: 0 0 30px rgba(0, 209, 255, 0.16);
-}
-
-.subtitle,
-.register-header p,
-.register-footer {
-  color: var(--text-secondary);
-}
-
-.feature-item {
-  background: rgba(8, 18, 34, 0.62);
-  backdrop-filter: blur(18px);
-}
-
-.feature-item span {
-  color: var(--text-primary);
-}
-
-.feature-item .el-icon {
-  color: var(--brand-primary);
-}
-
-.code-card {
-  background: rgba(6, 16, 31, 0.76);
-  color: #9fdcff;
-}
-
-.glass-card {
-  background: rgba(8, 18, 34, 0.76);
-  backdrop-filter: blur(22px);
-}
-
-:deep(.custom-input .el-input__wrapper) {
-  background: rgba(7, 19, 36, 0.88);
-  border-color: var(--border-color);
-}
-
-:deep(.custom-input .el-input__wrapper:hover),
-:deep(.custom-input .el-input__wrapper.is-focus) {
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px rgba(0, 209, 255, 0.14);
-}
-
-:deep(.custom-input .el-input__inner) {
-  color: var(--text-primary);
-}
-
-:deep(.custom-input .el-input__inner::placeholder) {
-  color: var(--text-tertiary);
-}
-
-.input-icon,
-.login-link {
-  color: var(--brand-primary);
-}
-
-.register-button {
-  background: var(--gradient-brand);
-  box-shadow: var(--shadow-neon);
-}
-
-.register-button:hover:not(:disabled) {
-  box-shadow: 0 0 0 1px rgba(0, 209, 255, 0.22), 0 0 40px rgba(0, 102, 255, 0.26);
 }
 </style>

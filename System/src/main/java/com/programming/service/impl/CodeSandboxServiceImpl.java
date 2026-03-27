@@ -9,7 +9,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Slf4j
 @Service
@@ -17,7 +20,7 @@ public class CodeSandboxServiceImpl implements CodeSandboxService {
 
     @Autowired
     private DockerUtil dockerUtil;
-    
+
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     @Override
@@ -27,113 +30,61 @@ public class CodeSandboxServiceImpl implements CodeSandboxService {
 
     @Override
     public List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs) {
-        List<CodeExecutionResult> results = new ArrayList<>();
-        List<Future<CodeExecutionResult>> futures = new ArrayList<>();
-        
-        for (String input : inputs) {
-            Future<CodeExecutionResult> future = executorService.submit(() -> {
-                CodeExecutionResult result = new CodeExecutionResult();
-                long startTime = System.currentTimeMillis();
-                
-                try {
-                    String output = dockerUtil.runCode(code, language, input);
-                    long endTime = System.currentTimeMillis();
-                    
-                    result.setOutput(output);
-                    result.setTimeCost(endTime - startTime);
-                    result.setMemoryCost(0);
-                    
-                    if (output.startsWith("编译错误：")) {
-                        result.setErrorMessage(output.substring("编译错误：".length()));
-                        result.setExitCode(2);
-                    } else if (output.startsWith("运行错误：")) {
-                        result.setErrorMessage(output.substring("运行错误：".length()));
-                        result.setExitCode(3);
-                    } else if (output.startsWith("运行失败：")) {
-                        result.setErrorMessage(output.substring("运行失败：".length()));
-                        result.setExitCode(4);
-                    } else {
-                        result.setExitCode(0);
-                    }
-                } catch (Exception e) {
-                    log.error("代码执行异常", e);
-                    result.setErrorMessage("执行异常：" + e.getMessage());
-                    result.setExitCode(-1);
-                }
-                
-                return result;
-            });
-            futures.add(future);
-        }
-        
-        for (Future<CodeExecutionResult> future : futures) {
-            try {
-                results.add(future.get());
-            } catch (InterruptedException | ExecutionException e) {
-                log.error("获取执行结果失败", e);
-                CodeExecutionResult errorResult = new CodeExecutionResult();
-                errorResult.setErrorMessage("执行异常：" + e.getMessage());
-                errorResult.setExitCode(-1);
-                results.add(errorResult);
-            }
-        }
-        
-        return results;
+        return executeBatch(code, language, inputs, null, null);
     }
 
     @Override
     public List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs, Integer timeLimit, Integer memoryLimit) {
+        return executeBatch(code, language, inputs, timeLimit, memoryLimit);
+    }
+
+    private List<CodeExecutionResult> executeBatch(String code, String language, List<String> inputs,
+                                                   Integer timeLimit, Integer memoryLimit) {
         List<CodeExecutionResult> results = new ArrayList<>();
         List<Future<CodeExecutionResult>> futures = new ArrayList<>();
-        
+
         for (String input : inputs) {
             Future<CodeExecutionResult> future = executorService.submit(() -> {
-                CodeExecutionResult result = new CodeExecutionResult();
-                long startTime = System.currentTimeMillis();
-                
                 try {
-                    String output = dockerUtil.runCode(code, language, input, timeLimit, memoryLimit);
-                    long endTime = System.currentTimeMillis();
-                    
-                    result.setOutput(output);
-                    result.setTimeCost(endTime - startTime);
-                    result.setMemoryCost(0);
-                    
-                    if (output.startsWith("编译错误：")) {
-                        result.setErrorMessage(output.substring("编译错误：".length()));
-                        result.setExitCode(2);
-                    } else if (output.startsWith("运行错误：")) {
-                        result.setErrorMessage(output.substring("运行错误：".length()));
-                        result.setExitCode(3);
-                    } else if (output.startsWith("运行失败：")) {
-                        result.setErrorMessage(output.substring("运行失败：".length()));
-                        result.setExitCode(4);
-                    } else {
-                        result.setExitCode(0);
+                    if (timeLimit == null && memoryLimit == null) {
+                        return dockerUtil.executeCode(code, language, input);
                     }
+                    return dockerUtil.executeCode(code, language, input, timeLimit, memoryLimit);
                 } catch (Exception e) {
-                    log.error("代码执行异常", e);
-                    result.setErrorMessage("执行异常：" + e.getMessage());
+                    log.error("Code execution exception", e);
+                    CodeExecutionResult result = new CodeExecutionResult();
                     result.setExitCode(-1);
+                    result.setErrorMessage("Execution exception: " + e.getMessage());
+                    result.setTimeCost(0);
+                    result.setMemoryCost(0);
+                    return result;
                 }
-                
-                return result;
             });
             futures.add(future);
         }
-        
+
         for (Future<CodeExecutionResult> future : futures) {
             try {
                 results.add(future.get());
-            } catch (InterruptedException | ExecutionException e) {
-                log.error("获取执行结果失败", e);
-                CodeExecutionResult errorResult = new CodeExecutionResult();
-                errorResult.setErrorMessage("执行异常：" + e.getMessage());
-                errorResult.setExitCode(-1);
-                results.add(errorResult);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Interrupted while reading execution result", e);
+                results.add(buildFutureErrorResult(e));
+            } catch (ExecutionException e) {
+                log.error("Failed to read execution result", e);
+                results.add(buildFutureErrorResult(e));
             }
         }
-        
+
         return results;
+    }
+
+    private CodeExecutionResult buildFutureErrorResult(Exception e) {
+        CodeExecutionResult errorResult = new CodeExecutionResult();
+        errorResult.setExitCode(-1);
+        errorResult.setErrorMessage("Execution exception: " + e.getMessage());
+        errorResult.setTimeCost(0);
+        errorResult.setMemoryCost(0);
+        return errorResult;
     }
 }

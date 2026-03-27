@@ -1,36 +1,48 @@
-import json
-import os
-
 import requests
+import json
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8080")
-
-login_url = f"{API_BASE_URL}/api/user/login"
-stats_url = f"{API_BASE_URL}/api/knowledge-graph/stats"
-
+# 测试登录
+login_url = "http://localhost:8080/api/user/login"
 login_data = {
-    "username": os.getenv("TEST_USERNAME", "admin"),
-    "password": os.getenv("TEST_PASSWORD", "admin123")
+    "username": "admin",
+    "password": "admin123"
 }
 
 try:
-    print("logging in...")
-    response = requests.post(login_url, json=login_data, timeout=10)
-    print("login status:", response.status_code)
-    print("login body:", response.text)
-
+    print("正在登录...")
+    response = requests.post(login_url, json=login_data)
+    print(f"登录响应: {response.status_code}")
+    print(f"登录结果: {response.text}")
+    
     if response.status_code == 200:
         result = response.json()
         if result.get("code") == 200:
             token = result["data"]["token"]
-            headers = {"Authorization": f"Bearer {token}"}
-
-            print("checking knowledge graph stats...")
-            stats_response = requests.get(stats_url, headers=headers, timeout=10)
-            print("stats status:", stats_response.status_code)
-
+            print(f"获取到token: {token[:20]}...")
+            
+            # 测试知识点统计API
+            stats_url = "http://localhost:8080/api/knowledge-graph/stats"
+            headers = {"Authorization": token}
+            
+            print("\n正在测试知识点统计API...")
+            stats_response = requests.get(stats_url, headers=headers)
+            print(f"API响应: {stats_response.status_code}")
+            
             if stats_response.status_code == 200:
                 stats_result = stats_response.json()
-                print(json.dumps(stats_result, indent=2, ensure_ascii=False)[:500])
-except Exception as exc:
-    print("test failed:", exc)
+                print(f"API结果: {json.dumps(stats_result, indent=2, ensure_ascii=False)[:500]}")
+                
+                if stats_result.get("code") == 200:
+                    data = stats_result.get("data", [])
+                    print(f"\n成功获取到 {len(data)} 个知识点")
+                    if data:
+                        print(f"第一个知识点: {data[0]}")
+            else:
+                print(f"API请求失败: {stats_response.text}")
+        else:
+            print(f"登录失败: {result.get('msg')}")
+    else:
+        print(f"登录请求失败: {response.text}")
+        
+except Exception as e:
+    print(f"测试出错: {e}")

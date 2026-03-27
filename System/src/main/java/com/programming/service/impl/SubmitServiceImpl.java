@@ -91,6 +91,7 @@ public class SubmitServiceImpl implements SubmitService {
         for (int i = 0; i < testCases.size(); i++) {
             TestCase testCase = testCases.get(i);
             CodeExecutionResult execResult = executionResults.get(i);
+            String actualOutputText = execResult.getOutput() == null ? "" : execResult.getOutput();
             
             // 发送测试用例开始执行消息
             Map<String, Object> testCaseStartMessage = Map.of(
@@ -105,7 +106,7 @@ public class SubmitServiceImpl implements SubmitService {
             result.setTestCaseId(testCase.getId());
             result.setTimeCost((int) execResult.getTimeCost());
             result.setMemoryCost((int) execResult.getMemoryCost());
-            result.setActualOutput(execResult.getOutput());
+            result.setActualOutput(actualOutputText);
             
             String testCaseStatus = "";
             if (execResult.getExitCode() == 2) {
@@ -128,7 +129,7 @@ public class SubmitServiceImpl implements SubmitService {
                 log.error("运行失败 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
             } else {
                 String expectedOutput = testCase.getOutput().trim();
-                String actualOutput = execResult.getOutput().trim();
+                String actualOutput = actualOutputText.trim();
                 
                 if (expectedOutput.equals(actualOutput)) {
                     result.setResult(0);

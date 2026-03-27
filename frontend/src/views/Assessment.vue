@@ -414,11 +414,11 @@ const retakeAssessment = () => {
 }
 
 const goToPath = (pathId) => {
-  router.push(`/dashboard/learn/path/${pathId}`)
+  router.push({ name: 'LearningPath', params: { id: pathId } })
 }
 
 const goToLearn = () => {
-  router.push('/dashboard/learn')
+  router.push({ name: 'Learn' })
 }
 </script>
 

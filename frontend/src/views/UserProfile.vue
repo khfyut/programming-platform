@@ -838,11 +838,11 @@ const goToLearn = () => {
 }
 
 const continuePath = (pathId) => {
-  router.push(`/learning-path/${pathId}`)
+  router.push({ name: 'LearningPath', params: { id: pathId } })
 }
 
 const viewKnowledgeGraph = () => {
-  router.push('/knowledge-graph')
+  router.push({ name: 'KnowledgeGraph' })
 }
 
 const goToProblem = (problemId) => {
@@ -850,11 +850,14 @@ const goToProblem = (problemId) => {
 }
 
 const startProblem = (problemId) => {
-  router.push(`/code-run/${problemId}`)
+  router.push({ name: 'ProblemDetail', params: { id: problemId } })
 }
 
 const goToSubmission = (submissionId) => {
-  router.push(`/submissions/${submissionId}`)
+  router.push({
+    name: 'Submissions',
+    query: { submitId: submissionId }
+  })
 }
 
 const goToPost = (postId) => {

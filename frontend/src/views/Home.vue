@@ -1205,6 +1205,10 @@ const themeStore = useThemeStore()
   transform: scale(1.1);
 }
 
+.features-grid .feature-card:last-child {
+  display: none;
+}
+
 .feature-title {
   font-size: 1.25rem;
   font-weight: 600;

@@ -53,7 +53,7 @@
               circle
             />
           </el-tooltip>
-          <el-dropdown @command="handleCommand" trigger="click" popper-class="user-dropdown-panel">
+          <el-dropdown @command="handleCommand" @visible-change="handleDropdownVisibleChange" trigger="click" popper-class="user-dropdown-panel">
             <div class="user-info-trigger">
               <div class="user-avatar-wrapper">
                 <el-avatar :size="36" :icon="UserFilled" />
@@ -74,7 +74,7 @@
                 </div>
                 
                 <!-- 数据统计卡片 -->
-                <div class="user-stats-grid">
+                <div class="user-stats-grid" v-loading="statsLoading">
                   <div class="stat-card" @click="goToProfile('solved')">
                     <div class="stat-icon solved">
                       <el-icon><CircleCheck /></el-icon>
@@ -263,11 +263,12 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getMyLearnStats } from '@/api/learn'
 import {
   Edit,
   Search,
@@ -303,6 +304,7 @@ const languageDialogVisible = ref(false)
 const selectedLanguage = ref(userStore.userInfo?.language || 'java')
 const mobileMenuVisible = ref(false)
 const sidebarVisible = ref(true)
+const statsLoading = ref(false)
 
 // 用户统计数据
 const userStats = ref({
@@ -326,8 +328,58 @@ const fetchUserStats = async () => {
   }
 }
 
+const refreshUserStats = async () => {
+  if (!userStore.token) {
+    userStats.value = {
+      solved: 0,
+      submissions: 0,
+      passRate: 0,
+      streak: 0
+    }
+    return
+  }
+
+  statsLoading.value = true
+  try {
+    const fallbackPassRate = Number(userStore.userInfo?.passRate || 0)
+    const res = await getMyLearnStats()
+    const payload = res?.code === 200 ? (res.data?.stats || res.data || {}) : {}
+    const rawPassRate = payload.passRate ?? payload.accuracy ?? fallbackPassRate
+
+    userStats.value = {
+      solved: payload.solved ?? payload.totalSolved ?? userStore.userInfo?.solvedCount ?? userStore.userInfo?.totalSolved ?? 0,
+      submissions: payload.submitted ?? payload.submissionCount ?? payload.totalSubmissions ?? userStore.userInfo?.submissionCount ?? userStore.userInfo?.totalSubmissions ?? 0,
+      passRate: Number(rawPassRate) <= 1 ? Math.round(Number(rawPassRate || 0) * 100) : Math.round(Number(rawPassRate || 0)),
+      streak: payload.streak ?? userStore.userInfo?.streak ?? 0
+    }
+  } catch (error) {
+    console.error('refresh user stats failed:', error)
+    const fallbackPassRate = Number(userStore.userInfo?.passRate || 0)
+    userStats.value = {
+      solved: userStore.userInfo?.solvedCount ?? userStore.userInfo?.totalSolved ?? 0,
+      submissions: userStore.userInfo?.submissionCount ?? userStore.userInfo?.totalSubmissions ?? 0,
+      passRate: fallbackPassRate <= 1 ? Math.round(fallbackPassRate * 100) : Math.round(fallbackPassRate),
+      streak: userStore.userInfo?.streak ?? 0
+    }
+  } finally {
+    statsLoading.value = false
+  }
+}
+
+const handleDropdownVisibleChange = (visible) => {
+  if (visible) {
+    refreshUserStats()
+  }
+}
+
 const goToProfile = (tab) => {
-  router.push(`/profile?tab=${tab}`)
+  const routeByTab = {
+    submissions: { name: 'ProfileSubmissions' },
+    passRate: { name: 'ProfileAnalysis' },
+    solved: { name: 'UserProfile' },
+    streak: { name: 'UserProfile' }
+  }
+  router.push(routeByTab[tab] || { name: 'UserProfile' })
 }
 
 const toggleTheme = () => {
@@ -377,6 +429,25 @@ const handleUpdateLanguage = async () => {
     ElMessage.error('语言设置失败')
   }
 }
+watch(
+  () => userStore.userInfo?.id,
+  (userId) => {
+    if (userId) {
+      refreshUserStats()
+    }
+  },
+  { immediate: true }
+)
+
+onMounted(() => {
+  if (userStore.token && !userStore.userInfo) {
+    userStore.fetchUserInfo().finally(() => {
+      refreshUserStats()
+    })
+    return
+  }
+  refreshUserStats()
+})
 </script>
 
 <style scoped>
@@ -951,6 +1022,7 @@ const handleUpdateLanguage = async () => {
 /* 隐藏头部时的样式 */
 .leetcode-layout.hide-header .leetcode-main {
   margin-top: 0;
+  margin-left: 0;
   min-height: 100vh;
 }
 

@@ -1,134 +1,159 @@
 <template>
   <div class="settings-page">
-    <div class="settings-section">
-      <h3 class="section-title">账号设置</h3>
-      <div class="settings-list">
-        <div class="setting-item">
-          <div class="setting-info">
-            <span class="setting-label">用户名</span>
-            <span class="setting-value">{{ userStore.userInfo?.username || '未设置' }}</span>
-          </div>
-          <el-button link type="primary" @click="showUsernameDialog">修改</el-button>
-        </div>
-
-        <div class="setting-item">
-          <div class="setting-info">
-            <span class="setting-label">密码</span>
-            <span class="setting-value">已启用登录密码保护</span>
-          </div>
-          <el-button link type="primary" @click="showPasswordDialog">修改密码</el-button>
+    <section class="settings-card">
+      <div class="card-header">
+        <div>
+          <div class="section-kicker">Profile</div>
+          <h2>资料设置</h2>
         </div>
       </div>
-    </div>
 
-    <div class="settings-section">
-      <h3 class="section-title">外观设置</h3>
-      <div class="settings-list">
-        <div class="setting-item">
-          <div class="setting-info">
-            <span class="setting-label">深色模式</span>
-            <span class="setting-desc">切换当前页面的明暗主题</span>
-          </div>
-          <el-switch v-model="isDarkMode" @change="toggleTheme" />
+      <el-form :model="profileForm" label-position="top" class="settings-form">
+        <div class="section-note">先完善基础资料，再决定哪些信息需要长期展示在个人控制台里。</div>
+        <div class="form-grid">
+          <el-form-item label="用户名">
+            <el-input v-model="profileForm.username" placeholder="请输入用户名" />
+          </el-form-item>
+          <el-form-item label="头像链接">
+            <el-input v-model="profileForm.avatarUrl" placeholder="https://example.com/avatar.png" />
+          </el-form-item>
         </div>
-      </div>
-    </div>
 
-    <div class="settings-section danger">
-      <h3 class="section-title">危险操作</h3>
-      <div class="settings-list">
-        <div class="setting-item">
-          <div class="setting-info">
-            <span class="setting-label">退出登录</span>
-            <span class="setting-desc">退出当前账号并返回首页</span>
-          </div>
-          <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
-        </div>
-      </div>
-    </div>
-
-    <el-dialog v-model="usernameDialogVisible" title="修改用户名" width="400px">
-      <el-form ref="usernameFormRef" :model="usernameForm" :rules="usernameRules">
-        <el-form-item label="新用户名" prop="username">
-          <el-input v-model="usernameForm.username" placeholder="请输入新用户名" />
+        <el-form-item label="个人简介">
+          <el-input
+            v-model="profileForm.bio"
+            type="textarea"
+            :rows="4"
+            maxlength="120"
+            show-word-limit
+            placeholder="简要描述你的学习方向和目标"
+          />
         </el-form-item>
+
+        <div class="form-grid">
+          <el-form-item label="GitHub">
+            <el-input v-model="profileForm.githubUrl" placeholder="https://github.com/username" />
+          </el-form-item>
+          <el-form-item label="博客">
+            <el-input v-model="profileForm.blogUrl" placeholder="https://yourblog.com" />
+          </el-form-item>
+        </div>
+
+        <div class="form-actions">
+          <el-button type="primary" :loading="profileSaving" @click="saveProfile">保存资料</el-button>
+        </div>
       </el-form>
-      <template #footer>
-        <el-button @click="usernameDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitUsername">确认</el-button>
-      </template>
-    </el-dialog>
+    </section>
 
-    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="420px">
-      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules">
-        <el-form-item label="当前密码" prop="oldPassword">
-          <el-input v-model="passwordForm.oldPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="passwordForm.newPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="确认密码" prop="confirmPassword">
+    <section class="settings-card">
+      <div class="card-header">
+        <div>
+          <div class="section-kicker">Security</div>
+          <h2>账号安全</h2>
+        </div>
+      </div>
+
+      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-position="top" class="settings-form">
+        <div class="section-note">安全项单独管理，避免资料编辑和密码修改互相干扰。</div>
+        <div class="form-grid">
+          <el-form-item label="当前密码" prop="oldPassword">
+            <el-input v-model="passwordForm.oldPassword" type="password" show-password />
+          </el-form-item>
+          <el-form-item label="新密码" prop="newPassword">
+            <el-input v-model="passwordForm.newPassword" type="password" show-password />
+          </el-form-item>
+        </div>
+
+        <el-form-item label="确认新密码" prop="confirmPassword">
           <el-input v-model="passwordForm.confirmPassword" type="password" show-password />
         </el-form-item>
+
+        <div class="form-actions">
+          <el-button type="primary" :loading="passwordSaving" @click="savePassword">修改密码</el-button>
+        </div>
       </el-form>
-      <template #footer>
-        <el-button @click="passwordDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitPassword">确认</el-button>
-      </template>
-    </el-dialog>
+    </section>
+
+    <section class="settings-card">
+      <div class="card-header">
+        <div>
+          <div class="section-kicker">Preferences</div>
+          <h2>偏好设置</h2>
+        </div>
+      </div>
+
+      <div class="preference-row">
+        <div>
+          <div class="preference-title">深色模式</div>
+          <div class="preference-desc">切换当前页面的明暗主题</div>
+        </div>
+        <el-switch :model-value="themeStore.isDark" @change="handleThemeChange" />
+      </div>
+    </section>
+
+    <section class="settings-card danger-card">
+      <div class="card-header">
+        <div>
+          <div class="section-kicker">Danger Zone</div>
+          <h2>退出登录</h2>
+        </div>
+      </div>
+
+      <div class="preference-row">
+        <div>
+          <div class="preference-title">结束当前会话</div>
+          <div class="preference-desc">退出当前账号并返回登录页</div>
+        </div>
+        <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useThemeStore } from '@/stores/theme'
+import { useUserStore } from '@/stores/user'
 import { changePassword, updateProfile } from '@/api/userProfile'
 
 const router = useRouter()
+const themeStore = useThemeStore()
 const userStore = useUserStore()
 
-const isDarkMode = ref(false)
-const usernameDialogVisible = ref(false)
-const passwordDialogVisible = ref(false)
-const submitting = ref(false)
+const passwordFormRef = ref(null)
+const profileSaving = ref(false)
+const passwordSaving = ref(false)
 
-const usernameForm = ref({
-  username: ''
+const profileForm = reactive({
+  username: '',
+  avatarUrl: '',
+  bio: '',
+  githubUrl: '',
+  blogUrl: ''
 })
 
-const passwordForm = ref({
+const passwordForm = reactive({
   oldPassword: '',
   newPassword: '',
   confirmPassword: ''
 })
 
-const usernameFormRef = ref(null)
-const passwordFormRef = ref(null)
-
-const usernameRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度需在 3 到 20 个字符之间', trigger: 'blur' }
-  ]
-}
-
 const passwordRules = {
   oldPassword: [{ required: true, message: '请输入当前密码', trigger: 'blur' }],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少 6 位', trigger: 'blur' }
+    { min: 6, message: '密码长度至少为 6 个字符', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
     {
-      validator: (rule, value, callback) => {
-        if (value !== passwordForm.value.newPassword) {
+      validator: (_rule, value, callback) => {
+        if (value !== passwordForm.newPassword) {
           callback(new Error('两次输入的密码不一致'))
           return
         }
-
         callback()
       },
       trigger: 'blur'
@@ -136,162 +161,178 @@ const passwordRules = {
   ]
 }
 
-const toggleTheme = () => {
-  document.documentElement.classList.toggle('dark', isDarkMode.value)
-  localStorage.setItem('theme', isDarkMode.value ? 'dark' : 'light')
-  ElMessage.success(isDarkMode.value ? '已切换到深色模式' : '已切换到浅色模式')
+const syncProfileForm = () => {
+  profileForm.username = userStore.userInfo?.username || ''
+  profileForm.avatarUrl = userStore.userInfo?.avatarUrl || ''
+  profileForm.bio = userStore.userInfo?.bio || ''
+  profileForm.githubUrl = userStore.userInfo?.githubUrl || ''
+  profileForm.blogUrl = userStore.userInfo?.blogUrl || ''
 }
 
-const showUsernameDialog = () => {
-  usernameForm.value.username = userStore.userInfo?.username || ''
-  usernameDialogVisible.value = true
-}
-
-const showPasswordDialog = () => {
-  passwordForm.value = {
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  }
-  passwordDialogVisible.value = true
-}
-
-const submitUsername = async () => {
-  const isValid = await usernameFormRef.value?.validate().catch(() => false)
-  if (!isValid) {
-    return
-  }
-
-  submitting.value = true
+const saveProfile = async () => {
+  profileSaving.value = true
   try {
-    await updateProfile({ username: usernameForm.value.username })
-
-    if (userStore.userInfo) {
-      userStore.userInfo.username = usernameForm.value.username
+    const res = await updateProfile({ ...profileForm })
+    if (res?.code !== 200) {
+      throw new Error(res?.msg || '资料保存失败')
     }
 
-    usernameDialogVisible.value = false
-    ElMessage.success('用户名修改成功')
+    if (userStore.userInfo) {
+      Object.assign(userStore.userInfo, { ...profileForm })
+    }
+
+    ElMessage.success('资料已更新')
   } catch (error) {
-    ElMessage.error(error.message || '用户名修改失败')
+    ElMessage.error(error.message || '资料保存失败')
   } finally {
-    submitting.value = false
+    profileSaving.value = false
   }
 }
 
-const submitPassword = async () => {
-  const isValid = await passwordFormRef.value?.validate().catch(() => false)
-  if (!isValid) {
-    return
-  }
+const savePassword = async () => {
+  const valid = await passwordFormRef.value?.validate().catch(() => false)
+  if (!valid) return
 
-  submitting.value = true
+  passwordSaving.value = true
   try {
-    await changePassword({
-      oldPassword: passwordForm.value.oldPassword,
-      newPassword: passwordForm.value.newPassword
+    const res = await changePassword({
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
     })
 
-    passwordDialogVisible.value = false
+    if (res?.code !== 200) {
+      throw new Error(res?.msg || '密码修改失败')
+    }
+
+    passwordForm.oldPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
     ElMessage.success('密码修改成功')
   } catch (error) {
     ElMessage.error(error.message || '密码修改失败')
   } finally {
-    submitting.value = false
+    passwordSaving.value = false
   }
+}
+
+const handleThemeChange = (value) => {
+  themeStore.setTheme(Boolean(value))
+  ElMessage.success(value ? '已切换为深色模式' : '已切换为浅色模式')
 }
 
 const handleLogout = async () => {
   try {
     await ElMessageBox.confirm('确定要退出登录吗？', '提示', { type: 'warning' })
-    userStore.logout()
-    router.push('/')
+    userStore.clearToken()
+    router.push('/login')
     ElMessage.success('已退出登录')
   } catch {
     return
   }
 }
 
-onMounted(() => {
-  isDarkMode.value = document.documentElement.classList.contains('dark')
-})
+watch(() => userStore.userInfo, syncProfileForm, { immediate: true, deep: true })
 </script>
 
 <style scoped>
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-.settings-section {
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+.settings-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 22px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-md);
+  padding: 22px;
 }
 
-.settings-section.danger {
-  border: 1px solid #fde2e2;
+.settings-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 1px;
+  background: var(--gradient-line);
+  opacity: 0.6;
 }
 
-.settings-section.danger .section-title {
-  color: #f56c6c;
+.danger-card {
+  border-color: rgba(244, 63, 94, 0.26);
 }
 
-.section-title {
-  margin: 0 0 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
+.card-header {
+  margin-bottom: 18px;
 }
 
-.settings-list {
-  display: flex;
-  flex-direction: column;
+.section-kicker {
+  margin-bottom: 8px;
+  color: var(--brand-accent);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.setting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f2f5;
+.card-header h2 {
+  margin: 0;
 }
 
-.setting-item:last-child {
-  border-bottom: none;
+.settings-form {
+  margin-top: 8px;
 }
 
-.setting-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.setting-label {
-  font-size: 15px;
-  font-weight: 500;
-  color: #303133;
-}
-
-.setting-value {
-  font-size: 14px;
-  color: #606266;
-}
-
-.setting-desc {
+.section-note {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
   font-size: 13px;
-  color: #909399;
 }
 
-@media (max-width: 768px) {
-  .setting-item {
-    flex-direction: column;
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 0;
+}
+
+.preference-title {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.preference-desc {
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preference-row {
     align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

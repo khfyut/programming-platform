@@ -15,15 +15,62 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/paths',
+    redirect: '/learn'
+  },
+  {
+    path: '/path/:id',
+    redirect: to => `/learn/path/${to.params.id}`
+  },
+  {
+    path: '/editor',
+    redirect: '/problem/1'
+  },
+  {
+    path: '/',
+    name: 'Home',
+    component: () => import('@/views/Home.vue'),
+    meta: { requiresAuth: false, hideHeader: true }
+  },
+  {
     path: '/',
     component: () => import('@/layout/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {
-        path: '',
-        name: 'Home',
-        component: () => import('@/views/Home.vue'),
-        meta: { title: '首页' }
+        path: 'dashboard/learn',
+        redirect: '/learn'
+      },
+      {
+        path: 'dashboard/learn/path/:id',
+        redirect: to => `/learn/path/${to.params.id}`
+      },
+      {
+        path: 'dashboard/learn/path/:pathId/level/:levelId',
+        redirect: to => `/learn/path/${to.params.pathId}/level/${to.params.levelId}`
+      },
+      {
+        path: 'dashboard/problem/:id',
+        redirect: to => `/problem/${to.params.id}`
+      },
+      {
+        path: 'learning-path/:id',
+        redirect: to => `/learn/path/${to.params.id}`
+      },
+      {
+        path: 'knowledge-graph',
+        redirect: '/learn/knowledge-graph'
+      },
+      {
+        path: 'code-run/:id',
+        redirect: to => `/problem/${to.params.id}`
+      },
+      {
+        path: 'submissions/:id',
+        redirect: to => ({
+          path: '/submissions',
+          query: { submitId: to.params.id }
+        })
       },
       {
         path: 'problems',
@@ -105,9 +152,40 @@ const routes = [
       },
       {
         path: 'profile',
-        name: 'UserProfile',
-        component: () => import('@/views/UserProfile.vue'),
-        meta: { title: '个人主页' }
+        component: () => import('@/views/profile/Index.vue'),
+        meta: { title: '个人主页' },
+        children: [
+          {
+            path: '',
+            name: 'UserProfile',
+            component: () => import('@/views/profile/Overview.vue'),
+            meta: { title: '个人主页' }
+          },
+          {
+            path: 'analysis',
+            name: 'ProfileAnalysis',
+            component: () => import('@/views/profile/LearningAnalysis.vue'),
+            meta: { title: '学习分析' }
+          },
+          {
+            path: 'submissions',
+            name: 'ProfileSubmissions',
+            component: () => import('@/views/profile/Submissions.vue'),
+            meta: { title: '提交记录' }
+          },
+          {
+            path: 'collections',
+            name: 'ProfileCollections',
+            component: () => import('@/views/profile/Collections.vue'),
+            meta: { title: '收藏与扩展' }
+          },
+          {
+            path: 'settings',
+            name: 'ProfileSettings',
+            component: () => import('@/views/profile/Settings.vue'),
+            meta: { title: '资料设置' }
+          }
+        ]
       },
       {
         path: 'profile/:userId',
@@ -133,7 +211,7 @@ router.beforeEach((to, from, next) => {
   } else if (to.meta.requiresAdmin && userStore.userInfo?.role !== 1) {
     next('/')
   } else if ((to.path === '/login' || to.path === '/register') && token) {
-    next('/')
+    next('/learn')
   } else {
     next()
   }

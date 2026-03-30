@@ -1,85 +1,102 @@
 <template>
   <div class="reference-solution">
-    <!-- 查看按钮 -->
-    <el-button 
-      type="primary" 
-      @click="handleViewSolution"
+    <el-button
+      type="primary"
       :disabled="!canView"
-      :loading="loading"
+      :loading="buttonLoading"
+      @click="handleViewSolution"
     >
       查看参考答案
     </el-button>
-    
 
-    
-    <!-- 参考答案对话框 -->
-    <el-dialog v-model="showDialog" title="参考答案" width="80%">
-      <div class="solution-content">
-        <!-- 语言选择 -->
-        <div class="language-selector">
-          <el-select v-model="selectedLanguage" @change="loadSolution" size="small">
-            <el-option 
-              v-for="lang in availableLanguages" 
+    <el-dialog
+      v-model="showDialog"
+      title="参考答案"
+      width="min(1080px, 92vw)"
+      destroy-on-close
+      class="solution-dialog"
+    >
+      <div v-loading="contentLoading" class="solution-content">
+        <div class="toolbar">
+          <div class="toolbar-copy">
+            <strong>{{ solution.language || selectedLanguage || '默认语言' }}</strong>
+            <span>切换语言查看不同实现，并结合思路说明理解解法。</span>
+          </div>
+          <el-select
+            v-model="selectedLanguage"
+            class="language-select"
+            size="small"
+            :disabled="availableLanguages.length <= 1 || contentLoading"
+            @change="loadSolution"
+          >
+            <el-option
+              v-for="lang in availableLanguages"
               :key="lang"
               :label="lang"
               :value="lang"
             />
           </el-select>
         </div>
-        
-        <!-- 解题思路 -->
-        <div class="explanation-section">
+
+        <div class="meta-section">
+          <el-tag type="success" effect="plain">时间复杂度：{{ solution.timeComplexity || '--' }}</el-tag>
+          <el-tag type="warning" effect="plain">空间复杂度：{{ solution.spaceComplexity || '--' }}</el-tag>
+        </div>
+
+        <section class="content-section">
           <h3>解题思路</h3>
-          <div class="explanation-content">{{ solution.explanation }}</div>
-        </div>
-        
-        <!-- 复杂度分析 -->
-        <div class="complexity-section">
-          <el-tag type="success">时间复杂度: {{ solution.timeComplexity }}</el-tag>
-          <el-tag type="warning">空间复杂度: {{ solution.spaceComplexity }}</el-tag>
-        </div>
-        
-        <!-- 代码展示 -->
-        <div class="code-section">
+          <div class="explanation-content">
+            {{ solution.explanation || '暂时还没有补充解题说明。' }}
+          </div>
+        </section>
+
+        <section class="content-section">
           <div class="code-header">
             <h3>参考代码</h3>
-            <el-button size="small" @click="copyCode" :loading="copyLoading">
+            <el-button
+              size="small"
+              :loading="copyLoading"
+              :disabled="!solution.solutionCode"
+              @click="copyCode"
+            >
               复制代码
             </el-button>
           </div>
-          <MonacoEditor
-            v-model="solution.solutionCode"
-            :language="getMonacoLanguage(solution.language)"
-            height="400px"
-            :read-only="true"
-          />
-        </div>
-        
-        <!-- 渐进式提示 -->
-        <div class="hints-section" v-if="solution.hints">
-          <h3>渐进式提示</h3>
+          <div class="editor-shell">
+            <MonacoEditor
+              v-model="solution.solutionCode"
+              :language="getMonacoLanguage(solution.language || selectedLanguage)"
+              height="400px"
+              :read-only="true"
+            />
+          </div>
+        </section>
+
+        <section v-if="hintEntries.length > 0" class="content-section">
+          <h3>渐进提示</h3>
           <div class="hints-list">
-            <div 
-              v-for="(hint, level) in solution.hints" 
+            <div
+              v-for="([level, hint]) in hintEntries"
               :key="level"
               class="hint-item"
             >
-              <span class="hint-level">提示 {{ level }}:</span>
+              <span class="hint-level">提示 {{ level }}</span>
               <span class="hint-content">{{ hint }}</span>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { getReferenceSolution, getAvailableLanguages } from '@/api/referenceSolution'
-import MonacoEditor from '@/components/MonacoEditor.vue'
+import { computed, defineAsyncComponent, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getAvailableLanguages, getReferenceSolution } from '@/api/referenceSolution'
 
-// Props
+const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
+
 const props = defineProps({
   problemId: {
     type: Number,
@@ -91,12 +108,11 @@ const props = defineProps({
   }
 })
 
-// Emits
 const emit = defineEmits(['view-solution'])
 
-// State
 const showDialog = ref(false)
-const loading = ref(false)
+const buttonLoading = ref(false)
+const contentLoading = ref(false)
 const copyLoading = ref(false)
 const selectedLanguage = ref('')
 const availableLanguages = ref([])
@@ -111,58 +127,91 @@ const solution = reactive({
   hints: {}
 })
 
-// Methods
+const hintEntries = computed(() => Object.entries(solution.hints || {}).filter(([, hint]) => Boolean(hint)))
+
+const resetSolution = () => {
+  Object.assign(solution, {
+    problemId: props.problemId,
+    language: '',
+    solutionCode: '',
+    timeComplexity: '',
+    spaceComplexity: '',
+    explanation: '',
+    hints: {}
+  })
+}
+
 const handleViewSolution = async () => {
-  if (!props.canView) return
-  
-  loading.value = true
+  if (!props.canView) {
+    return
+  }
+
+  buttonLoading.value = true
   try {
-    // 先获取可用语言
     const languagesRes = await getAvailableLanguages(props.problemId)
-    if (languagesRes.code === 200 && languagesRes.data.length > 0) {
-      availableLanguages.value = languagesRes.data
-      selectedLanguage.value = languagesRes.data[0]
-      
-      // 加载参考答案
-      await loadSolution()
-      showDialog.value = true
-      emit('view-solution')
-    } else {
+    const languages = languagesRes?.code === 200 ? languagesRes.data || [] : []
+
+    if (languages.length === 0) {
       ElMessage.error('暂无参考答案')
+      return
     }
+
+    availableLanguages.value = languages
+    selectedLanguage.value = languages[0]
+    showDialog.value = true
+    emit('view-solution')
+    await loadSolution()
   } catch (error) {
+    console.error('获取参考答案失败:', error)
     ElMessage.error('获取参考答案失败')
   } finally {
-    loading.value = false
+    buttonLoading.value = false
   }
 }
 
 const loadSolution = async () => {
-  if (!selectedLanguage.value) return
-  
-  loading.value = true
+  if (!selectedLanguage.value) {
+    return
+  }
+
+  contentLoading.value = true
   try {
     const res = await getReferenceSolution(props.problemId, selectedLanguage.value)
-    if (res.code === 200) {
-      Object.assign(solution, res.data)
-    } else {
-      ElMessage.error(res.message || '获取参考答案失败')
+
+    if (res?.code !== 200 || !res.data) {
+      throw new Error(res?.message || '获取参考答案失败')
     }
+
+    Object.assign(solution, {
+      ...res.data,
+      language: res.data.language || selectedLanguage.value,
+      solutionCode: res.data.solutionCode || '',
+      timeComplexity: res.data.timeComplexity || '',
+      spaceComplexity: res.data.spaceComplexity || '',
+      explanation: res.data.explanation || '',
+      hints: res.data.hints || {}
+    })
   } catch (error) {
-    ElMessage.error('获取参考答案失败')
+    console.error('获取参考答案失败:', error)
+    resetSolution()
+    ElMessage.error(error.message || '获取参考答案失败')
   } finally {
-    loading.value = false
+    contentLoading.value = false
   }
 }
 
-
-
 const copyCode = async () => {
+  if (!solution.solutionCode) {
+    ElMessage.info('当前没有可复制的代码')
+    return
+  }
+
   copyLoading.value = true
   try {
     await navigator.clipboard.writeText(solution.solutionCode)
     ElMessage.success('代码已复制到剪贴板')
   } catch (error) {
+    console.error('复制代码失败:', error)
     ElMessage.error('复制失败，请手动复制')
   } finally {
     copyLoading.value = false
@@ -171,16 +220,18 @@ const copyCode = async () => {
 
 const getMonacoLanguage = (language) => {
   const languageMap = {
-    'Java': 'java',
-    'Python': 'python',
+    Java: 'java',
+    Python: 'python',
     'C++': 'cpp',
-    'JavaScript': 'javascript'
+    JavaScript: 'javascript',
+    java: 'java',
+    python: 'python',
+    cpp: 'cpp',
+    javascript: 'javascript'
   }
+
   return languageMap[language] || 'text'
 }
-
-// 引入ElMessage
-import { ElMessage } from 'element-plus'
 </script>
 
 <style scoped>
@@ -188,90 +239,134 @@ import { ElMessage } from 'element-plus'
   margin: 10px 0;
 }
 
-.hint-buttons {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
+.solution-dialog :deep(.el-dialog) {
+  max-width: 1080px;
+  border-radius: 18px;
+}
+
+.solution-dialog :deep(.el-dialog__body) {
+  padding-top: 16px;
 }
 
 .solution-content {
-  padding: 10px;
-}
-
-.language-selector {
-  margin-bottom: 20px;
-}
-
-.explanation-section {
-  margin-bottom: 20px;
-}
-
-.explanation-section h3 {
-  margin-bottom: 10px;
-  color: #303133;
-}
-
-.explanation-content {
-  line-height: 1.6;
-  color: #606266;
-}
-
-.complexity-section {
-  margin-bottom: 20px;
   display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.toolbar-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toolbar-copy strong {
+  color: var(--text-primary, #111827);
+  font-size: 15px;
+}
+
+.toolbar-copy span {
+  color: var(--text-secondary, #6b7280);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.language-select {
+  width: 180px;
+  flex-shrink: 0;
+}
+
+.meta-section {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.code-section {
-  margin-bottom: 20px;
+.content-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.content-section h3,
+.code-header h3 {
+  margin: 0;
+  color: var(--text-primary, #111827);
+  font-size: 16px;
+}
+
+.explanation-content {
+  padding: 14px 16px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary, #4b5563);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .code-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.code-header h3 {
-  margin: 0;
-  color: #303133;
-}
-
-.monaco-editor {
-  width: 100%;
-  height: 400px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-}
-
-.hints-section {
-  margin-top: 20px;
-}
-
-.hints-section h3 {
-  margin-bottom: 10px;
-  color: #303133;
+.editor-shell {
+  overflow: hidden;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 14px;
 }
 
 .hints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 14px;
   background: #f5f7fa;
-  padding: 15px;
-  border-radius: 4px;
 }
 
 .hint-item {
-  margin-bottom: 10px;
-  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.7;
 }
 
 .hint-level {
-  font-weight: bold;
-  margin-right: 10px;
+  flex-shrink: 0;
   color: #409eff;
+  font-weight: 700;
 }
 
 .hint-content {
   color: #606266;
+}
+
+@media (max-width: 768px) {
+  .toolbar,
+  .code-header,
+  .hint-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .language-select {
+    width: 100%;
+  }
 }
 </style>

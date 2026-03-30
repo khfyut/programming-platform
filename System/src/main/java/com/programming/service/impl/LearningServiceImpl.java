@@ -1,26 +1,68 @@
-
 package com.programming.service.impl;
 
-import com.programming.entity.*;
+import com.programming.entity.AssessmentQuestion;
+import com.programming.entity.LearningPath;
+import com.programming.entity.LearningResource;
+import com.programming.entity.PathChapter;
+import com.programming.entity.PathLevel;
+import com.programming.entity.PathLevelProblem;
+import com.programming.entity.Problem;
+import com.programming.entity.UserAssessment;
+import com.programming.entity.UserPathProgress;
 import com.programming.mapper.LearningPathMapper;
-import com.programming.mapper.PathLevelProblemMapper;
 import com.programming.mapper.LearningResourceMapper;
+import com.programming.mapper.PathLevelProblemMapper;
 import com.programming.service.LearningService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class LearningServiceImpl implements LearningService {
 
     @Autowired
     private LearningPathMapper learningPathMapper;
-    
+
     @Autowired
     private PathLevelProblemMapper pathLevelProblemMapper;
-    
+
     @Autowired
     private LearningResourceMapper learningResourceMapper;
+
+    private Set<Long> parseIdSet(String rawIds) {
+        if (rawIds == null || rawIds.isBlank()) {
+            return new LinkedHashSet<>();
+        }
+
+        Set<Long> ids = new LinkedHashSet<>();
+        for (String part : rawIds.split(",")) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            try {
+                ids.add(Long.parseLong(part.trim()));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return ids;
+    }
+
+    private boolean isCompleted(Set<Long> completedIds, Long targetId) {
+        return targetId != null && completedIds.contains(targetId);
+    }
+
+    private String joinIds(Set<Long> ids) {
+        return ids.stream()
+                .map(String::valueOf)
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+    }
 
     @Override
     public List<AssessmentQuestion> getAssessmentQuestions(String language, String direction, Integer limit) {
@@ -31,11 +73,11 @@ public class LearningServiceImpl implements LearningService {
     public Map<String, Object> submitAssessment(Long userId, String language, String direction, Map<Long, String> answers) {
         int score = 0;
         StringBuilder result = new StringBuilder();
-        
+
         for (Map.Entry<Long, String> entry : answers.entrySet()) {
             Long questionId = entry.getKey();
             String userAnswer = entry.getValue();
-            
+
             AssessmentQuestion question = learningPathMapper.selectAssessmentQuestionById(questionId);
             if (question != null && question.getCorrectAnswer().equals(userAnswer)) {
                 score += 10;
@@ -44,9 +86,9 @@ public class LearningServiceImpl implements LearningService {
                 result.append(questionId).append(":错误;");
             }
         }
-        
+
         String abilityLevel = getAbilityLevel(score, answers.size());
-        
+
         UserAssessment assessment = new UserAssessment();
         assessment.setUserId(userId);
         assessment.setLanguage(language);
@@ -54,9 +96,9 @@ public class LearningServiceImpl implements LearningService {
         assessment.setScore(score);
         assessment.setResult(result.toString());
         assessment.setAbilityLevel(abilityLevel);
-        
+
         learningPathMapper.insertUserAssessment(assessment);
-        
+
         Map<String, Object> resultData = new HashMap<>();
         resultData.put("score", score);
         resultData.put("level", abilityLevel);
@@ -64,85 +106,84 @@ public class LearningServiceImpl implements LearningService {
         resultData.put("analysis", getAbilityAnalysis(score, language, direction));
         resultData.put("suggestions", getLearningSuggestions(abilityLevel, language, direction));
         resultData.put("recommendedPath", getRecommendedPath(abilityLevel, language, direction));
-        
         return resultData;
     }
-    
+
     private String getLevelDescription(String abilityLevel) {
         Map<String, String> descriptions = new HashMap<>();
         descriptions.put("零基础", "您对编程基础概念了解有限，建议从基础开始学习。");
-        descriptions.put("入门", "您已经掌握了基本的编程概念，需要进一步巩固基础。");
+        descriptions.put("入门", "您已经掌握了基本的编程概念，还需要进一步巩固基础。");
         descriptions.put("进阶", "您已经具备一定的编程能力，可以挑战更复杂的问题。");
-        descriptions.put("精通", "您的编程能力已经达到较高水平，可以尝试高级编程技术。");
-        return descriptions.getOrDefault(abilityLevel, "继续努力！");
+        descriptions.put("精通", "您的编程能力已经达到较高水平，可以尝试高阶编程技术。");
+        return descriptions.getOrDefault(abilityLevel, "继续保持学习节奏。");
     }
-    
+
     private List<Map<String, Object>> getAbilityAnalysis(int score, String language, String direction) {
         List<Map<String, Object>> analysis = new ArrayList<>();
-        
+
         Map<String, Object> algorithm = new HashMap<>();
         algorithm.put("name", "算法基础");
         algorithm.put("score", Math.min(100, score + 10));
         analysis.add(algorithm);
-        
+
         Map<String, Object> dataStructure = new HashMap<>();
         dataStructure.put("name", "数据结构");
         dataStructure.put("score", Math.min(100, score));
         analysis.add(dataStructure);
-        
+
         Map<String, Object> problemSolving = new HashMap<>();
         problemSolving.put("name", "问题解决");
         problemSolving.put("score", Math.min(100, score + 5));
         analysis.add(problemSolving);
-        
+
         return analysis;
     }
-    
+
     private List<String> getLearningSuggestions(String abilityLevel, String language, String direction) {
         List<String> suggestions = new ArrayList<>();
-        
-        if (abilityLevel.equals("零基础")) {
-            suggestions.add("从基础语法开始学习，掌握基本的编程概念");
-            suggestions.add("多做简单的编程练习，培养编程思维");
-            suggestions.add("学习基本的数据结构和算法");
-        } else if (abilityLevel.equals("入门")) {
-            suggestions.add("巩固基础，加强算法练习");
-            suggestions.add("学习更复杂的数据结构");
-            suggestions.add("尝试解决中等难度的编程问题");
-        } else if (abilityLevel.equals("进阶")) {
-            suggestions.add("学习高级算法和设计模式");
-            suggestions.add("参与开源项目或实际项目开发");
-            suggestions.add("深入学习系统设计和架构");
-        } else if (abilityLevel.equals("精通")) {
-            suggestions.add("研究前沿技术和算法");
-            suggestions.add("分享知识，参与技术社区");
-            suggestions.add("挑战高难度的编程问题");
+
+        if ("零基础".equals(abilityLevel)) {
+            suggestions.add("从基础语法开始学习，掌握基本的编程概念。");
+            suggestions.add("多做简单的编程练习，培养编程思维。");
+            suggestions.add("学习基本的数据结构和算法。");
+        } else if ("入门".equals(abilityLevel)) {
+            suggestions.add("继续巩固基础，增加算法练习。");
+            suggestions.add("学习更复杂的数据结构。");
+            suggestions.add("尝试解决中等难度的编程问题。");
+        } else if ("进阶".equals(abilityLevel)) {
+            suggestions.add("学习高阶算法和设计模式。");
+            suggestions.add("参与开源项目或实际项目开发。");
+            suggestions.add("深入学习系统设计和架构。");
+        } else if ("精通".equals(abilityLevel)) {
+            suggestions.add("研究前沿技术和算法。");
+            suggestions.add("分享知识，参与技术社区。");
+            suggestions.add("挑战高难度的编程问题。");
         }
-        
+
         return suggestions;
     }
-    
+
     private Map<String, Object> getRecommendedPath(String abilityLevel, String language, String direction) {
         Map<String, Object> path = new HashMap<>();
-        
-        if (abilityLevel.equals("零基础")) {
+
+        if ("零基础".equals(abilityLevel)) {
             path.put("id", 1);
             path.put("name", "编程基础入门");
-            path.put("description", "适合初学者的编程基础学习路径，从语法开始，逐步深入");
-        } else if (abilityLevel.equals("入门")) {
+            path.put("description", "适合初学者的编程基础学习路径，从语法开始，逐步深入。");
+        } else if ("入门".equals(abilityLevel)) {
             path.put("id", 2);
             path.put("name", "算法与数据结构进阶");
-            path.put("description", "深入学习算法和数据结构，提升编程能力");
-        } else if (abilityLevel.equals("进阶")) {
+            path.put("description", "深入学习算法和数据结构，提升编程能力。");
+        } else if ("进阶".equals(abilityLevel)) {
             path.put("id", 3);
             path.put("name", "高级编程技术");
-            path.put("description", "学习高级编程技术和设计模式，准备进入专业开发");
-        } else if (abilityLevel.equals("精通")) {
+            path.put("description", "学习高阶编程技术和设计模式，准备进入专业开发。");
+        } else if ("精通".equals(abilityLevel)) {
             path.put("id", 4);
             path.put("name", "专家级技术研究");
-            path.put("description", "研究前沿技术，参与开源项目，成为技术专家");
+            path.put("description", "研究前沿技术，参与开源项目，成为技术专家。");
         }
-        
+
         return path;
     }
 
@@ -172,92 +213,84 @@ public class LearningServiceImpl implements LearningService {
             progress = new UserPathProgress();
             progress.setUserId(userId);
             progress.setPathId(pathId);
-            
+
             List<PathChapter> chapters = learningPathMapper.selectChaptersByPathId(pathId);
             if (!chapters.isEmpty()) {
                 PathChapter firstChapter = chapters.get(0);
                 progress.setCurrentChapterId(firstChapter.getId());
-                
+
                 List<PathLevel> levels = learningPathMapper.selectLevelsByChapterId(firstChapter.getId());
                 if (!levels.isEmpty()) {
-                    PathLevel firstLevel = levels.get(0);
-                    progress.setCurrentLevelId(firstLevel.getId());
+                    progress.setCurrentLevelId(levels.get(0).getId());
                 }
             }
-            
+
             progress.setCompletedChapters("");
             progress.setCompletedLevels("");
             learningPathMapper.insertUserPathProgress(progress);
         }
         return progress;
     }
-    
+
+    @Override
     public Map<String, Object> getUserPathProgressWithPercentage(Long userId, Long pathId) {
         Map<String, Object> result = new HashMap<>();
         UserPathProgress progress = getUserPathProgress(userId, pathId);
-        
+        Set<Long> completedLevelIds = parseIdSet(progress.getCompletedLevels());
+        Set<Long> completedChapterIds = parseIdSet(progress.getCompletedChapters());
+
         int totalLevels = 0;
-        int completedLevelsCount = 0;
+        int completedLevelsCount = completedLevelIds.size();
         List<Map<String, Object>> chapterProgress = new ArrayList<>();
         List<Map<String, Object>> weakPoints = new ArrayList<>();
-        
+
         List<PathChapter> chapters = learningPathMapper.selectChaptersByPathId(pathId);
         for (PathChapter chapter : chapters) {
             List<PathLevel> levels = learningPathMapper.selectLevelsByChapterId(chapter.getId());
             totalLevels += levels.size();
-            
-            // 分析章节进度
+
             int chapterCompletedLevels = 0;
-            if (progress.getCompletedLevels() != null && !progress.getCompletedLevels().isEmpty()) {
-                for (PathLevel level : levels) {
-                    if (progress.getCompletedLevels().contains(String.valueOf(level.getId()))) {
-                        chapterCompletedLevels++;
-                    }
+            for (PathLevel level : levels) {
+                if (isCompleted(completedLevelIds, level.getId())) {
+                    chapterCompletedLevels++;
                 }
             }
-            
+
             Map<String, Object> chapterInfo = new HashMap<>();
             chapterInfo.put("chapterId", chapter.getId());
             chapterInfo.put("chapterName", chapter.getName());
             chapterInfo.put("totalLevels", levels.size());
             chapterInfo.put("completedLevels", chapterCompletedLevels);
-            chapterInfo.put("progress", levels.size() > 0 ? (int) ((double) chapterCompletedLevels / levels.size() * 100) : 0);
+            chapterInfo.put("progress", levels.isEmpty() ? 0 : (int) ((double) chapterCompletedLevels / levels.size() * 100));
             chapterProgress.add(chapterInfo);
         }
-        
-        if (progress.getCompletedLevels() != null && !progress.getCompletedLevels().isEmpty()) {
-            String[] completedLevelIds = progress.getCompletedLevels().split(",");
-            completedLevelsCount = completedLevelIds.length;
-        }
-        
+
         int progressPercentage = totalLevels > 0 ? (int) ((double) completedLevelsCount / totalLevels * 100) : 0;
-        
-        // 分析学习效率（基于完成时间）
+
         Map<String, Object> efficiency = new HashMap<>();
-        efficiency.put("averageCompletionTime", "30分钟/关卡"); // 示例数据，实际需要从数据库获取
+        efficiency.put("averageCompletionTime", "30分钟/关卡");
         efficiency.put("learningSpeed", "中等");
-        efficiency.put("suggestedPace", "每天1-2个关卡");
-        
-        // 分析薄弱环节
-        // 这里可以根据用户的答题情况和完成时间来分析薄弱环节
-        // 暂时添加示例数据
+        efficiency.put("suggestedPace", "每天 1-2 个关卡");
+
         weakPoints.add(Map.of("knowledgePoint", "算法基础", "masteryLevel", 2, "suggestion", "加强算法练习"));
         weakPoints.add(Map.of("knowledgePoint", "数据结构", "masteryLevel", 1, "suggestion", "学习基本数据结构"));
-        
-        // 预测完成时间
-        int remainingLevels = totalLevels - completedLevelsCount;
-        int estimatedDays = remainingLevels > 0 ? (int) Math.ceil(remainingLevels / 1.5) : 0; // 假设每天完成1.5个关卡
-        
+
+        int remainingLevels = Math.max(totalLevels - completedLevelsCount, 0);
+        int estimatedDays = remainingLevels > 0 ? (int) Math.ceil(remainingLevels / 1.5) : 0;
+
         result.put("progress", progressPercentage);
         result.put("completedLevels", completedLevelsCount);
         result.put("totalLevels", totalLevels);
+        result.put("currentChapterId", progress.getCurrentChapterId());
+        result.put("currentLevelId", progress.getCurrentLevelId());
+        result.put("completedLevelIds", new ArrayList<>(completedLevelIds));
+        result.put("completedChapterIds", new ArrayList<>(completedChapterIds));
         result.put("chapterProgress", chapterProgress);
         result.put("efficiency", efficiency);
         result.put("weakPoints", weakPoints);
         result.put("estimatedCompletionDays", estimatedDays);
         result.put("remainingLevels", remainingLevels);
         result.put("lastActivity", progress.getUpdateTime());
-        
         return result;
     }
 
@@ -277,14 +310,13 @@ public class LearningServiceImpl implements LearningService {
         if (level == null) {
             return false;
         }
-        
-        // 1. 检查前置关卡是否完成
+
         Long chapterId = level.getChapterId();
         PathChapter chapter = learningPathMapper.selectChapterById(chapterId);
         if (chapter == null) {
             return false;
         }
-        
+
         List<PathLevel> chapterLevels = learningPathMapper.selectLevelsByChapterId(chapterId);
         int currentLevelIndex = -1;
         for (int i = 0; i < chapterLevels.size(); i++) {
@@ -293,39 +325,30 @@ public class LearningServiceImpl implements LearningService {
                 break;
             }
         }
-        
-        // 检查前置关卡是否完成
+
         if (currentLevelIndex > 0) {
             UserPathProgress progress = learningPathMapper.selectUserPathProgress(userId, chapter.getPathId());
-            if (progress != null) {
-                String completedLevels = progress.getCompletedLevels();
-                PathLevel previousLevel = chapterLevels.get(currentLevelIndex - 1);
-                if (!completedLevels.contains(String.valueOf(previousLevel.getId()))) {
-                    return false;
-                }
+            if (progress == null) {
+                return false;
+            }
+
+            Set<Long> completedLevels = parseIdSet(progress.getCompletedLevels());
+            PathLevel previousLevel = chapterLevels.get(currentLevelIndex - 1);
+            if (!isCompleted(completedLevels, previousLevel.getId())) {
+                return false;
             }
         }
-        
-        // 2. 检查知识点掌握度
+
         if (level.getKnowledgePoints() != null && !level.getKnowledgePoints().isEmpty()) {
             String[] knowledgePointIds = level.getKnowledgePoints().split(",");
             for (String kpId : knowledgePointIds) {
                 try {
-                    Long knowledgePointId = Long.parseLong(kpId.trim());
-                    // 这里可以调用KnowledgeMasteryService检查知识点掌握度
-                    // 暂时简化处理，后续可以增强
-                } catch (NumberFormatException e) {
-                    // 忽略无效的知识点ID
+                    Long.parseLong(kpId.trim());
+                } catch (NumberFormatException ignored) {
                 }
             }
         }
-        
-        // 3. 检查解锁条件
-        if (level.getUnlockCondition() != null && !level.getUnlockCondition().isEmpty()) {
-            // 这里可以实现更复杂的解锁条件逻辑
-            // 例如：需要完成特定任务、达到特定分数等
-        }
-        
+
         return true;
     }
 
@@ -335,49 +358,41 @@ public class LearningServiceImpl implements LearningService {
         if (level == null) {
             return false;
         }
-        
+
         Long chapterId = level.getChapterId();
         PathChapter chapter = learningPathMapper.selectChapterById(chapterId);
         if (chapter == null) {
             return false;
         }
-        
+
         Long pathId = chapter.getPathId();
         UserPathProgress progress = learningPathMapper.selectUserPathProgress(userId, pathId);
         if (progress == null) {
             return false;
         }
-        
-        String completedLevels = progress.getCompletedLevels();
-        if (!completedLevels.contains(String.valueOf(levelId))) {
-            if (completedLevels.isEmpty()) {
-                completedLevels = String.valueOf(levelId);
-            } else {
-                completedLevels += "," + levelId;
-            }
-            progress.setCompletedLevels(completedLevels);
+
+        Set<Long> completedLevels = parseIdSet(progress.getCompletedLevels());
+        if (!isCompleted(completedLevels, levelId)) {
+            completedLevels.add(levelId);
+            progress.setCompletedLevels(joinIds(completedLevels));
         }
-        
+
         List<PathLevel> chapterLevels = learningPathMapper.selectLevelsByChapterId(chapterId);
         boolean chapterCompleted = true;
-        for (PathLevel l : chapterLevels) {
-            if (!completedLevels.contains(String.valueOf(l.getId()))) {
+        for (PathLevel chapterLevel : chapterLevels) {
+            if (!isCompleted(completedLevels, chapterLevel.getId())) {
                 chapterCompleted = false;
                 break;
             }
         }
-        
+
         if (chapterCompleted) {
-            String completedChapters = progress.getCompletedChapters();
-            if (!completedChapters.contains(String.valueOf(chapterId))) {
-                if (completedChapters.isEmpty()) {
-                    completedChapters = String.valueOf(chapterId);
-                } else {
-                    completedChapters += "," + chapterId;
-                }
-                progress.setCompletedChapters(completedChapters);
+            Set<Long> completedChapters = parseIdSet(progress.getCompletedChapters());
+            if (!isCompleted(completedChapters, chapterId)) {
+                completedChapters.add(chapterId);
+                progress.setCompletedChapters(joinIds(completedChapters));
             }
-            
+
             List<PathChapter> chapters = learningPathMapper.selectChaptersByPathId(pathId);
             int currentChapterIndex = -1;
             for (int i = 0; i < chapters.size(); i++) {
@@ -386,31 +401,30 @@ public class LearningServiceImpl implements LearningService {
                     break;
                 }
             }
-            
-            if (currentChapterIndex < chapters.size() - 1) {
+
+            if (currentChapterIndex > -1 && currentChapterIndex < chapters.size() - 1) {
                 PathChapter nextChapter = chapters.get(currentChapterIndex + 1);
                 progress.setCurrentChapterId(nextChapter.getId());
-                
+
                 List<PathLevel> nextLevels = learningPathMapper.selectLevelsByChapterId(nextChapter.getId());
                 if (!nextLevels.isEmpty()) {
                     progress.setCurrentLevelId(nextLevels.get(0).getId());
                 }
             }
         } else {
-            List<PathLevel> levels = learningPathMapper.selectLevelsByChapterId(chapterId);
             int currentLevelIndex = -1;
-            for (int i = 0; i < levels.size(); i++) {
-                if (levels.get(i).getId().equals(levelId)) {
+            for (int i = 0; i < chapterLevels.size(); i++) {
+                if (chapterLevels.get(i).getId().equals(levelId)) {
                     currentLevelIndex = i;
                     break;
                 }
             }
-            
-            if (currentLevelIndex < levels.size() - 1) {
-                progress.setCurrentLevelId(levels.get(currentLevelIndex + 1).getId());
+
+            if (currentLevelIndex > -1 && currentLevelIndex < chapterLevels.size() - 1) {
+                progress.setCurrentLevelId(chapterLevels.get(currentLevelIndex + 1).getId());
             }
         }
-        
+
         learningPathMapper.updateUserPathProgress(progress);
         return true;
     }
@@ -422,8 +436,7 @@ public class LearningServiceImpl implements LearningService {
 
     @Override
     public Map<String, Object> getLearningStatistics(Long userId) {
-        Map<String, Object> statistics = new HashMap<>();
-        return statistics;
+        return new HashMap<>();
     }
 
     @Override
@@ -488,12 +501,12 @@ public class LearningServiceImpl implements LearningService {
             return "零基础";
         }
     }
-    
+
     @Override
     public List<Problem> getProblemsByLevelId(Long levelId) {
         return pathLevelProblemMapper.findProblemsByLevelId(levelId);
     }
-    
+
     @Override
     public void bindProblemToLevel(Long levelId, Long problemId, Integer orderNum) {
         PathLevelProblem plp = new PathLevelProblem();
@@ -503,13 +516,13 @@ public class LearningServiceImpl implements LearningService {
         pathLevelProblemMapper.insert(plp);
         updatePathLevelProblemIds(levelId);
     }
-    
+
     @Override
     public void unbindProblemFromLevel(Long levelId, Long problemId) {
         pathLevelProblemMapper.deleteByLevelIdAndProblemId(levelId, problemId);
         updatePathLevelProblemIds(levelId);
     }
-    
+
     @Override
     public void batchBindProblemsToLevel(Long levelId, List<Long> problemIds) {
         List<PathLevelProblem> list = new ArrayList<>();
@@ -523,7 +536,7 @@ public class LearningServiceImpl implements LearningService {
         pathLevelProblemMapper.batchInsert(list);
         updatePathLevelProblemIds(levelId);
     }
-    
+
     @Override
     public void updateLevelProblems(Long levelId, List<Long> problemIds) {
         pathLevelProblemMapper.deleteByLevelId(levelId);
@@ -533,20 +546,20 @@ public class LearningServiceImpl implements LearningService {
             updatePathLevelProblemIds(levelId);
         }
     }
-    
+
     private void updatePathLevelProblemIds(Long levelId) {
         List<Problem> problems = pathLevelProblemMapper.findProblemsByLevelId(levelId);
         String problemIdsStr = problems.stream()
-                .map(p -> String.valueOf(p.getId()))
-                .reduce((a, b) -> a + "," + b)
+                .map(problem -> String.valueOf(problem.getId()))
+                .reduce((left, right) -> left + "," + right)
                 .orElse("");
-        
+
         PathLevel level = new PathLevel();
         level.setId(levelId);
         level.setProblemIds(problemIdsStr);
         learningPathMapper.updateLevel(level);
     }
-    
+
     @Override
     public List<LearningResource> getResourcesByLevelId(Long levelId) {
         return learningResourceMapper.selectResourcesByLevelId(levelId);

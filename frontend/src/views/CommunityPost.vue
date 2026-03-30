@@ -2,22 +2,27 @@
   <div class="post-detail-page">
     <div class="post-container">
       <div class="page-header">
-        <div class="header-left">
-          <el-button @click="goBack" text>
-            <el-icon><ArrowLeft /></el-icon>
-            返回社区
-          </el-button>
-        </div>
+        <el-button @click="goBack" text>
+          <el-icon><ArrowLeft /></el-icon>
+          返回社区
+        </el-button>
+        <el-button text @click="refreshPage" :loading="loading || commentsLoading">
+          <el-icon><RefreshRight /></el-icon>
+          刷新
+        </el-button>
       </div>
 
       <div v-if="post" class="post-content-section">
-        <div class="post-card">
+        <article class="post-card">
           <div class="post-header">
             <div class="post-author">
               <el-avatar :size="48" :icon="UserFilled" />
               <div class="author-info">
                 <span class="author-name">{{ post.username || '匿名用户' }}</span>
-                <span class="post-time">{{ formatTime(post.createTime) }}</span>
+                <div class="author-meta">
+                  <span>{{ formatTime(post.createTime) }}</span>
+                  <span>{{ getPostTypeText(post.type) }}</span>
+                </div>
               </div>
             </div>
             <el-tag :type="getPostTypeTag(post.type)" size="small">
@@ -25,36 +30,44 @@
             </el-tag>
           </div>
 
-          <h1 class="post-title">{{ post.title }}</h1>
+          <h1 class="post-title">{{ post.title || '未命名帖子' }}</h1>
 
-          <div class="post-body">{{ post.content }}</div>
+          <div class="post-body">{{ post.content || '帖子暂时还没有正文内容。' }}</div>
 
           <div class="post-footer">
             <div class="post-stats">
               <span class="stat-item">
                 <el-icon><View /></el-icon>
-                {{ post.viewCount || 0 }} 浏览
+                {{ Number(post.viewCount || 0) }} 浏览
               </span>
               <span class="stat-item">
                 <el-icon><ChatDotRound /></el-icon>
-                {{ post.commentCount || 0 }} 评论
+                {{ Number(commentCount) }} 评论
+              </span>
+              <span class="stat-item">
+                <el-icon><Star /></el-icon>
+                {{ Number(post.likeCount || 0) }} 点赞
               </span>
             </div>
             <div class="post-actions">
-              <el-button 
-                :icon="Star" 
-                @click="handleLike" 
+              <el-button
+                :icon="Star"
+                @click="handleLike"
                 :type="liked ? 'primary' : 'default'"
               >
-                {{ post.likeCount || 0 }}
+                {{ liked ? '已点赞' : '点赞' }}
               </el-button>
             </div>
           </div>
-        </div>
+        </article>
 
-        <div class="comments-section">
+        <section class="comments-section">
           <div class="section-header">
-            <h2 class="section-title">评论 ({{ comments.length }})</h2>
+            <div>
+              <h2 class="section-title">评论区</h2>
+              <p class="section-subtitle">如果你有更具体的做法、补充信息或反例，现在就可以接着讨论。</p>
+            </div>
+            <span class="comment-count">{{ commentCount }} 条评论</span>
           </div>
 
           <div class="comment-form">
@@ -74,8 +87,8 @@
           </div>
 
           <div class="comments-list" v-loading="commentsLoading">
-            <div 
-              v-for="comment in comments" 
+            <article
+              v-for="comment in comments"
               :key="comment.id"
               class="comment-item"
             >
@@ -86,31 +99,38 @@
                   <span class="comment-time">{{ formatTime(comment.createTime) }}</span>
                 </div>
               </div>
-              <div class="comment-content">{{ comment.content }}</div>
+              <div class="comment-content">{{ comment.content || '这条评论暂时没有内容。' }}</div>
               <div class="comment-footer">
                 <el-button text size="small" @click="handleLikeComment(comment.id)">
                   <el-icon><Star /></el-icon>
-                  <span>{{ comment.likeCount || 0 }}</span>
+                  <span>{{ Number(comment.likeCount || 0) }}</span>
                 </el-button>
               </div>
-            </div>
+            </article>
 
             <div v-if="comments.length === 0 && !commentsLoading" class="empty-comments">
-              <el-empty description="暂无评论，快来抢沙发吧！" />
+              <el-empty description="还没有评论">
+                <template #description>
+                  <p class="empty-text">如果你也在关注这个问题，可以先留下你的思路或补充信息。</p>
+                </template>
+                <el-button type="primary" @click="focusCommentInput">写第一条评论</el-button>
+              </el-empty>
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
       <div v-else class="loading-container">
-        <el-empty description="加载中..." />
+        <el-empty description="帖子不存在或加载失败">
+          <el-button type="primary" @click="goBack">返回社区</el-button>
+        </el-empty>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, nextTick, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -118,7 +138,8 @@ import {
   UserFilled,
   View,
   ChatDotRound,
-  Star
+  Star,
+  RefreshRight
 } from '@element-plus/icons-vue'
 import {
   getPostById,
@@ -139,20 +160,53 @@ const loading = ref(false)
 const commentsLoading = ref(false)
 const submitting = ref(false)
 
+const commentCount = computed(() => {
+  const value = Number(post.value?.commentCount)
+  if (Number.isFinite(value) && value > 0) {
+    return value
+  }
+  return comments.value.length
+})
+
+const normalizePost = (data = {}) => ({
+  ...data,
+  id: data.id ?? route.params.id,
+  title: data.title || '',
+  content: data.content || '',
+  username: data.username || data.authorName || '',
+  type: data.type || 'discussion',
+  createTime: data.createTime || data.updateTime || '',
+  viewCount: Number(data.viewCount || 0),
+  commentCount: Number(data.commentCount || 0),
+  likeCount: Number(data.likeCount || 0)
+})
+
+const normalizeComments = (data) => {
+  const list = Array.isArray(data) ? data : data?.list || data?.records || []
+  return list.map((comment, index) => ({
+    ...comment,
+    id: comment.id ?? `${route.params.id}-${index}`,
+    username: comment.username || comment.authorName || '',
+    content: comment.content || '',
+    createTime: comment.createTime || comment.updateTime || '',
+    likeCount: Number(comment.likeCount || 0)
+  }))
+}
+
 const getPostTypeTag = (type) => {
   const types = {
-    'discussion': 'primary',
-    'question': 'warning',
-    'share': 'success'
+    discussion: 'primary',
+    question: 'warning',
+    share: 'success'
   }
   return types[type] || 'info'
 }
 
 const getPostTypeText = (type) => {
   const texts = {
-    'discussion': '讨论',
-    'question': '问答',
-    'share': '分享'
+    discussion: '讨论',
+    question: '问答',
+    share: '分享'
   }
   return texts[type] || '其他'
 }
@@ -160,43 +214,33 @@ const getPostTypeText = (type) => {
 const formatTime = (time) => {
   if (!time) return '未知'
   const date = new Date(time)
-  if (isNaN(date.getTime())) return '未知'
-  const now = new Date()
-  const diff = now - date
-  
+  if (Number.isNaN(date.getTime())) return '未知'
+
+  const diff = Date.now() - date.getTime()
+
   if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
-  return date.toLocaleDateString()
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
+
+  return date.toLocaleDateString('zh-CN')
 }
 
 const fetchPost = async () => {
   loading.value = true
   try {
     const res = await getPostById(route.params.id)
-    if (res.code === 200) {
-      post.value = res.data
+    if (res.code === 200 && res.data) {
+      post.value = normalizePost(res.data)
+      return
     }
+
+    post.value = null
   } catch (error) {
     console.error('获取帖子详情失败:', error)
-    generateMockPost()
+    post.value = null
   } finally {
     loading.value = false
-  }
-}
-
-const generateMockPost = () => {
-  post.value = {
-    id: route.params.id,
-    title: '如何高效学习动态规划？',
-    content: '最近在学习动态规划，感觉有点吃力，有没有什么好的学习方法推荐？\n\n我目前的学习进度：\n1. 已经掌握了基本的递归思想\n2. 会做一些简单的DP题目\n3. 但遇到中等难度的题目就有点卡壳了\n\n希望大家能分享一些学习经验和资源！',
-    type: 'question',
-    username: '学习者A',
-    createTime: new Date(Date.now() - 3600000),
-    viewCount: 156,
-    commentCount: 23,
-    likeCount: 45
   }
 }
 
@@ -205,51 +249,42 @@ const fetchComments = async () => {
   try {
     const res = await getCommentsByPostId(route.params.id)
     if (res.code === 200) {
-      comments.value = res.data || []
+      comments.value = normalizeComments(res.data)
+      return
     }
+
+    comments.value = []
   } catch (error) {
     console.error('获取评论失败:', error)
-    generateMockComments()
+    comments.value = []
   } finally {
     commentsLoading.value = false
   }
 }
 
-const generateMockComments = () => {
-  comments.value = [
-    {
-      id: 1,
-      content: '我推荐先从基础开始，先理解状态转移方程的意义，而不是死记硬背！',
-      username: '算法达人',
-      createTime: new Date(Date.now() - 1800000),
-      likeCount: 12
-    },
-    {
-      id: 2,
-      content: '可以试试LeetCode上的动态规划专题，按照tag为dp的题目从简单到困难刷一遍，进步很快的。',
-      username: '刷题狂人',
-      createTime: new Date(Date.now() - 3600000),
-      likeCount: 8
-    }
-  ]
+const refreshPage = async () => {
+  await Promise.all([fetchPost(), fetchComments()])
 }
 
 const handleLike = async () => {
+  if (!post.value?.id) return
+
   try {
     await likePost(post.value.id)
     liked.value = !liked.value
-    if (liked.value) {
-      post.value.likeCount = (post.value.likeCount || 0) + 1
-    } else {
-      post.value.likeCount = Math.max(0, (post.value.likeCount || 0) - 1)
-    }
-    ElMessage.success(liked.value ? '点赞成功' : '取消点赞')
+    post.value.likeCount = liked.value
+      ? Number(post.value.likeCount || 0) + 1
+      : Math.max(0, Number(post.value.likeCount || 0) - 1)
+    ElMessage.success(liked.value ? '点赞成功' : '已取消点赞')
   } catch (error) {
     console.error('点赞失败:', error)
+    ElMessage.error('点赞失败，请稍后重试')
   }
 }
 
 const handleAddComment = async () => {
+  if (!post.value?.id) return
+
   if (!newComment.value.trim()) {
     ElMessage.warning('请输入评论内容')
     return
@@ -258,12 +293,14 @@ const handleAddComment = async () => {
   submitting.value = true
   try {
     const res = await createComment(post.value.id, {
-      content: newComment.value
+      content: newComment.value.trim()
     })
+
     if (res.code === 200) {
       ElMessage.success('评论发布成功')
       newComment.value = ''
-      fetchComments()
+      await fetchComments()
+      post.value.commentCount = comments.value.length
     } else {
       ElMessage.error(res.msg || '评论发布失败')
     }
@@ -276,16 +313,25 @@ const handleAddComment = async () => {
 }
 
 const handleLikeComment = async (commentId) => {
+  if (!commentId) return
+
   try {
     await likeComment(commentId)
-    const comment = comments.value.find(c => c.id === commentId)
-    if (comment) {
-      comment.likeCount = (comment.likeCount || 0) + 1
+    const target = comments.value.find((comment) => comment.id === commentId)
+    if (target) {
+      target.likeCount = Number(target.likeCount || 0) + 1
     }
-    ElMessage.success('点赞成功')
+    ElMessage.success('评论点赞成功')
   } catch (error) {
-    console.error('点赞失败:', error)
+    console.error('评论点赞失败:', error)
+    ElMessage.error('评论点赞失败，请稍后重试')
   }
+}
+
+const focusCommentInput = async () => {
+  await nextTick()
+  const textarea = document.querySelector('.comment-form textarea')
+  textarea?.focus()
 }
 
 const goBack = () => {
@@ -293,24 +339,29 @@ const goBack = () => {
 }
 
 onMounted(() => {
-  fetchPost()
-  fetchComments()
+  refreshPage()
 })
 </script>
 
 <style scoped>
 .post-detail-page {
   min-height: 100vh;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
   padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 102, 255, 0.05), transparent 22%),
+    var(--leetcode-bg-secondary, #f7f8fa);
 }
 
 .post-container {
-  max-width: 900px;
+  max-width: 920px;
   margin: 0 auto;
 }
 
 .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
@@ -320,17 +371,23 @@ onMounted(() => {
   gap: 24px;
 }
 
+.post-card,
+.comments-section {
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 22px;
+  background: var(--leetcode-bg, #ffffff);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.04);
+}
+
 .post-card {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  padding: 26px;
 }
 
 .post-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
@@ -338,107 +395,122 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .author-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .author-name {
+  color: var(--leetcode-text, #24292f);
   font-size: 15px;
-  font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  font-weight: 600;
 }
 
-.post-time {
-  font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+.author-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 12px;
 }
 
 .post-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 20px 0;
+  margin: 0 0 20px;
+  color: var(--leetcode-text, #24292f);
+  font-size: 28px;
   line-height: 1.4;
 }
 
 .post-body {
+  margin-bottom: 22px;
+  color: var(--leetcode-text, #24292f);
   font-size: 15px;
-  color: var(--leetcode-text, #24292F);
-  line-height: 1.8;
+  line-height: 1.9;
   white-space: pre-wrap;
-  margin-bottom: 20px;
+  word-break: break-word;
 }
 
 .post-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   padding-top: 20px;
-  border-top: 1px solid var(--leetcode-border, #E5E7EB);
+  border-top: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .post-stats {
   display: flex;
-  gap: 24px;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .stat-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
-}
-
-.post-actions {
-  display: flex;
-  gap: 12px;
 }
 
 .comments-section {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
   padding: 24px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
 }
 
 .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 20px;
 }
 
 .section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--leetcode-text, #24292F);
   margin: 0;
+  color: var(--leetcode-text, #24292f);
+  font-size: 20px;
+}
+
+.section-subtitle {
+  margin: 8px 0 0;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.comment-count {
+  color: #1668dc;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .comment-form {
   margin-bottom: 24px;
   padding-bottom: 24px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .form-actions {
-  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+  margin-top: 12px;
 }
 
 .comments-list {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .comment-item {
   padding: 16px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border-radius: 8px;
+  border: 1px solid rgba(0, 102, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(0, 102, 255, 0.03);
 }
 
 .comment-header {
@@ -451,41 +523,48 @@ onMounted(() => {
 .comment-author-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 
 .comment-author {
+  color: var(--leetcode-text, #24292f);
   font-size: 14px;
-  font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  font-weight: 600;
 }
 
 .comment-time {
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
 }
 
 .comment-content {
+  color: var(--leetcode-text, #24292f);
   font-size: 14px;
-  color: var(--leetcode-text, #24292F);
-  line-height: 1.6;
-  margin-bottom: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .comment-footer {
   display: flex;
-  align-items: center;
-}
-
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .empty-comments {
-  padding: 40px 20px;
+  padding: 32px 12px;
+}
+
+.empty-text {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.loading-container {
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
@@ -493,16 +572,21 @@ onMounted(() => {
     padding: 16px;
   }
 
-  .post-title {
-    font-size: 20px;
+  .page-header,
+  .post-header,
+  .post-footer,
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .post-card {
-    padding: 20px;
-  }
-
+  .post-card,
   .comments-section {
     padding: 20px;
+  }
+
+  .post-title {
+    font-size: 22px;
   }
 }
 </style>

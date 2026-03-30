@@ -1,15 +1,23 @@
 package com.programming.service.impl;
 
-import com.programming.entity.*;
+import com.programming.entity.LearnRecord;
+import com.programming.entity.Problem;
+import com.programming.entity.Submit;
+import com.programming.entity.SubmitTestCaseResult;
+import com.programming.entity.TestCase;
 import com.programming.handler.JudgeProgressHandler;
-import com.programming.mapper.*;
+import com.programming.mapper.LearnRecordMapper;
+import com.programming.mapper.ProblemMapper;
+import com.programming.mapper.SubmitMapper;
+import com.programming.mapper.SubmitTestCaseResultMapper;
+import com.programming.mapper.TestCaseMapper;
 import com.programming.service.CodeSandboxService;
 import com.programming.service.SubmitService;
 import com.programming.service.WrongBookService;
+import com.programming.vo.CodeExecutionResult;
 import com.programming.vo.SubmitResultVO;
 import com.programming.vo.SubmitWithProblemVO;
 import com.programming.vo.TestCaseResultVO;
-import com.programming.vo.CodeExecutionResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,6 +31,11 @@ import java.util.Map;
 @Slf4j
 @Service
 public class SubmitServiceImpl implements SubmitService {
+    private static final int RESULT_ACCEPTED = 0;
+    private static final int RESULT_WRONG_ANSWER = 1;
+    private static final int RESULT_COMPILE_ERROR = 2;
+    private static final int RESULT_RUNTIME_ERROR = 3;
+    private static final int RESULT_EXECUTION_FAILED = 4;
 
     @Autowired
     private SubmitMapper submitMapper;
@@ -51,177 +64,240 @@ public class SubmitServiceImpl implements SubmitService {
     @Override
     @Transactional
     public SubmitResultVO commit(Long userId, Long problemId, String code, String language) {
+        Problem problem = requireProblem(problemId);
+        List<TestCase> testCases = requireTestCases(problemId);
+
+        sendJudgeStart(userId, testCases.size());
+
+        List<CodeExecutionResult> executionResults = executeBatch(code, language, problem, testCases);
+        JudgingSummary summary = evaluateTestCases(userId, problemId, testCases, executionResults);
+
+        Submit submit = persistSubmit(userId, problemId, code, language, summary);
+        updateLearnRecord(userId, problemId, summary.finalResult());
+
+        SubmitResultVO resultVO = buildSubmitResult(summary, testCases);
+        autoAddWrongBook(userId, submit, problem, summary.finalResult());
+        sendJudgeComplete(userId, resultVO);
+
+        return resultVO;
+    }
+
+    private Problem requireProblem(Long problemId) {
         Problem problem = problemMapper.findById(problemId);
         if (problem == null) {
             throw new RuntimeException("题目不存在");
         }
+        return problem;
+    }
 
+    private List<TestCase> requireTestCases(Long problemId) {
         List<TestCase> testCases = testCaseMapper.findByProblemId(problemId);
         if (testCases == null || testCases.isEmpty()) {
             throw new RuntimeException("题目没有配置测试用例");
         }
+        return testCases;
+    }
 
-        // 发送开始判题消息
+    private void sendJudgeStart(Long userId, int totalTestCases) {
         Map<String, Object> startMessage = Map.of(
-            "type", "start",
-            "message", "开始判题",
-            "totalTestCases", testCases.size()
+                "type", "start",
+                "message", "开始判题",
+                "totalTestCases", totalTestCases
         );
         judgeProgressHandler.sendProgress(userId, startMessage);
+    }
 
+    private List<CodeExecutionResult> executeBatch(String code, String language, Problem problem, List<TestCase> testCases) {
         List<String> inputs = new ArrayList<>();
         for (TestCase testCase : testCases) {
             inputs.add(testCase.getInput());
         }
-        
-        Integer timeLimit = problem.getTimeLimit();
-        Integer memoryLimit = problem.getMemoryLimit();
-        
-        long startTime = System.currentTimeMillis();
-        List<CodeExecutionResult> executionResults = codeSandboxService.runCodeBatch(code, language, inputs, timeLimit, memoryLimit);
-        long endTime = System.currentTimeMillis();
-        int totalTimeCost = (int) (endTime - startTime);
 
-        int finalResult = 0;
+        return codeSandboxService.runCodeBatch(
+                code,
+                language,
+                inputs,
+                problem.getTimeLimit(),
+                problem.getMemoryLimit()
+        );
+    }
+
+    private JudgingSummary evaluateTestCases(Long userId, Long problemId, List<TestCase> testCases,
+                                             List<CodeExecutionResult> executionResults) {
+        int finalResult = RESULT_ACCEPTED;
         int maxTimeCost = 0;
         int maxMemoryCost = 0;
-        List<SubmitTestCaseResult> testCaseResults = new ArrayList<>();
         int passedCount = 0;
+        List<SubmitTestCaseResult> testCaseResults = new ArrayList<>();
 
         for (int i = 0; i < testCases.size(); i++) {
             TestCase testCase = testCases.get(i);
             CodeExecutionResult execResult = executionResults.get(i);
-            String actualOutputText = execResult.getOutput() == null ? "" : execResult.getOutput();
-            
-            // 发送测试用例开始执行消息
-            Map<String, Object> testCaseStartMessage = Map.of(
-                "type", "testCaseStart",
-                "testCaseIndex", i + 1,
-                "totalTestCases", testCases.size(),
-                "message", "执行测试用例 " + (i + 1)
-            );
-            judgeProgressHandler.sendProgress(userId, testCaseStartMessage);
-            
-            SubmitTestCaseResult result = new SubmitTestCaseResult();
-            result.setTestCaseId(testCase.getId());
-            result.setTimeCost((int) execResult.getTimeCost());
-            result.setMemoryCost((int) execResult.getMemoryCost());
-            result.setActualOutput(actualOutputText);
-            
-            String testCaseStatus = "";
-            if (execResult.getExitCode() == 2) {
-                result.setResult(2);
-                result.setErrorMessage(execResult.getErrorMessage());
-                finalResult = 2;
-                testCaseStatus = "编译错误";
-                log.error("编译错误 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
-            } else if (execResult.getExitCode() == 3) {
-                result.setResult(3);
-                result.setErrorMessage(execResult.getErrorMessage());
-                finalResult = 3;
-                testCaseStatus = "运行错误";
-                log.error("运行错误 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
-            } else if (execResult.getExitCode() == 4) {
-                result.setResult(4);
-                result.setErrorMessage(execResult.getErrorMessage());
-                finalResult = 4;
-                testCaseStatus = "运行失败";
-                log.error("运行失败 - 题目ID: {}, 测试用例ID: {}, 错误: {}", problemId, testCase.getId(), execResult.getErrorMessage());
-            } else {
-                String expectedOutput = testCase.getOutput().trim();
-                String actualOutput = actualOutputText.trim();
-                
-                if (expectedOutput.equals(actualOutput)) {
-                    result.setResult(0);
-                    testCaseStatus = "通过";
-                    passedCount++;
-                    log.info("测试用例通过 - 题目ID: {}, 测试用例ID: {}, 耗时: {}ms", problemId, testCase.getId(), execResult.getTimeCost());
-                } else {
-                    result.setResult(1);
-                    finalResult = 1;
-                    testCaseStatus = "答案错误";
-                    log.warn("答案错误 - 题目ID: {}, 测试用例ID: {}, 预期: {}, 实际: {}", 
-                            problemId, testCase.getId(), expectedOutput, actualOutput);
-                }
+
+            sendTestCaseStart(userId, i + 1, testCases.size());
+            EvaluatedCase evaluatedCase = evaluateSingleCase(problemId, testCase, execResult);
+            sendTestCaseComplete(userId, i + 1, testCases.size(), evaluatedCase.statusText(), evaluatedCase.result(), passedCount + (evaluatedCase.passed() ? 1 : 0));
+
+            if (evaluatedCase.passed()) {
+                passedCount++;
             }
-            
-            // 发送测试用例执行完成消息
-            Map<String, Object> testCaseCompleteMessage = Map.of(
+
+            if (evaluatedCase.result().getTimeCost() != null && evaluatedCase.result().getTimeCost() > maxTimeCost) {
+                maxTimeCost = evaluatedCase.result().getTimeCost();
+            }
+            if (evaluatedCase.result().getMemoryCost() != null && evaluatedCase.result().getMemoryCost() > maxMemoryCost) {
+                maxMemoryCost = evaluatedCase.result().getMemoryCost();
+            }
+            if (finalResult == RESULT_ACCEPTED && evaluatedCase.resultCode() != RESULT_ACCEPTED) {
+                finalResult = evaluatedCase.resultCode();
+            }
+
+            testCaseResults.add(evaluatedCase.result());
+        }
+
+        return new JudgingSummary(finalResult, maxTimeCost, maxMemoryCost, passedCount, testCaseResults);
+    }
+
+    private EvaluatedCase evaluateSingleCase(Long problemId, TestCase testCase, CodeExecutionResult execResult) {
+        String actualOutputText = execResult.getOutput() == null ? "" : execResult.getOutput();
+
+        SubmitTestCaseResult result = new SubmitTestCaseResult();
+        result.setTestCaseId(testCase.getId());
+        result.setTimeCost((int) execResult.getTimeCost());
+        result.setMemoryCost((int) execResult.getMemoryCost());
+        result.setActualOutput(actualOutputText);
+
+        if (execResult.getExitCode() == RESULT_COMPILE_ERROR) {
+            result.setResult(RESULT_COMPILE_ERROR);
+            result.setErrorMessage(execResult.getErrorMessage());
+            log.error("Compile error - problemId: {}, testCaseId: {}, error: {}",
+                    problemId, testCase.getId(), execResult.getErrorMessage());
+            return new EvaluatedCase(result, RESULT_COMPILE_ERROR, "编译错误", false);
+        }
+
+        if (execResult.getExitCode() == RESULT_RUNTIME_ERROR) {
+            result.setResult(RESULT_RUNTIME_ERROR);
+            result.setErrorMessage(execResult.getErrorMessage());
+            log.error("Runtime error - problemId: {}, testCaseId: {}, error: {}",
+                    problemId, testCase.getId(), execResult.getErrorMessage());
+            return new EvaluatedCase(result, RESULT_RUNTIME_ERROR, "运行错误", false);
+        }
+
+        if (execResult.getExitCode() == RESULT_EXECUTION_FAILED) {
+            result.setResult(RESULT_EXECUTION_FAILED);
+            result.setErrorMessage(execResult.getErrorMessage());
+            log.error("Execution failed - problemId: {}, testCaseId: {}, error: {}",
+                    problemId, testCase.getId(), execResult.getErrorMessage());
+            return new EvaluatedCase(result, RESULT_EXECUTION_FAILED, "运行失败", false);
+        }
+
+        String expectedOutput = testCase.getOutput() == null ? "" : testCase.getOutput().trim();
+        String actualOutput = actualOutputText.trim();
+        if (expectedOutput.equals(actualOutput)) {
+            result.setResult(RESULT_ACCEPTED);
+            log.info("Test case passed - problemId: {}, testCaseId: {}, timeCost: {}ms",
+                    problemId, testCase.getId(), execResult.getTimeCost());
+            return new EvaluatedCase(result, RESULT_ACCEPTED, "通过", true);
+        }
+
+        result.setResult(RESULT_WRONG_ANSWER);
+        log.warn("Wrong answer - problemId: {}, testCaseId: {}, expected: {}, actual: {}",
+                problemId, testCase.getId(), expectedOutput, actualOutput);
+        return new EvaluatedCase(result, RESULT_WRONG_ANSWER, "答案错误", false);
+    }
+
+    private void sendTestCaseStart(Long userId, int currentIndex, int totalTestCases) {
+        Map<String, Object> testCaseStartMessage = Map.of(
+                "type", "testCaseStart",
+                "testCaseIndex", currentIndex,
+                "totalTestCases", totalTestCases,
+                "message", "执行测试用例 " + currentIndex
+        );
+        judgeProgressHandler.sendProgress(userId, testCaseStartMessage);
+    }
+
+    private void sendTestCaseComplete(Long userId, int currentIndex, int totalTestCases, String status,
+                                      SubmitTestCaseResult result, int passedCount) {
+        Map<String, Object> testCaseCompleteMessage = Map.of(
                 "type", "testCaseComplete",
-                "testCaseIndex", i + 1,
-                "totalTestCases", testCases.size(),
-                "status", testCaseStatus,
+                "testCaseIndex", currentIndex,
+                "totalTestCases", totalTestCases,
+                "status", status,
                 "timeCost", result.getTimeCost(),
                 "memoryCost", result.getMemoryCost(),
                 "passedCount", passedCount
-            );
-            judgeProgressHandler.sendProgress(userId, testCaseCompleteMessage);
-            
-            if (result.getTimeCost() > maxTimeCost) {
-                maxTimeCost = result.getTimeCost();
-            }
-            if (result.getMemoryCost() > maxMemoryCost) {
-                maxMemoryCost = result.getMemoryCost();
-            }
-            
-            testCaseResults.add(result);
-        }
+        );
+        judgeProgressHandler.sendProgress(userId, testCaseCompleteMessage);
+    }
 
+    private Submit persistSubmit(Long userId, Long problemId, String code, String language, JudgingSummary summary) {
         Submit submit = new Submit();
         submit.setUserId(userId);
         submit.setProblemId(problemId);
         submit.setCode(code);
         submit.setLanguage(language);
-        submit.setResult(finalResult);
-        submit.setTimeCost(maxTimeCost);
-        submit.setMemoryCost(maxMemoryCost);
+        submit.setResult(summary.finalResult());
+        submit.setTimeCost(summary.maxTimeCost());
+        submit.setMemoryCost(summary.maxMemoryCost());
         submitMapper.insert(submit);
 
-        for (SubmitTestCaseResult result : testCaseResults) {
+        for (SubmitTestCaseResult result : summary.testCaseResults()) {
             result.setSubmitId(submit.getId());
         }
-        submitTestCaseResultMapper.batchInsert(testCaseResults);
+        submitTestCaseResultMapper.batchInsert(summary.testCaseResults());
+        return submit;
+    }
 
+    private void updateLearnRecord(Long userId, Long problemId, int finalResult) {
         LearnRecord learnRecord = learnRecordMapper.findByUserId(userId);
         if (learnRecord == null) {
             learnRecord = new LearnRecord();
             learnRecord.setUserId(userId);
             learnRecord.setProblemCount(1);
-            learnRecord.setCorrectCount(finalResult == 0 ? 1 : 0);
+            learnRecord.setCorrectCount(finalResult == RESULT_ACCEPTED ? 1 : 0);
             learnRecord.setLastProblemId(problemId);
             learnRecordMapper.insert(learnRecord);
-        } else {
-            learnRecord.setProblemCount(learnRecord.getProblemCount() + 1);
-            if (finalResult == 0) {
-                learnRecord.setCorrectCount(learnRecord.getCorrectCount() + 1);
-            }
-            learnRecord.setLastProblemId(problemId);
-            learnRecordMapper.update(learnRecord);
+            return;
         }
 
+        learnRecord.setProblemCount(learnRecord.getProblemCount() + 1);
+        if (finalResult == RESULT_ACCEPTED) {
+            learnRecord.setCorrectCount(learnRecord.getCorrectCount() + 1);
+        }
+        learnRecord.setLastProblemId(problemId);
+        learnRecordMapper.update(learnRecord);
+    }
+
+    private SubmitResultVO buildSubmitResult(JudgingSummary summary, List<TestCase> testCases) {
         SubmitResultVO resultVO = new SubmitResultVO();
-        resultVO.setResult(finalResult);
-        resultVO.setTimeCost(maxTimeCost);
-        resultVO.setMemoryCost(maxMemoryCost);
-        
-        if (!testCaseResults.isEmpty()) {
-            SubmitTestCaseResult firstResult = testCaseResults.get(0);
+        resultVO.setResult(summary.finalResult());
+        resultVO.setTimeCost(summary.maxTimeCost());
+        resultVO.setMemoryCost(summary.maxMemoryCost());
+        resultVO.setTestCaseResults(buildTestCaseResultVOs(summary.testCaseResults(), testCases));
+        resultVO.setPassedCount(summary.passedCount());
+        resultVO.setTotalCount(summary.testCaseResults().size());
+
+        if (!summary.testCaseResults().isEmpty()) {
+            SubmitTestCaseResult firstResult = summary.testCaseResults().get(0);
             resultVO.setOutput(firstResult.getActualOutput());
-            
-            if (firstResult.getResult() == 2) {
+            if (firstResult.getResult() == RESULT_COMPILE_ERROR) {
                 resultVO.setCompileError(firstResult.getErrorMessage());
-            } else if (firstResult.getResult() == 3) {
+            } else if (firstResult.getResult() == RESULT_RUNTIME_ERROR) {
                 resultVO.setRuntimeError(firstResult.getErrorMessage());
-            } else if (firstResult.getResult() == 4) {
+            } else if (firstResult.getResult() == RESULT_EXECUTION_FAILED) {
                 resultVO.setErrorMessage(firstResult.getErrorMessage());
             }
         }
 
-        List<TestCaseResultVO> testCaseResultVOs = new ArrayList<>();
-        int testCasePassedCount = 0;
+        return resultVO;
+    }
+
+    private List<TestCaseResultVO> buildTestCaseResultVOs(List<SubmitTestCaseResult> testCaseResults, List<TestCase> testCases) {
+        List<TestCaseResultVO> resultVOs = new ArrayList<>();
         for (int i = 0; i < testCaseResults.size(); i++) {
             SubmitTestCaseResult result = testCaseResults.get(i);
             TestCase testCase = testCases.get(i);
+
             TestCaseResultVO vo = new TestCaseResultVO();
             vo.setTestCaseId(result.getTestCaseId());
             vo.setResult(result.getResult());
@@ -231,34 +307,31 @@ public class SubmitServiceImpl implements SubmitService {
             vo.setErrorMessage(result.getErrorMessage());
             vo.setInput(testCase.getInput());
             vo.setExpectedOutput(testCase.getOutput());
-            testCaseResultVOs.add(vo);
-            
-            if (result.getResult() == 0) {
-                testCasePassedCount++;
-            }
+            vo.setSortOrder(testCase.getSortOrder());
+            resultVOs.add(vo);
         }
-        resultVO.setTestCaseResults(testCaseResultVOs);
-        resultVO.setPassedCount(testCasePassedCount);
-        resultVO.setTotalCount(testCaseResults.size());
+        return resultVOs;
+    }
 
-        // 自动添加错题到错题本
-        if (finalResult != 0) {
-            try {
-                wrongBookService.autoAddWrongItem(userId, submit, problem);
-            } catch (Exception e) {
-                log.error("添加错题到错题本失败", e);
-            }
+    private void autoAddWrongBook(Long userId, Submit submit, Problem problem, int finalResult) {
+        if (finalResult == RESULT_ACCEPTED) {
+            return;
         }
 
-        // 发送判题完成消息
+        try {
+            wrongBookService.autoAddWrongItem(userId, submit, problem);
+        } catch (Exception e) {
+            log.error("Failed to add wrong book item", e);
+        }
+    }
+
+    private void sendJudgeComplete(Long userId, SubmitResultVO resultVO) {
         Map<String, Object> completeMessage = Map.of(
-            "type", "complete",
-            "result", resultVO,
-            "message", "判题完成"
+                "type", "complete",
+                "result", resultVO,
+                "message", "判题完成"
         );
         judgeProgressHandler.sendComplete(userId, completeMessage);
-
-        return resultVO;
     }
 
     @Override
@@ -269,14 +342,12 @@ public class SubmitServiceImpl implements SubmitService {
 
         List<SubmitWithProblemVO> voList = new ArrayList<>();
         for (Submit submit : list) {
-            SubmitWithProblemVO vo = convertToVO(submit);
-            voList.add(vo);
+            voList.add(convertToVO(submit));
         }
 
         Map<String, Object> result = new HashMap<>();
         result.put("total", total);
         result.put("list", voList);
-
         return result;
     }
 
@@ -298,7 +369,6 @@ public class SubmitServiceImpl implements SubmitService {
             Problem problem = problemMapper.findById(submit.getProblemId());
             if (problem != null) {
                 vo.setProblemTitle(problem.getTitle());
-                
                 if (problem.getDifficulty() != null) {
                     if (problem.getDifficulty() == 0) {
                         vo.setDifficulty("EASY");
@@ -308,7 +378,6 @@ public class SubmitServiceImpl implements SubmitService {
                         vo.setDifficulty("HARD");
                     }
                 }
-                
                 if (problem.getTags() != null && !problem.getTags().isEmpty()) {
                     String[] tagArray = problem.getTags().split(",");
                     vo.setTags(java.util.Arrays.asList(tagArray));
@@ -327,5 +396,12 @@ public class SubmitServiceImpl implements SubmitService {
             submit.setTestCaseResults(results);
         }
         return submit != null ? convertToVO(submit) : null;
+    }
+
+    private record EvaluatedCase(SubmitTestCaseResult result, int resultCode, String statusText, boolean passed) {
+    }
+
+    private record JudgingSummary(int finalResult, int maxTimeCost, int maxMemoryCost, int passedCount,
+                                  List<SubmitTestCaseResult> testCaseResults) {
     }
 }

@@ -3,7 +3,7 @@
     <div class="wrong-book-container">
       <div class="page-header">
         <h1 class="page-title">错题本</h1>
-        <p class="page-subtitle">集中管理做错的题目，按错误原因和知识点安排复习。</p>
+        <p class="page-subtitle">集中整理做错的题目，按错误原因和知识点安排复习。</p>
       </div>
 
       <div class="stats-overview">
@@ -47,12 +47,7 @@
                 class="filter-select"
                 @change="handleFilterChange"
               >
-                <el-option
-                  v-for="point in knowledgePoints"
-                  :key="point"
-                  :label="point"
-                  :value="point"
-                />
+                <el-option v-for="point in knowledgePoints" :key="point" :label="point" :value="point" />
               </el-select>
               <el-select
                 v-model="filters.difficulty"
@@ -65,8 +60,14 @@
                 <el-option label="中等" :value="1" />
                 <el-option label="困难" :value="2" />
               </el-select>
+              <el-select v-model="sortBy" class="filter-select" @change="handleSortChange">
+                <el-option label="最新记录" value="latest" />
+                <el-option label="最早记录" value="oldest" />
+                <el-option label="优先待复习" value="status" />
+              </el-select>
             </div>
             <div class="filter-right">
+              <el-button :disabled="!hasActiveFilters" @click="resetFilters">重置筛选</el-button>
               <el-button @click="fetchAllData">刷新</el-button>
               <el-button type="primary" @click="showReviewPlan">
                 <el-icon><Calendar /></el-icon>
@@ -104,8 +105,13 @@
                 </div>
               </div>
               <div class="wrong-right">
-                <el-button type="primary" size="small" @click.stop="reviewItem(item)">
-                  标记已复习
+                <el-button
+                  type="primary"
+                  size="small"
+                  :disabled="Number(item.reviewStatus) >= 1"
+                  @click.stop="reviewItem(item)"
+                >
+                  {{ Number(item.reviewStatus) >= 1 ? '已复习' : '标记已复习' }}
                 </el-button>
                 <el-button type="danger" size="small" text @click.stop="deleteItem(item.id)">
                   <el-icon><Delete /></el-icon>
@@ -123,6 +129,7 @@
               :total="pagination.total"
               :page-sizes="[10, 20, 50]"
               layout="total, sizes, prev, pager, next"
+              @size-change="handlePageSizeChange"
             />
           </div>
         </div>
@@ -131,17 +138,10 @@
           <div class="distribution-card">
             <h3 class="card-title">知识点分布</h3>
             <div v-if="knowledgeDistribution.length > 0" class="distribution-chart">
-              <div
-                v-for="item in knowledgeDistribution"
-                :key="item.knowledgePoint"
-                class="distribution-item"
-              >
+              <div v-for="item in knowledgeDistribution" :key="item.knowledgePoint" class="distribution-item">
                 <div class="distribution-label">{{ item.knowledgePoint || '未分类' }}</div>
                 <div class="distribution-bar">
-                  <div
-                    class="bar-fill"
-                    :style="{ width: `${(item.count / maxKnowledgeCount) * 100}%` }"
-                  ></div>
+                  <div class="bar-fill" :style="{ width: `${(item.count / maxKnowledgeCount) * 100}%` }"></div>
                 </div>
                 <div class="distribution-count">{{ item.count }}</div>
               </div>
@@ -179,7 +179,14 @@
       </div>
     </div>
 
-    <el-dialog v-model="detailVisible" title="错题详情" width="800px" class="detail-dialog">
+    <el-dialog
+      v-model="detailVisible"
+      title="错题详情"
+      width="min(880px, 94vw)"
+      top="5vh"
+      destroy-on-close
+      class="detail-dialog"
+    >
       <div v-if="currentWrong" class="wrong-detail" v-loading="detailLoading">
         <div class="detail-section">
           <h4>题目信息</h4>
@@ -212,14 +219,24 @@
           <pre class="code-block">{{ currentWrong.code || '暂无代码记录' }}</pre>
         </div>
       </div>
+      <el-empty v-else-if="!detailLoading" description="暂无错题详情" />
       <template #footer>
         <el-button @click="detailVisible = false">关闭</el-button>
         <el-button v-if="currentWrong?.problemId" @click="openProblem(currentWrong.problemId)">前往题目</el-button>
-        <el-button type="primary" @click="reviewCurrentItem">标记已复习</el-button>
+        <el-button type="primary" :disabled="Number(currentWrong?.reviewStatus) >= 1" @click="reviewCurrentItem">
+          {{ Number(currentWrong?.reviewStatus) >= 1 ? '已复习' : '标记已复习' }}
+        </el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="planVisible" title="复习计划" width="600px" class="plan-dialog">
+    <el-dialog
+      v-model="planVisible"
+      title="复习计划"
+      width="min(680px, 94vw)"
+      top="8vh"
+      destroy-on-close
+      class="plan-dialog"
+    >
       <div class="review-plan">
         <div class="plan-header">
           <span class="plan-title">待安排复习项</span>
@@ -233,12 +250,8 @@
             :class="{ reviewed: Number(plan.status) === 1 }"
           >
             <div class="plan-info">
-              <div class="plan-title">
-                {{ getPlanTitle(plan) }}
-              </div>
-              <div class="plan-time">
-                计划时间：{{ formatDateTime(plan.nextReviewTime) }}
-              </div>
+              <div class="plan-title">{{ getPlanTitle(plan) }}</div>
+              <div class="plan-time">计划时间：{{ formatDateTime(plan.nextReviewTime) }}</div>
             </div>
             <div class="plan-actions">
               <el-button
@@ -263,13 +276,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  Calendar,
-  CircleCheck,
-  Clock,
-  Delete,
-  Document
-} from '@element-plus/icons-vue'
+import { Calendar, CircleCheck, Clock, Delete, Document } from '@element-plus/icons-vue'
 import { getProblemDetail } from '@/api/problem'
 import {
   deleteWrongBookItem,
@@ -293,6 +300,7 @@ const knowledgeDistribution = ref([])
 const difficultyDistributionRaw = ref([])
 const reviewPlan = ref([])
 const knowledgePoints = ref([])
+const sortBy = ref('latest')
 
 const filters = reactive({
   knowledgePoint: null,
@@ -323,17 +331,39 @@ const difficultyDistribution = computed(() => {
 
 const totalCount = computed(() => Number(statistics.value.totalCount ?? wrongList.value.length ?? 0))
 const pendingCount = computed(() => Number(statistics.value.pendingCount ?? wrongList.value.filter((item) => Number(item.reviewStatus) === 0).length))
-const reviewedCount = computed(() => Number(statistics.value.reviewedCount ?? wrongList.value.filter((item) => Number(item.reviewStatus) === 1).length))
+const reviewedCount = computed(() => Number(statistics.value.reviewedCount ?? wrongList.value.filter((item) => Number(item.reviewStatus) >= 1).length))
 
 const maxKnowledgeCount = computed(() => {
   if (knowledgeDistribution.value.length === 0) return 1
   return Math.max(...knowledgeDistribution.value.map((item) => Number(item.count || 0)), 1)
 })
 
+const hasActiveFilters = computed(() => {
+  return Boolean(filters.knowledgePoint || filters.difficulty !== null || sortBy.value !== 'latest')
+})
+
+const sortedWrongList = computed(() => {
+  const list = [...wrongList.value]
+
+  if (sortBy.value === 'oldest') {
+    list.sort((a, b) => new Date(a.createTime || 0).getTime() - new Date(b.createTime || 0).getTime())
+  } else if (sortBy.value === 'status') {
+    list.sort((a, b) => {
+      const statusDiff = Number(a.reviewStatus ?? 0) - Number(b.reviewStatus ?? 0)
+      if (statusDiff !== 0) return statusDiff
+      return new Date(b.createTime || 0).getTime() - new Date(a.createTime || 0).getTime()
+    })
+  } else {
+    list.sort((a, b) => new Date(b.createTime || 0).getTime() - new Date(a.createTime || 0).getTime())
+  }
+
+  return list
+})
+
 const pagedWrongList = computed(() => {
   const start = (pagination.page - 1) * pagination.size
   const end = start + pagination.size
-  return wrongList.value.slice(start, end)
+  return sortedWrongList.value.slice(start, end)
 })
 
 const wrongItemMap = computed(() =>
@@ -404,6 +434,13 @@ const getPlanTitle = (plan) => {
   return wrongItem?.problemTitle || `错题 #${plan.wrongItemId}`
 }
 
+const updatePagination = () => {
+  pagination.total = wrongList.value.length
+  if ((pagination.page - 1) * pagination.size >= pagination.total) {
+    pagination.page = 1
+  }
+}
+
 const fetchWrongBookList = async () => {
   loading.value = true
   try {
@@ -418,19 +455,16 @@ const fetchWrongBookList = async () => {
     const res = await getWrongBookList(params)
     if (res?.code === 200) {
       wrongList.value = Array.isArray(res.data) ? res.data.map(normalizeWrongItem) : []
-      pagination.total = wrongList.value.length
-      if ((pagination.page - 1) * pagination.size >= pagination.total) {
-        pagination.page = 1
-      }
+      updatePagination()
       return
     }
 
     wrongList.value = []
-    pagination.total = 0
+    updatePagination()
   } catch (error) {
     console.error('获取错题列表失败:', error)
     wrongList.value = []
-    pagination.total = 0
+    updatePagination()
   } finally {
     loading.value = false
   }
@@ -536,6 +570,10 @@ const showWrongDetail = async (item) => {
 }
 
 const reviewItem = async (item) => {
+  if (Number(item.reviewStatus) >= 1) {
+    return
+  }
+
   try {
     const res = await reviewWrongBook({
       id: item.id,
@@ -543,6 +581,9 @@ const reviewItem = async (item) => {
     })
     if (res?.code === 200) {
       ElMessage.success('已标记为已复习')
+      if (currentWrong.value?.id === item.id) {
+        currentWrong.value.reviewStatus = 1
+      }
       await fetchAllData()
     }
   } catch (error) {
@@ -567,6 +608,9 @@ const deleteItem = async (id) => {
     const res = await deleteWrongBookItem(id)
     if (res?.code === 200) {
       ElMessage.success('删除成功')
+      if (currentWrong.value?.id === id) {
+        detailVisible.value = false
+      }
       await fetchAllData()
     }
   } catch (error) {
@@ -605,6 +649,22 @@ const openProblem = (problemId) => {
 }
 
 const handleFilterChange = () => {
+  pagination.page = 1
+  fetchWrongBookList()
+}
+
+const handleSortChange = () => {
+  pagination.page = 1
+}
+
+const handlePageSizeChange = () => {
+  pagination.page = 1
+}
+
+const resetFilters = () => {
+  filters.knowledgePoint = null
+  filters.difficulty = null
+  sortBy.value = 'latest'
   pagination.page = 1
   fetchWrongBookList()
 }
@@ -939,9 +999,18 @@ onMounted(() => {
   color: var(--leetcode-text-secondary, #6b7280);
 }
 
-.detail-dialog :deep(.el-dialog__body) {
+.detail-dialog :deep(.el-dialog__body),
+.plan-dialog :deep(.el-dialog__body) {
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.detail-dialog :deep(.el-dialog__footer),
+.plan-dialog :deep(.el-dialog__footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .wrong-detail {
@@ -1103,6 +1172,7 @@ onMounted(() => {
 
   .filter-select {
     flex: 1;
+    width: 100%;
   }
 
   .side-content {
@@ -1112,6 +1182,24 @@ onMounted(() => {
   .wrong-item {
     align-items: flex-start;
     flex-direction: column;
+    gap: 12px;
+  }
+
+  .analysis-item,
+  .plan-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .wrong-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .plan-actions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
   }
 }
 </style>

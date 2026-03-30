@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    width="800px"
+    width="min(960px, 94vw)"
     :close-on-click-modal="false"
     class="ai-dialog-pro"
     destroy-on-close
@@ -16,7 +16,7 @@
           <div class="header-info">
             <h3 class="dialog-title">AI 编程助手</h3>
             <span class="dialog-status" :class="loading ? 'thinking' : 'ready'">
-              {{ loading ? '正在思考...' : '在线' }}
+              {{ loading ? '正在思考…' : '在线' }}
             </span>
           </div>
         </div>
@@ -24,9 +24,9 @@
     </template>
 
     <div class="ai-dialog-content">
-      <div class="chat-messages" ref="messagesContainer">
-        <div 
-          v-for="(message, index) in messages" 
+      <div ref="messagesContainer" class="chat-messages">
+        <div
+          v-for="(message, index) in messages"
           :key="index"
           :class="['message-wrapper', message.role]"
         >
@@ -35,7 +35,7 @@
               <el-icon><ChatDotRound /></el-icon>
             </div>
           </div>
-          
+
           <div class="message-content">
             <div v-if="message.role === 'user'" class="user-avatar">
               <div class="user-avatar-inner">
@@ -47,7 +47,7 @@
             </div>
           </div>
         </div>
-        
+
         <div v-if="loading && !typingMessage" class="message-wrapper assistant">
           <div class="avatar-wrapper">
             <div class="ai-avatar-small">
@@ -64,7 +64,7 @@
             </div>
           </div>
         </div>
-        
+
         <div v-if="typingMessage" class="message-wrapper assistant">
           <div class="avatar-wrapper">
             <div class="ai-avatar-small">
@@ -84,7 +84,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch, onBeforeUnmount } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { askAI } from '@/api/ai'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, User } from '@element-plus/icons-vue'
@@ -110,60 +110,71 @@ const visible = ref(false)
 const messages = ref([])
 const loading = ref(false)
 const typingMessage = ref(null)
-const typingInterval = ref(null)
+const typingTimer = ref(null)
 const messagesContainer = ref(null)
 
-watch(() => props.modelValue, (newVal) => {
-  visible.value = newVal
-  if (newVal && props.initialPrompt && props.initialCode) {
-    nextTick(() => {
-      sendInitialMessage()
-    })
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    visible.value = newVal
+    if (newVal && props.initialPrompt && props.initialCode) {
+      nextTick(() => {
+        sendInitialMessage()
+      })
+    }
   }
-})
+)
 
 watch(visible, (newVal) => {
   emit('update:modelValue', newVal)
 })
 
-const decodeHtml = (html) => {
-  const txt = document.createElement('textarea')
-  txt.innerHTML = html
-  return txt.value
+const escapeHtml = (text) => {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }
+  return String(text || '').replace(/[&<>"']/g, (char) => map[char])
 }
 
 const formatMessage = (content) => {
   if (!content) return ''
-  
-  let formatted = decodeHtml(content)
-  
-  formatted = formatted.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-    const safeLang = lang || 'text'
-    const safeCode = code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-    return `<div class="code-block-wrapper"><div class="code-block-header"><span class="code-lang">${safeLang}</span></div><pre class="code-block"><code>${safeCode}</code></pre></div>`
-  })
-  
-  formatted = formatted
-    .replace(/`([^`]+)`/g, (match, code) => {
-      const safeCode = code
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-      return `<code class="inline-code">${safeCode}</code>`
+
+  const codeBlocks = []
+  let processed = String(content).replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const token = `__CODE_BLOCK_${codeBlocks.length}__`
+    codeBlocks.push({
+      lang: escapeHtml(lang || 'code'),
+      code: escapeHtml(code || '')
     })
+    return token
+  })
+
+  processed = escapeHtml(processed)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
     .replace(/^### (.+)$/gm, '<h4 class="message-heading">$1</h4>')
     .replace(/^## (.+)$/gm, '<h3 class="message-heading">$1</h3>')
     .replace(/^# (.+)$/gm, '<h2 class="message-heading">$1</h2>')
-    .replace(/^- (.+)$/gm, '<li class="message-list-item">$1</li>')
-    .replace(/^(\d+)\. (.+)$/gm, '<li class="message-list-item" style="list-style-type: decimal;">$2</li>')
     .replace(/\n/g, '<br>')
-  
-  return formatted
+
+  codeBlocks.forEach((block, index) => {
+    const token = `__CODE_BLOCK_${index}__`
+    processed = processed.replace(
+      token,
+      `
+      <div class="code-block-wrapper">
+        <div class="code-block-header"><span class="code-lang">${block.lang}</span></div>
+        <pre class="code-block"><code>${block.code}</code></pre>
+      </div>
+      `
+    )
+  })
+
+  return processed
 }
 
 const scrollToBottom = async () => {
@@ -173,46 +184,46 @@ const scrollToBottom = async () => {
   }
 }
 
+const stopTyping = () => {
+  if (typingTimer.value) {
+    clearTimeout(typingTimer.value)
+    typingTimer.value = null
+  }
+}
+
 const startTyping = (fullContent) => {
   return new Promise((resolve) => {
     const messageId = Date.now()
     typingMessage.value = {
       id: messageId,
-      fullContent: fullContent,
+      fullContent,
       displayContent: '',
       currentIndex: 0
     }
-    
-    const typeSpeed = 20
-    
-    const typeNextChar = () => {
-      if (typingMessage.value && typingMessage.value.id === messageId) {
-        if (typingMessage.value.currentIndex < typingMessage.value.fullContent.length) {
-          typingMessage.value.displayContent += typingMessage.value.fullContent[typingMessage.value.currentIndex]
-          typingMessage.value.currentIndex++
-          scrollToBottom()
-          typingInterval.value = setTimeout(typeNextChar, typeSpeed)
-        } else {
-          resolve()
-        }
+
+    const typeNext = () => {
+      if (!typingMessage.value || typingMessage.value.id !== messageId) {
+        return
+      }
+
+      if (typingMessage.value.currentIndex < typingMessage.value.fullContent.length) {
+        typingMessage.value.displayContent += typingMessage.value.fullContent[typingMessage.value.currentIndex]
+        typingMessage.value.currentIndex += 1
+        scrollToBottom()
+        typingTimer.value = setTimeout(typeNext, 18)
+      } else {
+        resolve()
       }
     }
-    
-    typeNextChar()
-  })
-}
 
-const stopTyping = () => {
-  if (typingInterval.value) {
-    clearTimeout(typingInterval.value)
-    typingInterval.value = null
-  }
+    typeNext()
+  })
 }
 
 const sendInitialMessage = async () => {
   stopTyping()
   typingMessage.value = null
-  
+
   const userMessage = {
     role: 'user',
     content: `${props.initialPrompt}\n\n\`\`\`\n${props.initialCode}\n\`\`\``
@@ -230,23 +241,22 @@ const sendInitialMessage = async () => {
 
     if (res.code === 200) {
       loading.value = false
-      const fullContent = res.data || '抱歉,我无法回答这个问题。'
-      
+      const fullContent = res.data || '抱歉，我暂时无法回答这个问题。'
       await startTyping(fullContent)
-      
+
       if (typingMessage.value) {
-        const aiMessage = {
+        messages.value.push({
           role: 'assistant',
           content: typingMessage.value.fullContent
-        }
-        messages.value.push(aiMessage)
+        })
         typingMessage.value = null
       }
     } else {
       ElMessage.error(res.msg || '发送失败')
     }
   } catch (error) {
-    ElMessage.error('发送失败,请重试')
+    console.error('AI 请求失败:', error)
+    ElMessage.error('发送失败，请重试')
   } finally {
     loading.value = false
     stopTyping()
@@ -261,6 +271,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .ai-dialog-pro :deep(.el-dialog) {
+  width: min(960px, 94vw);
+  max-width: 960px;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -269,7 +281,7 @@ onBeforeUnmount(() => {
 .ai-dialog-pro :deep(.el-dialog__header) {
   padding: 0;
   margin: 0;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .dialog-header {
@@ -290,12 +302,10 @@ onBeforeUnmount(() => {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .ai-avatar .el-icon {
@@ -314,7 +324,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: white;
   margin: 0;
-  letter-spacing: -0.3px;
 }
 
 .dialog-status {
@@ -343,26 +352,24 @@ onBeforeUnmount(() => {
 }
 
 .dialog-status.ready::before {
-  background: #00C853;
-  box-shadow: 0 0 0 4px rgba(0, 200, 83, 0.2);
+  background: #00c853;
 }
 
 .dialog-status.thinking::before {
-  background: #FFB300;
-  animation: blink 1s ease-in-out infinite;
+  background: #ffb300;
 }
 
 .ai-dialog-pro :deep(.el-dialog__body) {
   padding: 0;
-  max-height: 70vh;
+  max-height: min(78vh, 920px);
   overflow: hidden;
 }
 
 .ai-dialog-content {
-  height: 600px;
+  height: min(600px, 72vh);
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #FAFBFF 0%, #FFFFFF 100%);
+  background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%);
 }
 
 .chat-messages {
@@ -372,23 +379,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.chat-messages::-webkit-scrollbar {
-  width: 8px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-  background: var(--leetcode-border, #E5E7EB);
-  border-radius: 4px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb:hover {
-  background: var(--leetcode-text-secondary, #6B7280);
 }
 
 .message-wrapper {
@@ -401,49 +391,29 @@ onBeforeUnmount(() => {
   flex-direction: row-reverse;
 }
 
-.message-wrapper.assistant {
-  flex-direction: row;
-}
-
-.avatar-wrapper {
-  flex-shrink: 0;
-  padding-top: 4px;
-}
-
-.ai-avatar-small {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.ai-avatar-small .el-icon {
-  font-size: 18px;
-  color: white;
-}
-
+.avatar-wrapper,
 .user-avatar {
   flex-shrink: 0;
   padding-top: 4px;
 }
 
+.ai-avatar-small,
 .user-avatar-inner {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #00C853 0%, #00A845 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 200, 83, 0.3);
 }
 
-.user-avatar-inner .el-icon {
-  font-size: 18px;
+.ai-avatar-small {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.user-avatar-inner {
+  background: linear-gradient(135deg, #00c853 0%, #00a845 100%);
   color: white;
 }
 
@@ -451,6 +421,7 @@ onBeforeUnmount(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   max-width: 80%;
 }
 
@@ -465,9 +436,7 @@ onBeforeUnmount(() => {
 .message-bubble {
   padding: 16px 20px;
   border-radius: 16px;
-  position: relative;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
 }
 
 .message-wrapper.user .message-bubble {
@@ -478,22 +447,15 @@ onBeforeUnmount(() => {
 
 .message-wrapper.assistant .message-bubble {
   background: white;
-  color: var(--leetcode-text, #24292F);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  color: var(--leetcode-text, #24292f);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   border-bottom-left-radius: 4px;
 }
 
-.message-bubble:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
 .message-text {
-  line-height: 1.6;
+  line-height: 1.7;
   font-size: 14px;
-  word-wrap: break-word;
-  word-break: break-all;
-  color: inherit;
-  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .message-text :deep(.code-block-wrapper) {
@@ -506,18 +468,12 @@ onBeforeUnmount(() => {
 .message-text :deep(.code-block-header) {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .message-text :deep(.code-lang) {
   color: rgba(255, 255, 255, 0.7);
   font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .message-text :deep(.code-block) {
@@ -532,7 +488,6 @@ onBeforeUnmount(() => {
   font-size: 14px;
   line-height: 1.7;
   color: #c9d1d9;
-  background: transparent;
 }
 
 .message-text :deep(.inline-code) {
@@ -542,7 +497,6 @@ onBeforeUnmount(() => {
   border-radius: 4px;
   font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
-  font-weight: 500;
 }
 
 .message-wrapper.user .message-text :deep(.inline-code) {
@@ -551,26 +505,8 @@ onBeforeUnmount(() => {
 }
 
 .message-text :deep(.message-heading) {
-  margin: 20px 0 12px 0;
+  margin: 16px 0 10px;
   font-weight: 700;
-  color: inherit;
-}
-
-.message-text :deep(h2.message-heading) {
-  font-size: 20px;
-}
-
-.message-text :deep(h3.message-heading) {
-  font-size: 18px;
-}
-
-.message-text :deep(h4.message-heading) {
-  font-size: 16px;
-}
-
-.message-text :deep(.message-list-item) {
-  margin: 8px 0;
-  padding-left: 8px;
 }
 
 .typing-indicator {
@@ -586,7 +522,6 @@ onBeforeUnmount(() => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 50%;
   animation: typing 1.4s ease-in-out infinite;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .typing-indicator span:nth-child(2) {
@@ -595,6 +530,17 @@ onBeforeUnmount(() => {
 
 .typing-indicator span:nth-child(3) {
   animation-delay: 0.4s;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 3px;
+  height: 18px;
+  background: #667eea;
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: cursorBlink 1s infinite;
+  border-radius: 2px;
 }
 
 @keyframes typing {
@@ -617,15 +563,6 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes blink {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-
 @keyframes cursorBlink {
   0%, 50% {
     opacity: 1;
@@ -635,14 +572,22 @@ onBeforeUnmount(() => {
   }
 }
 
-.typing-cursor {
-  display: inline-block;
-  width: 3px;
-  height: 18px;
-  background: #667eea;
-  margin-left: 2px;
-  vertical-align: middle;
-  animation: cursorBlink 1s infinite;
-  border-radius: 2px;
+@media (max-width: 768px) {
+  .dialog-header {
+    padding: 16px 18px;
+  }
+
+  .chat-messages {
+    padding: 20px 16px;
+    gap: 18px;
+  }
+
+  .message-content {
+    max-width: 100%;
+  }
+
+  .message-bubble {
+    max-width: 100%;
+  }
 }
 </style>

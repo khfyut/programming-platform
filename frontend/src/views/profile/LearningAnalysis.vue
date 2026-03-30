@@ -1,5 +1,28 @@
 <template>
   <div v-loading="analysisLoading" class="analysis-page">
+    <section class="summary-grid">
+      <article class="summary-card">
+        <div class="summary-label">掌握知识点</div>
+        <div class="summary-value">{{ knowledgeItems.length }}</div>
+        <div class="summary-hint">已纳入分析的知识点数量</div>
+      </article>
+      <article class="summary-card warning">
+        <div class="summary-label">薄弱点</div>
+        <div class="summary-value">{{ weakPointItems.length }}</div>
+        <div class="summary-hint">{{ weakestPointLabel }}</div>
+      </article>
+      <article class="summary-card success">
+        <div class="summary-label">累计练习</div>
+        <div class="summary-value">{{ totalPracticeCount }}</div>
+        <div class="summary-hint">来自知识掌握度统计</div>
+      </article>
+      <article class="summary-card accent">
+        <div class="summary-label">整体通过率</div>
+        <div class="summary-value">{{ overallAccuracy }}%</div>
+        <div class="summary-hint">按知识点练习数据估算</div>
+      </article>
+    </section>
+
     <section class="analysis-grid">
       <div class="panel-card weak-panel">
         <div class="panel-header">
@@ -7,7 +30,10 @@
             <div class="section-kicker">Weak Points</div>
             <h2>薄弱知识点</h2>
           </div>
-          <router-link to="/wrong-book" class="panel-link">去错题本</router-link>
+          <div class="panel-actions">
+            <el-button text @click="refreshAnalysis">刷新</el-button>
+            <router-link to="/wrong-book" class="panel-link">去错题本</router-link>
+          </div>
         </div>
 
         <div v-if="weakPointItems.length > 0" class="weak-list">
@@ -15,12 +41,19 @@
             <div class="weak-rank">TOP {{ index + 1 }}</div>
             <div class="weak-main">
               <div class="weak-name">{{ item.knowledgeName }}</div>
-              <div class="weak-desc">掌握度 {{ item.masteryPercent }}%，建议优先复习</div>
+              <div class="weak-desc">掌握度 {{ item.masteryPercent }}%，建议优先安排复习和专项练习。</div>
             </div>
             <el-progress :percentage="item.masteryPercent" :show-text="false" :stroke-width="8" status="exception" />
           </div>
         </div>
-        <div v-else class="empty-box">暂无薄弱知识点数据，继续做题后这里会逐步形成分析。</div>
+        <div v-else class="empty-box">
+          <div>暂时还没有识别出明显的薄弱点。</div>
+          <div class="empty-copy">继续刷题后，这里会逐渐形成更有针对性的学习建议。</div>
+          <div class="empty-actions">
+            <el-button type="primary" @click="goToProblems">去做题</el-button>
+            <el-button @click="goToWrongBook">查看错题本</el-button>
+          </div>
+        </div>
       </div>
 
       <div class="panel-card">
@@ -29,9 +62,10 @@
             <div class="section-kicker">Difficulty Mix</div>
             <h2>难度分布</h2>
           </div>
+          <span class="panel-caption">共 {{ difficultyTotal }} 道题</span>
         </div>
 
-        <div class="difficulty-list">
+        <div v-if="difficultyTotal > 0" class="difficulty-list">
           <div v-for="item in difficultyItems" :key="item.key" class="difficulty-item">
             <div class="difficulty-head">
               <span>{{ item.label }}</span>
@@ -39,6 +73,10 @@
             </div>
             <el-progress :percentage="item.percent" :show-text="false" :stroke-width="10" :color="item.color" />
           </div>
+        </div>
+        <div v-else class="empty-box compact">
+          <div>还没有足够的题目记录来生成难度分布。</div>
+          <div class="empty-copy">先完成几次提交，分析页会更快变得有参考价值。</div>
         </div>
       </div>
     </section>
@@ -49,6 +87,7 @@
           <div class="section-kicker">Knowledge Mastery</div>
           <h2>知识掌握度</h2>
         </div>
+        <span class="panel-caption">按掌握度从低到高排序</span>
       </div>
 
       <div v-if="knowledgeItems.length > 0" class="mastery-list">
@@ -57,7 +96,7 @@
             <div>
               <div class="mastery-name">{{ item.knowledgeName }}</div>
               <div class="mastery-meta">
-                练习 {{ item.practiceCount }} 次，正确 {{ item.correctCount }} 次，正确率 {{ item.accuracy }}%
+                练习 {{ item.practiceCount }} 次，答对 {{ item.correctCount }} 次，正确率 {{ item.accuracy }}%
               </div>
             </div>
             <el-tag :type="getMasteryTagType(item.masteryPercent)" size="small">
@@ -72,20 +111,31 @@
           />
         </div>
       </div>
-      <div v-else class="empty-box">暂无知识掌握度数据，先完成几道题后再回来查看。</div>
+      <div v-else class="empty-box">
+        <div>暂无知识掌握度数据。</div>
+        <div class="empty-copy">先完成几道题，再回来看看哪些知识点已经稳定、哪些还需要补强。</div>
+        <div class="empty-actions">
+          <el-button type="primary" @click="goToLearn">去学习中心</el-button>
+          <el-button @click="goToProblems">去题库</el-button>
+        </div>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDifficultyStats, getKnowledgeMastery, getWeakKnowledgePoints } from '@/api/learn'
 import { getNodeDetail } from '@/api/knowledgeGraph'
 
+const router = useRouter()
 const userStore = useUserStore()
+
 const analysisLoading = ref(false)
 const userId = computed(() => userStore.userInfo?.id)
+const loadedUserId = ref(null)
 
 const difficultyStats = ref({
   easy: 0,
@@ -96,6 +146,14 @@ const knowledgeMastery = ref([])
 const weakPoints = ref([])
 
 const clampPercentage = (value) => Math.min(100, Math.max(0, Math.round(Number(value) || 0)))
+
+const normalizeList = (data) => {
+  if (Array.isArray(data)) {
+    return data
+  }
+
+  return data?.list || data?.records || data?.content || data?.items || []
+}
 
 const hydrateKnowledgeNames = async (items) => {
   const missingIds = [
@@ -134,9 +192,13 @@ const normalizeMasteryPercent = (item) => {
   if (item.score !== undefined && item.score !== null) {
     return clampPercentage(item.score)
   }
+
   if (item.masteryLevel !== undefined && item.masteryLevel !== null) {
-    return clampPercentage((Number(item.masteryLevel) / 3) * 100)
+    const rawLevel = Number(item.masteryLevel)
+    const normalized = rawLevel > 1 ? (rawLevel / 3) * 100 : rawLevel * 100
+    return clampPercentage(normalized)
   }
+
   return 0
 }
 
@@ -168,7 +230,8 @@ const weakPointItems = computed(() =>
     .map((item) => ({
       ...item,
       knowledgeId: item.knowledgeId || item.id,
-      knowledgeName: item.knowledgeName || item.name || `知识点 ${item.knowledgeId || item.id}`,
+      knowledgeName:
+        item.knowledgePoint?.name || item.knowledgeName || item.name || `知识点 ${item.knowledgeId || item.id}`,
       masteryPercent: normalizeMasteryPercent(item)
     }))
     .sort((a, b) => a.masteryPercent - b.masteryPercent)
@@ -186,6 +249,28 @@ const difficultyItems = computed(() => {
     { key: 'medium', label: '中等', value: medium, percent: clampPercentage((medium / total) * 100), color: '#f59e0b' },
     { key: 'hard', label: '困难', value: hard, percent: clampPercentage((hard / total) * 100), color: '#f43f5e' }
   ]
+})
+
+const difficultyTotal = computed(() =>
+  difficultyItems.value.reduce((total, item) => total + Number(item.value || 0), 0)
+)
+
+const totalPracticeCount = computed(() =>
+  knowledgeItems.value.reduce((total, item) => total + Number(item.practiceCount || 0), 0)
+)
+
+const overallAccuracy = computed(() => {
+  const totalCorrect = knowledgeItems.value.reduce((total, item) => total + Number(item.correctCount || 0), 0)
+  return totalPracticeCount.value > 0 ? clampPercentage((totalCorrect / totalPracticeCount.value) * 100) : 0
+})
+
+const weakestPointLabel = computed(() => {
+  if (!weakPointItems.value.length) {
+    return '暂时还没有需要重点关注的知识点'
+  }
+
+  const weakest = weakPointItems.value[0]
+  return `${weakest.knowledgeName} 当前掌握度 ${weakest.masteryPercent}%`
 })
 
 const getMasteryLabel = (value) => {
@@ -224,9 +309,17 @@ const ensureUserReady = async () => {
   }
 }
 
-const fetchData = async () => {
+const fetchData = async ({ force = false } = {}) => {
   const currentUserId = await ensureUserReady()
   if (!currentUserId) {
+    return
+  }
+
+  if (analysisLoading.value) {
+    return
+  }
+
+  if (!force && loadedUserId.value === currentUserId && knowledgeMastery.value.length > 0) {
     return
   }
 
@@ -244,43 +337,56 @@ const fetchData = async () => {
         ? difficultyRes.value.data || {}
         : {}
 
-    knowledgeMastery.value =
+    const masteryList =
       masteryRes.status === 'fulfilled' && masteryRes.value?.code === 200
-        ? await hydrateKnowledgeNames(masteryRes.value.data || [])
+        ? normalizeList(masteryRes.value.data)
         : []
 
-    weakPoints.value =
+    const weakList =
       weakRes.status === 'fulfilled' && weakRes.value?.code === 200
-        ? await hydrateKnowledgeNames(weakRes.value.data || [])
+        ? normalizeList(weakRes.value.data)
         : []
+
+    knowledgeMastery.value = await hydrateKnowledgeNames(masteryList)
+    weakPoints.value = await hydrateKnowledgeNames(weakList)
+    loadedUserId.value = currentUserId
   } catch (error) {
     console.error('获取学习分析数据失败:', error)
+    difficultyStats.value = {}
+    knowledgeMastery.value = []
+    weakPoints.value = []
   } finally {
     analysisLoading.value = false
   }
 }
 
-watch(
-  userId,
-  (value) => {
-    if (value) {
-      fetchData()
-    }
-  },
-  { immediate: true }
-)
+const refreshAnalysis = () => {
+  fetchData({ force: true })
+}
+
+const goToWrongBook = () => {
+  router.push('/wrong-book')
+}
+
+const goToProblems = () => {
+  router.push('/problems')
+}
+
+const goToLearn = () => {
+  router.push('/learn')
+}
 
 watch(
-  () => userStore.token,
-  (token) => {
-    if (token && !userStore.userInfo?.id) {
-      fetchData()
+  userId,
+  (value, oldValue) => {
+    if (value && value !== oldValue) {
+      fetchData({ force: true })
     }
   }
 )
 
 onMounted(() => {
-  fetchData()
+  fetchData({ force: true })
 })
 </script>
 
@@ -291,12 +397,13 @@ onMounted(() => {
   gap: 20px;
 }
 
-.analysis-grid {
+.summary-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
-  gap: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
+.summary-card,
 .panel-card {
   position: relative;
   overflow: hidden;
@@ -304,6 +411,58 @@ onMounted(() => {
   border-radius: 22px;
   background: var(--bg-card);
   box-shadow: var(--shadow-md);
+}
+
+.summary-card {
+  padding: 18px 20px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 209, 255, 0.08), transparent 32%),
+    var(--bg-card);
+}
+
+.summary-card.warning {
+  background:
+    radial-gradient(circle at top right, rgba(244, 63, 94, 0.12), transparent 32%),
+    var(--bg-card);
+}
+
+.summary-card.success {
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 32%),
+    var(--bg-card);
+}
+
+.summary-card.accent {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 32%),
+    var(--bg-card);
+}
+
+.summary-label {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.summary-value {
+  margin: 10px 0 6px;
+  color: var(--text-primary);
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.summary-hint {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  gap: 20px;
+}
+
+.panel-card {
   padding: 22px;
 }
 
@@ -313,12 +472,24 @@ onMounted(() => {
     var(--bg-card);
 }
 
+.mastery-panel {
+  background:
+    radial-gradient(circle at top right, rgba(0, 209, 255, 0.08), transparent 28%),
+    var(--bg-card);
+}
+
 .panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .section-kicker {
@@ -331,6 +502,11 @@ onMounted(() => {
 
 .panel-header h2 {
   margin: 0;
+}
+
+.panel-caption {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .panel-link {
@@ -347,16 +523,37 @@ onMounted(() => {
 }
 
 .weak-item,
-.mastery-item {
+.mastery-item,
+.difficulty-item {
   position: relative;
-  padding: 16px;
   border: 1px solid var(--border-light);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.weak-item,
+.mastery-item {
+  padding: 16px;
 }
 
 .weak-item {
   padding-top: 20px;
+}
+
+.difficulty-item {
+  padding: 16px;
+}
+
+.difficulty-item:hover,
+.mastery-item:hover,
+.weak-item:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .weak-rank {
@@ -387,25 +584,6 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-.difficulty-item {
-  padding: 16px;
-  border: 1px solid var(--border-light);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.03);
-  transition:
-    transform var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.difficulty-item:hover,
-.mastery-item:hover,
-.weak-item:hover {
-  transform: translateY(-1px);
-  border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.05);
-}
-
 .difficulty-head,
 .mastery-main {
   display: flex;
@@ -416,22 +594,52 @@ onMounted(() => {
 }
 
 .empty-box {
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 20px;
   border: 1px dashed var(--border-color);
   border-radius: 16px;
   text-align: center;
   color: var(--text-secondary);
 }
 
-@media (max-width: 980px) {
+.empty-box.compact {
+  padding: 28px 20px;
+}
+
+.empty-copy {
+  max-width: 420px;
+  line-height: 1.7;
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .analysis-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 640px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-header,
   .difficulty-head,
-  .mastery-main {
+  .mastery-main,
+  .panel-actions {
     align-items: flex-start;
     flex-direction: column;
   }

@@ -7,19 +7,18 @@
             <el-icon><ArrowLeft /></el-icon>
             返回
           </el-button>
-          <div class="path-info" v-if="pathDetail">
+          <div v-if="pathDetail" class="path-info">
             <h1 class="page-title">{{ pathDetail.name }}</h1>
-            <p class="page-subtitle">{{ pathDetail.description }}</p>
+            <p class="page-subtitle">{{ pathDetail.description || '按章节逐步完成关卡练习。' }}</p>
           </div>
         </div>
-        <div class="header-right" v-if="pathDetail">
-          <el-tag :type="getDifficultyType(pathDetail.difficulty)">
-            {{ getDifficultyText(pathDetail.difficulty) }}
-          </el-tag>
+
+        <div v-if="pathDetail" class="header-right">
+          <el-tag type="info">{{ getPathMetaText(pathDetail) }}</el-tag>
         </div>
       </div>
 
-      <div class="progress-section" v-if="pathDetail">
+      <div v-if="pathDetail" class="progress-section">
         <div class="progress-stats">
           <div class="stat-item">
             <span class="stat-value">{{ progress.completedLevels }}</span>
@@ -50,9 +49,10 @@
                 </div>
                 <div class="chapter-info">
                   <h3 class="chapter-name">{{ chapter.name }}</h3>
-                  <p class="chapter-desc">{{ chapter.description }}</p>
+                  <p class="chapter-desc">{{ chapter.description || '完成本章关卡后可进入下一章节。' }}</p>
                 </div>
               </div>
+
               <div class="chapter-right">
                 <span class="level-count">{{ getCompletedCount(chapter) }}/{{ chapter.levels.length }} 关</span>
                 <el-icon class="expand-icon" :class="{ expanded: expandedChapters.includes(chapter.id) }">
@@ -62,7 +62,7 @@
             </div>
 
             <transition name="expand">
-              <div class="chapter-levels" v-if="expandedChapters.includes(chapter.id)">
+              <div v-if="expandedChapters.includes(chapter.id)" class="chapter-levels">
                 <div
                   v-for="level in chapter.levels"
                   :key="level.id"
@@ -75,14 +75,20 @@
                       <el-icon v-else-if="level.status === 'locked'"><Lock /></el-icon>
                       <span v-else>{{ level.order }}</span>
                     </div>
+
                     <div class="level-info">
-                      <h4 class="level-name">{{ level.name }}</h4>
+                      <div class="level-name-row">
+                        <h4 class="level-name">{{ level.name }}</h4>
+                        <el-tag size="small" :type="getStatusTagType(level.status)">
+                          {{ getStatusText(level.status) }}
+                        </el-tag>
+                      </div>
                       <div class="level-meta">
                         <span class="meta-item">
                           <el-icon><Document /></el-icon>
                           {{ level.problemCount }} 题
                         </span>
-                        <span class="meta-item" v-if="level.estimatedTime">
+                        <span v-if="level.estimatedTime" class="meta-item">
                           <el-icon><Clock /></el-icon>
                           {{ level.estimatedTime }}
                         </span>
@@ -97,7 +103,12 @@
                     <el-button v-else-if="level.status === 'completed'" size="small" @click.stop="goToLevel(level)">
                       复习
                     </el-button>
-                    <el-button v-else-if="level.status === 'current'" type="primary" size="small" @click.stop="startLevel(level)">
+                    <el-button
+                      v-else-if="level.status === 'current'"
+                      type="primary"
+                      size="small"
+                      @click.stop="startLevel(level)"
+                    >
                       开始学习
                     </el-button>
                     <el-button v-else size="small" @click.stop="goToLevel(level)">
@@ -117,7 +128,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, ArrowLeft, Check, Clock, Document, Lock } from '@element-plus/icons-vue'
@@ -133,10 +144,13 @@ const expandedChapters = ref([])
 const progress = ref({
   completedLevels: 0,
   totalLevels: 0,
-  progress: 0
+  progress: 0,
+  currentChapterId: null,
+  currentLevelId: null,
+  completedLevelIds: []
 })
 
-const pathId = computed(() => route.params.id)
+const pathId = computed(() => Number(route.params.id))
 
 const resetPathData = (showError = false) => {
   pathDetail.value = null
@@ -145,85 +159,97 @@ const resetPathData = (showError = false) => {
   progress.value = {
     completedLevels: 0,
     totalLevels: 0,
-    progress: 0
+    progress: 0,
+    currentChapterId: null,
+    currentLevelId: null,
+    completedLevelIds: []
   }
 
   if (showError) {
     ElMessage.error('获取学习路径失败，请稍后重试')
-  } else {
-    ElMessage.warning('学习路径暂无可展示数据')
   }
 }
 
 const normalizeProgress = (raw) => {
   if (!raw || typeof raw !== 'object') {
-    return { completedLevels: 0, totalLevels: 0, progress: 0 }
+    return {
+      completedLevels: 0,
+      totalLevels: 0,
+      progress: 0,
+      currentChapterId: null,
+      currentLevelId: null,
+      completedLevelIds: []
+    }
   }
 
   return {
     completedLevels: Number(raw.completedLevels || 0),
     totalLevels: Number(raw.totalLevels || 0),
-    progress: Number(raw.progress || 0)
+    progress: Number(raw.progress || 0),
+    currentChapterId: raw.currentChapterId ? Number(raw.currentChapterId) : null,
+    currentLevelId: raw.currentLevelId ? Number(raw.currentLevelId) : null,
+    completedLevelIds: Array.isArray(raw.completedLevelIds) ? raw.completedLevelIds.map((id) => Number(id)) : []
   }
 }
 
 const toCompletedLevelSet = (raw) => {
-  const completedLevelSet = new Set()
-
-  if (!raw || typeof raw !== 'object') {
-    return completedLevelSet
-  }
-
-  if (Array.isArray(raw.completedLevelIds)) {
-    raw.completedLevelIds.forEach((id) => completedLevelSet.add(Number(id)))
-    return completedLevelSet
-  }
-
-  if (typeof raw.completedLevels === 'string' && raw.completedLevels.includes(',')) {
-    raw.completedLevels
-      .split(',')
-      .map((id) => Number(id))
-      .filter((id) => !Number.isNaN(id))
-      .forEach((id) => completedLevelSet.add(id))
-  }
-
-  return completedLevelSet
+  const set = new Set()
+  const normalized = normalizeProgress(raw)
+  normalized.completedLevelIds
+    .filter((id) => !Number.isNaN(id))
+    .forEach((id) => set.add(id))
+  return set
 }
 
-const normalizeChapters = (rawChapters, completedSet) => {
-  return (rawChapters || []).map((chapter) => {
-    const levels = (chapter.levels || []).map((level, index, allLevels) => {
-      const currentLevelId = Number(level.id)
-      const previousLevelId = Number(allLevels[index - 1]?.id)
+const normalizeChapters = (rawChapters, completedSet, currentChapterId, currentLevelId) => {
+  let fallbackCurrentAssigned = false
 
-      let status = level.status
-      if (!status) {
-        if (completedSet.has(currentLevelId)) {
-          status = 'completed'
-        } else if (index === 0 || completedSet.has(previousLevelId)) {
-          status = 'current'
-        } else {
-          status = 'locked'
-        }
+  return (rawChapters || []).map((chapter, chapterIndex) => {
+    const chapterId = Number(chapter.id)
+    const levels = (chapter.levels || []).map((level, index, allLevels) => {
+      const levelId = Number(level.id)
+      const previousLevelId = Number(allLevels[index - 1]?.id)
+      const problemCount = level.problemCount ?? (level.problemIds ? level.problemIds.split(',').filter(Boolean).length : 0)
+
+      let status = 'locked'
+      if (completedSet.has(levelId)) {
+        status = 'completed'
+      } else if (currentLevelId && currentLevelId === levelId) {
+        status = 'current'
+        fallbackCurrentAssigned = true
+      } else if (
+        currentChapterId &&
+        currentChapterId === chapterId &&
+        (index === 0 || completedSet.has(previousLevelId))
+      ) {
+        status = 'available'
+      } else if (!currentLevelId && !fallbackCurrentAssigned && (index === 0 || completedSet.has(previousLevelId))) {
+        status = 'current'
+        fallbackCurrentAssigned = true
       }
 
       return {
         ...level,
         order: level.orderNum ?? level.order ?? index + 1,
-        problemCount: level.problemCount ?? (level.problemIds ? level.problemIds.split(',').filter(Boolean).length : 0),
+        problemCount,
         status
       }
     })
 
     return {
       ...chapter,
-      order: chapter.orderNum ?? chapter.order ?? 1,
+      order: chapter.orderNum ?? chapter.order ?? chapterIndex + 1,
       levels
     }
   })
 }
 
 const fetchPathDetail = async () => {
+  if (!pathId.value) {
+    resetPathData(true)
+    return
+  }
+
   loading.value = true
   try {
     const [pathRes, progressRes] = await Promise.all([
@@ -239,11 +265,22 @@ const fetchPathDetail = async () => {
     pathDetail.value = pathRes.data
     progress.value = normalizeProgress(progressRes?.data)
     const completedSet = toCompletedLevelSet(progressRes?.data)
-    chapters.value = normalizeChapters(pathRes.data.chapters, completedSet)
 
-    if (chapters.value.length > 0) {
-      expandedChapters.value = [chapters.value[0].id]
+    chapters.value = normalizeChapters(
+      pathRes.data.chapters,
+      completedSet,
+      progress.value.currentChapterId,
+      progress.value.currentLevelId
+    )
+
+    const defaultExpanded = []
+    if (progress.value.currentChapterId) {
+      defaultExpanded.push(progress.value.currentChapterId)
     }
+    if (defaultExpanded.length === 0 && chapters.value.length > 0) {
+      defaultExpanded.push(chapters.value[0].id)
+    }
+    expandedChapters.value = defaultExpanded
   } catch (error) {
     console.error('获取学习路径失败:', error)
     resetPathData(true)
@@ -252,22 +289,29 @@ const fetchPathDetail = async () => {
   }
 }
 
-const getDifficultyType = (difficulty) => {
-  const map = {
-    beginner: 'success',
-    intermediate: 'warning',
-    advanced: 'danger'
-  }
-  return map[difficulty] || 'info'
+const getPathMetaText = (path) => {
+  const parts = [path.language, path.direction].filter(Boolean)
+  return parts.length > 0 ? parts.join(' / ') : '学习路径'
 }
 
-const getDifficultyText = (difficulty) => {
+const getStatusText = (status) => {
   const map = {
-    beginner: '初级',
-    intermediate: '中级',
-    advanced: '高级'
+    completed: '已完成',
+    current: '当前关卡',
+    available: '可进入',
+    locked: '未解锁'
   }
-  return map[difficulty] || '未知'
+  return map[status] || '未解锁'
+}
+
+const getStatusTagType = (status) => {
+  const map = {
+    completed: 'success',
+    current: 'primary',
+    available: 'warning',
+    locked: 'info'
+  }
+  return map[status] || 'info'
 }
 
 const isChapterCompleted = (chapter) => chapter.levels.length > 0 && chapter.levels.every((level) => level.status === 'completed')
@@ -293,16 +337,21 @@ const goToLevel = (level) => {
 
 const startLevel = async (level) => {
   if (level.status === 'locked') {
+    ElMessage.warning('该关卡尚未解锁')
+    return
+  }
+
+  if (level.status === 'available') {
     try {
       const res = await unlockLevel(level.id)
-      if (res?.code !== 200) {
+      if (res?.code !== 200 || res?.data !== true) {
         ElMessage.error(res?.msg || '解锁失败')
         return
       }
-      level.status = 'current'
+      await fetchPathDetail()
       ElMessage.success('关卡已解锁')
     } catch (error) {
-      console.error('解锁失败:', error)
+      console.error('解锁关卡失败:', error)
       ElMessage.error('解锁失败')
       return
     }
@@ -314,6 +363,10 @@ const startLevel = async (level) => {
 const goBack = () => {
   router.push('/learn')
 }
+
+watch(pathId, () => {
+  fetchPathDetail()
+})
 
 onMounted(() => {
   fetchPathDetail()
@@ -338,6 +391,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
   margin-bottom: 20px;
 }
 
@@ -347,8 +401,14 @@ onMounted(() => {
   align-items: flex-start;
 }
 
+.path-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .page-title {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 28px;
   color: var(--leetcode-text, #24292f);
 }
@@ -415,6 +475,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
   cursor: pointer;
 }
 
@@ -491,6 +552,10 @@ onMounted(() => {
   opacity: 0.65;
 }
 
+.level-item.current {
+  border-color: #0066ff;
+}
+
 .level-main {
   display: flex;
   align-items: center;
@@ -521,14 +586,22 @@ onMounted(() => {
   color: #fff;
 }
 
+.level-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 .level-name {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 14px;
 }
 
 .level-meta {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .meta-item {
@@ -564,7 +637,6 @@ onMounted(() => {
 
   .page-header {
     flex-direction: column;
-    gap: 12px;
   }
 
   .header-left {
@@ -583,6 +655,10 @@ onMounted(() => {
   .level-item {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .level-actions {
+    width: 100%;
   }
 }
 </style>

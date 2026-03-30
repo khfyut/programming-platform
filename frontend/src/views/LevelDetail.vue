@@ -1,17 +1,52 @@
-
 <template>
   <div class="level-detail-page">
     <div class="detail-container">
       <div class="page-header">
         <div class="header-left">
-          <el-button @click="goBack" text>
+          <el-button text @click="goBack">
             <el-icon><ArrowLeft /></el-icon>
-            返回
+            返回路径
           </el-button>
-          <div class="level-info" v-if="currentLevel">
+          <div v-if="currentLevel" class="level-info">
             <h1 class="page-title">{{ currentLevel.name }}</h1>
-            <p class="page-subtitle">{{ currentLevel.description || '学习相关知识和技能' }}</p>
+            <p class="page-subtitle">
+              {{ chapterName || '当前关卡' }} · {{ levelSummary }}
+            </p>
           </div>
+        </div>
+        <el-tag v-if="statusText" :type="statusTagType" size="large">{{ statusText }}</el-tag>
+      </div>
+
+      <div class="summary-card" v-if="currentLevel">
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="summary-label">关卡序号</span>
+            <span class="summary-value">第 {{ currentLevel.orderNum || currentLevel.order || '-' }} 关</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">题目数量</span>
+            <span class="summary-value">{{ problems.length }} 题</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">学习资源</span>
+            <span class="summary-value">{{ resources.length }} 个</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">知识点</span>
+            <span class="summary-value">{{ knowledgePointSummary }}</span>
+          </div>
+        </div>
+
+        <div class="summary-actions">
+          <el-button @click="goBack">返回路径</el-button>
+          <el-button
+            v-if="canCompleteLevel"
+            type="primary"
+            :loading="completing"
+            @click="handleCompleteLevel"
+          >
+            标记本关完成
+          </el-button>
         </div>
       </div>
 
@@ -33,7 +68,7 @@
                 </div>
                 <div class="resource-info">
                   <h4 class="resource-name">{{ resource.name }}</h4>
-                  <p class="resource-desc">{{ resource.description }}</p>
+                  <p class="resource-desc">{{ resource.description || '点击查看资源详情。' }}</p>
                 </div>
                 <div class="resource-type-tag">
                   {{ getResourceTypeText(resource.type) }}
@@ -61,10 +96,10 @@
                       <el-tag :type="getDifficultyType(problem.difficulty)" size="small">
                         {{ getDifficultyText(problem.difficulty) }}
                       </el-tag>
-                      <el-tag 
-                        v-for="(tag, index) in getKnowledgePoints(problem.knowledgePoints)" 
-                        :key="index" 
-                        size="small" 
+                      <el-tag
+                        v-for="(tag, index) in getKnowledgePoints(problem.knowledgePoints)"
+                        :key="index"
+                        size="small"
                         type="info"
                       >
                         {{ tag }}
@@ -75,7 +110,7 @@
                 <el-icon class="problem-arrow"><ArrowRight /></el-icon>
               </div>
             </div>
-            <el-empty v-else description="暂无练习题" />
+            <el-empty v-else description="暂无练习题目" />
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -83,11 +118,11 @@
 
     <el-dialog
       v-model="resourceDialogVisible"
-      :title="currentResource?.name"
+      :title="currentResource?.name || '资源详情'"
       width="800px"
       class="resource-dialog"
     >
-      <div class="resource-content" v-if="currentResource">
+      <div v-if="currentResource" class="resource-content">
         <div class="markdown-body" v-html="renderedContent"></div>
       </div>
       <template #footer>
@@ -98,21 +133,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   ArrowLeft,
   ArrowRight,
-  Reading,
-  Document,
   ChatDotRound,
-  Notebook
+  Document,
+  Notebook,
+  Reading
 } from '@element-plus/icons-vue'
 import {
-  getPathDetail,
+  completeLevel,
+  getLevelProblems,
   getLevelResources,
-  getLevelProblems
+  getPathDetail,
+  getPathProgress
 } from '@/api/learn'
 
 const route = useRoute()
@@ -121,69 +158,110 @@ const router = useRouter()
 const activeTab = ref('resources')
 const loadingResources = ref(false)
 const loadingProblems = ref(false)
+const completing = ref(false)
 const resources = ref([])
 const problems = ref([])
 const currentLevel = ref(null)
+const chapterName = ref('')
 const currentResource = ref(null)
 const resourceDialogVisible = ref(false)
+const progress = ref({
+  currentLevelId: null,
+  completedLevelIds: []
+})
 
-const levelId = computed(() => route.params.levelId)
-const pathId = computed(() => route.params.pathId)
+const levelId = computed(() => Number(route.params.levelId))
+const pathId = computed(() => Number(route.params.pathId))
 
 const renderMarkdown = (content) => {
   if (!content) return ''
-  
-  let html = content
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+
+  let html = String(content)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
     .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^\*(.*$)/gim, '<li>$1</li>')
-    .replace(/^-(.*$)/gim, '<li>$1</li>')
-    .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-  
-  // 处理列表
-  html = html.replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>')
-  
-  return `<p>${html}</p>`
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br />')
+
+  return `<div>${html}</div>`
 }
 
-const renderedContent = computed(() => {
-  if (currentResource.value && currentResource.value.url) {
-    console.log('渲染内容长度:', currentResource.value.url.length)
-    const result = renderMarkdown(currentResource.value.url)
-    console.log('渲染结果长度:', result.length)
-    console.log('渲染结果前100字符:', result.substring(0, 100))
-    return result
+const renderedContent = computed(() => renderMarkdown(currentResource.value?.url || currentResource.value?.content || ''))
+
+const completedLevelSet = computed(() => {
+  const set = new Set()
+  const ids = Array.isArray(progress.value.completedLevelIds) ? progress.value.completedLevelIds : []
+  ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id)).forEach((id) => set.add(id))
+  return set
+})
+
+const isCompleted = computed(() => completedLevelSet.value.has(levelId.value))
+const isCurrentLevel = computed(() => Number(progress.value.currentLevelId) === levelId.value)
+const canCompleteLevel = computed(() => !!currentLevel.value && !isCompleted.value && isCurrentLevel.value)
+
+const statusText = computed(() => {
+  if (isCompleted.value) return '已完成'
+  if (isCurrentLevel.value) return '当前关卡'
+  return '学习中'
+})
+
+const statusTagType = computed(() => {
+  if (isCompleted.value) return 'success'
+  if (isCurrentLevel.value) return 'primary'
+  return 'info'
+})
+
+const levelSummary = computed(() => {
+  const parts = []
+  if (isCompleted.value) {
+    parts.push('已完成')
+  } else if (isCurrentLevel.value) {
+    parts.push('当前正在学习')
+  } else {
+    parts.push('可查看内容')
   }
-  return ''
+  parts.push(`${resources.value.length} 个资源`)
+  parts.push(`${problems.value.length} 道题`)
+  return parts.join(' · ')
+})
+
+const knowledgePointSummary = computed(() => {
+  const points = getKnowledgePoints(currentLevel.value?.knowledgePoints)
+  return points.length > 0 ? points.join('、') : '未配置'
 })
 
 const getResourceTypeText = (type) => {
-  const types = {
+  const map = {
     tutorial: '教程',
     example: '示例',
     explanation: '知识点',
     document: '文档',
     video: '视频'
   }
-  return types[type] || type
+  return map[type] || '资源'
 }
 
 const getDifficultyType = (difficulty) => {
-  const types = { 0: 'success', 1: 'warning', 2: 'danger', 3: 'danger' }
-  return types[difficulty] || 'info'
+  const map = { 0: 'success', 1: 'warning', 2: 'danger', 3: 'danger' }
+  return map[difficulty] || 'info'
 }
 
 const getDifficultyText = (difficulty) => {
-  const texts = { 0: '简单', 1: '中等', 2: '困难', 3: '困难' }
-  return texts[difficulty] || '未知'
+  const map = { 0: '简单', 1: '中等', 2: '困难', 3: '困难' }
+  return map[difficulty] || '未知'
 }
 
 const getKnowledgePoints = (knowledgePoints) => {
   if (!knowledgePoints) return []
-  return knowledgePoints.split(',').filter(tag => tag.trim())
+  return String(knowledgePoints)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 const fetchLevelData = async () => {
@@ -193,21 +271,44 @@ const fetchLevelData = async () => {
   }
 
   try {
-    const res = await getPathDetail(pathId.value)
-    if (res.code === 200 && res.data) {
-      const chapters = res.data.chapters || []
+    const [pathRes, progressRes] = await Promise.all([
+      getPathDetail(pathId.value),
+      getPathProgress(pathId.value)
+    ])
+
+    if (progressRes?.code === 200 && progressRes.data) {
+      progress.value = {
+        currentLevelId: progressRes.data.currentLevelId ? Number(progressRes.data.currentLevelId) : null,
+        completedLevelIds: Array.isArray(progressRes.data.completedLevelIds) ? progressRes.data.completedLevelIds : []
+      }
+    } else {
+      progress.value = { currentLevelId: null, completedLevelIds: [] }
+    }
+
+    if (pathRes?.code === 200 && pathRes.data) {
+      const chapters = pathRes.data.chapters || []
+      let foundLevel = null
+      let foundChapterName = ''
+
       for (const chapter of chapters) {
-        if (chapter.levels) {
-          const level = chapter.levels.find(l => l.id === parseInt(levelId.value))
-          if (level) {
-            currentLevel.value = level
-            break
-          }
+        const targetLevel = (chapter.levels || []).find((level) => Number(level.id) === levelId.value)
+        if (targetLevel) {
+          foundLevel = targetLevel
+          foundChapterName = chapter.name || ''
+          break
         }
+      }
+
+      currentLevel.value = foundLevel
+      chapterName.value = foundChapterName
+
+      if (!foundLevel) {
+        ElMessage.warning('未找到对应关卡')
       }
     }
   } catch (error) {
     console.error('获取关卡信息失败:', error)
+    ElMessage.error('获取关卡信息失败')
   }
 }
 
@@ -215,9 +316,10 @@ const fetchResources = async () => {
   loadingResources.value = true
   try {
     const res = await getLevelResources(levelId.value)
-    if (res.code === 200) {
-      resources.value = res.data || []
-      console.log('获取到的学习资源:', resources.value)
+    if (res?.code === 200) {
+      resources.value = Array.isArray(res.data) ? res.data : []
+    } else {
+      resources.value = []
     }
   } catch (error) {
     console.error('获取学习资源失败:', error)
@@ -231,8 +333,10 @@ const fetchProblems = async () => {
   loadingProblems.value = true
   try {
     const res = await getLevelProblems(levelId.value)
-    if (res.code === 200) {
-      problems.value = res.data || []
+    if (res?.code === 200) {
+      problems.value = Array.isArray(res.data) ? res.data : []
+    } else {
+      problems.value = []
     }
   } catch (error) {
     console.error('获取练习题失败:', error)
@@ -243,15 +347,36 @@ const fetchProblems = async () => {
 }
 
 const openResource = (resource) => {
-  console.log('打开资源:', resource)
-  console.log('资源URL:', resource.url.substring(0, 100))
   currentResource.value = resource
   resourceDialogVisible.value = true
-  console.log('当前资源:', currentResource.value)
 }
 
 const goToProblem = (problemId) => {
   router.push({ name: 'ProblemDetail', params: { id: problemId } })
+}
+
+const handleCompleteLevel = async () => {
+  if (!canCompleteLevel.value) {
+    ElMessage.warning('当前关卡还不能标记完成')
+    return
+  }
+
+  completing.value = true
+  try {
+    const res = await completeLevel(levelId.value)
+    if (res?.code !== 200 || res?.data !== true) {
+      ElMessage.error(res?.msg || '标记完成失败')
+      return
+    }
+
+    ElMessage.success('已完成当前关卡')
+    router.push({ name: 'LearningPath', params: { id: pathId.value } })
+  } catch (error) {
+    console.error('标记关卡完成失败:', error)
+    ElMessage.error('标记完成失败')
+  } finally {
+    completing.value = false
+  }
 }
 
 const goBack = () => {
@@ -262,10 +387,19 @@ const goBack = () => {
   }
 }
 
+const loadPage = async () => {
+  await Promise.all([fetchLevelData(), fetchResources(), fetchProblems()])
+}
+
+watch(
+  () => [pathId.value, levelId.value],
+  () => {
+    loadPage()
+  }
+)
+
 onMounted(() => {
-  fetchLevelData()
-  fetchResources()
-  fetchProblems()
+  loadPage()
 })
 </script>
 
@@ -273,7 +407,7 @@ onMounted(() => {
 .level-detail-page {
   width: 100%;
   min-height: 100vh;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   padding: 24px;
   box-sizing: border-box;
 }
@@ -287,6 +421,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
@@ -303,21 +438,59 @@ onMounted(() => {
 .page-title {
   font-size: 28px;
   font-weight: 700;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 8px 0;
+  color: var(--leetcode-text, #24292f);
+  margin: 0 0 8px;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   margin: 0;
 }
 
+.summary-card {
+  margin-bottom: 20px;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg, #fff);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: var(--leetcode-text-secondary, #6b7280);
+}
+
+.summary-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--leetcode-text, #24292f);
+}
+
+.summary-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
 .content-tabs {
-  background: var(--leetcode-bg, #FFFFFF);
+  background: var(--leetcode-bg, #fff);
   border-radius: 12px;
   padding: 0 24px 24px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .content-tabs :deep(.el-tabs__header) {
@@ -341,7 +514,7 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -349,16 +522,16 @@ onMounted(() => {
 }
 
 .resource-card:hover {
-  background: #FFFFFF;
-  border-color: var(--leetcode-primary, #0066FF);
+  background: #fff;
+  border-color: var(--leetcode-primary, #0066ff);
 }
 
 .resource-icon {
   width: 48px;
   height: 48px;
   border-radius: 8px;
-  background: var(--leetcode-primary, #0066FF);
-  color: white;
+  background: var(--leetcode-primary, #0066ff);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -373,23 +546,23 @@ onMounted(() => {
 .resource-name {
   font-size: 16px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 4px 0;
+  color: var(--leetcode-text, #24292f);
+  margin: 0 0 4px;
 }
 
 .resource-desc {
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   margin: 0;
 }
 
 .resource-type-tag {
   padding: 4px 12px;
-  background: var(--leetcode-bg, #FFFFFF);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg, #fff);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   border-radius: 12px;
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   flex-shrink: 0;
 }
 
@@ -404,7 +577,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -412,19 +585,20 @@ onMounted(() => {
 }
 
 .problem-item:hover {
-  background: #FFFFFF;
-  border-color: var(--leetcode-primary, #0066FF);
+  background: #fff;
+  border-color: var(--leetcode-primary, #0066ff);
 }
 
 .problem-info {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  flex: 1;
 }
 
 .problem-id {
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-weight: 500;
   margin-top: 2px;
 }
@@ -439,7 +613,7 @@ onMounted(() => {
 .problem-title {
   font-size: 15px;
   font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   margin: 0;
 }
 
@@ -451,7 +625,7 @@ onMounted(() => {
 }
 
 .problem-arrow {
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 18px;
 }
 
@@ -466,63 +640,30 @@ onMounted(() => {
 
 .markdown-body {
   line-height: 1.8;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
 }
 
-.markdown-body h1 {
+.markdown-body :deep(h1) {
   font-size: 24px;
   margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
 }
 
-.markdown-body h2 {
+.markdown-body :deep(h2) {
   font-size: 20px;
-  margin-top: 24px;
-  margin-bottom: 12px;
+  margin: 20px 0 12px;
 }
 
-.markdown-body h3 {
+.markdown-body :deep(h3) {
   font-size: 18px;
-  margin-top: 20px;
-  margin-bottom: 10px;
+  margin: 18px 0 10px;
 }
 
-.markdown-body p {
-  margin-bottom: 12px;
-}
-
-.markdown-body ul,
-.markdown-body ol {
-  padding-left: 24px;
-  margin-bottom: 12px;
-}
-
-.markdown-body li {
-  margin-bottom: 6px;
-}
-
-.markdown-body code {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 14px;
-}
-
-.markdown-body pre {
-  background: #1E1E1E;
-  color: #D4D4D4;
+.markdown-body :deep(pre) {
+  background: #1e1e1e;
+  color: #d4d4d4;
   padding: 16px;
   border-radius: 8px;
   overflow-x: auto;
-  margin-bottom: 16px;
-}
-
-.markdown-body pre code {
-  background: transparent;
-  padding: 0;
-  color: inherit;
 }
 
 @media (max-width: 768px) {
@@ -532,25 +673,21 @@ onMounted(() => {
 
   .page-header {
     flex-direction: column;
-    gap: 16px;
   }
 
-  .resource-card {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
   }
 
-  .resource-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-  }
-
+  .resource-card,
   .problem-item {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
+  }
+
+  .summary-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .problem-arrow {

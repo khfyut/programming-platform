@@ -1,64 +1,98 @@
 <template>
-  <div class="leetcode-ai">
-    <div class="ai-container">
-      <div class="sidebar">
+  <div class="ai-page">
+    <div class="ai-shell">
+      <aside class="sidebar">
         <div class="sidebar-header">
-          <h3>对话历史</h3>
+          <div>
+            <p class="sidebar-kicker">AI Workspace</p>
+            <h2>对话历史</h2>
+          </div>
           <el-button type="primary" size="small" @click="createNewSession">
             <el-icon><Plus /></el-icon>
             新对话
           </el-button>
         </div>
+
+        <div class="mode-strip">
+          <button
+            v-for="mode in expertModes"
+            :key="mode.key"
+            type="button"
+            :class="['mode-pill', { active: currentExpertMode === mode.key }]"
+            @click="switchExpertMode(mode.key)"
+          >
+            <el-icon><component :is="mode.icon" /></el-icon>
+            <span>{{ mode.label }}</span>
+          </button>
+        </div>
+
         <div class="session-list" v-loading="sessionsLoading">
-          <div
+          <button
             v-for="session in sessions"
-            :key="session.id"
-            :class="['session-item', { active: currentSessionId === session.sessionId }]"
-            @click="switchSession(session.sessionId)"
+            :key="getSessionKey(session)"
+            type="button"
+            :class="['session-item', { active: currentSessionId === getSessionId(session) }]"
+            @click="switchSession(getSessionId(session))"
           >
             <div class="session-info">
-              <div class="session-title">{{ session.topic || '新对话' }}</div>
-              <div class="session-time">{{ formatSessionTime(session.updateTime) }}</div>
+              <div class="session-title">{{ getSessionTitle(session) }}</div>
+              <div class="session-time">{{ formatSessionTime(session.updateTime || session.createTime) }}</div>
             </div>
-            <el-button
-              type="danger"
-              size="small"
-              text
-              @click.stop="deleteSession(session)"
-            >
+            <el-button type="danger" size="small" text @click.stop="deleteSession(session)">
               <el-icon><Delete /></el-icon>
             </el-button>
-          </div>
-          <el-empty v-if="sessions.length === 0 && !sessionsLoading" description="暂无对话记录" />
-        </div>
-      </div>
+          </button>
 
-      <div class="chat-section">
-        <div class="chat-messages" ref="messagesContainer">
+          <el-empty v-if="sessions.length === 0 && !sessionsLoading" description="暂无对话记录">
+            <template #description>
+              <p class="empty-side-text">开始第一轮提问后，会话会自动沉淀在这里。</p>
+            </template>
+          </el-empty>
+        </div>
+      </aside>
+
+      <section class="chat-section">
+        <div class="chat-header">
+          <div>
+            <p class="chat-kicker">Assistant</p>
+            <h1>AI 编程助手</h1>
+            <p class="chat-subtitle">
+              你可以围绕题目、代码、提交结果和概念理解继续追问，不用每次都重新描述上下文。
+            </p>
+          </div>
+          <div class="chat-header-right">
+            <span v-if="currentModeLabel" class="mode-badge">当前模式：{{ currentModeLabel }}</span>
+            <el-button text @click="clearMessages" :disabled="messages.length === 0 && !currentSessionId">
+              <el-icon><Delete /></el-icon>
+              清空当前对话
+            </el-button>
+          </div>
+        </div>
+
+        <div ref="messagesContainer" class="chat-messages">
           <div v-if="messages.length === 0" class="empty-chat">
             <div class="empty-icon-wrapper">
               <el-icon class="empty-icon"><ChatDotRound /></el-icon>
             </div>
-            <h3>AI 编程助手</h3>
-            <p>我可以帮助您解答编程问题、调试代码、优化算法等</p>
-            <div class="quick-actions">
-              <div 
-                v-for="mode in expertModes" 
-                :key="mode.key"
-                :class="['quick-action', { active: currentExpertMode === mode.key }]"
-                @click="switchExpertMode(mode.key)"
+            <h3>先抛出一个具体问题，会更高效</h3>
+            <p>比如直接贴报错、卡住的思路、复杂度疑问，或者你已经尝试过的方案。</p>
+
+            <div class="quick-prompts">
+              <button
+                v-for="prompt in quickPrompts"
+                :key="prompt"
+                type="button"
+                class="prompt-card"
+                @click="applyPrompt(prompt)"
               >
-                <el-icon>
-                  <component :is="mode.icon" />
-                </el-icon>
-                <span>{{ mode.label }}</span>
-              </div>
+                {{ prompt }}
+              </button>
             </div>
           </div>
-          
-          <div 
-            v-for="(message, index) in messages" 
-            :key="index"
+
+          <div
+            v-for="(message, index) in messages"
+            :key="`${message.role}-${index}-${message.time || ''}`"
             :class="['message-wrapper', message.role]"
           >
             <div class="message-content">
@@ -75,7 +109,9 @@
                   <el-icon><User /></el-icon>
                 </div>
               </div>
+
               <div class="message-text" v-html="formatMessage(message.content)"></div>
+
               <div v-if="message.role === 'assistant'" class="message-actions">
                 <el-button size="small" text @click="copyMessage(message.content)">
                   <el-icon><DocumentCopy /></el-icon>
@@ -88,7 +124,7 @@
               </div>
             </div>
           </div>
-          
+
           <div v-if="loading" class="message-wrapper assistant">
             <div class="message-content">
               <div class="message-header">
@@ -105,29 +141,28 @@
             </div>
           </div>
         </div>
-        
+
         <div class="chat-input">
           <div class="input-container">
             <el-input
               v-model="inputMessage"
               type="textarea"
-              :rows="3"
-              placeholder="输入您的问题... (Ctrl + Enter 发送)"
+              :rows="4"
+              placeholder="输入你的问题，例如：为什么这次提交超时了？或者这段代码哪里还可以继续优化？"
               @keydown.ctrl.enter="sendMessage"
               class="message-input"
             />
+
             <div class="input-actions">
               <div class="action-left">
-                <el-tooltip content="清空对话" placement="top">
-                  <el-button text @click="clearMessages">
-                    <el-icon><Delete /></el-icon>
-                  </el-button>
-                </el-tooltip>
+                <span class="hint">Ctrl + Enter 发送</span>
               </div>
               <div class="action-right">
-                <span class="hint">Ctrl + Enter 发送</span>
-                <el-button 
-                  type="primary" 
+                <el-button text @click="applyPrompt('请帮我分析这段代码为什么没有通过。')">
+                  插入示例问题
+                </el-button>
+                <el-button
+                  type="primary"
                   @click="sendMessage"
                   :loading="loading"
                   :disabled="!inputMessage.trim()"
@@ -139,26 +174,26 @@
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
-import { chatAI, getAIHistory, deleteAIHistory, getSessionMessages } from '@/api/ai'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { chatAI, deleteAIHistory, getAIHistory, getSessionMessages } from '@/api/ai'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  ChatDotRound, 
-  Plus, 
-  Delete, 
-  DocumentCopy, 
+import {
+  ChatDotRound,
+  Delete,
+  DocumentCopy,
+  Plus,
+  Promotion,
+  Reading,
   Refresh,
   TrendCharts,
-  Warning,
-  Reading,
   User,
-  Promotion
+  Warning
 } from '@element-plus/icons-vue'
 
 const messages = ref([])
@@ -169,6 +204,7 @@ const sessions = ref([])
 const sessionsLoading = ref(false)
 const currentSessionId = ref(null)
 const currentExpertMode = ref('')
+
 const expertModes = [
   { key: 'algorithm', label: '算法优化', icon: TrendCharts },
   { key: 'debug', label: '代码调试', icon: Warning },
@@ -176,17 +212,16 @@ const expertModes = [
   { key: 'refactor', label: '代码重构', icon: Refresh }
 ]
 
-const formatMessage = (content) => {
-  if (!content) return ''
-  return content
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-      return `<pre class="code-block"><div class="code-header"><span class="code-lang">${lang || 'code'}</span><button class="copy-btn" onclick="navigator.clipboard.writeText(\`${code.replace(/`/g, '\\`')}\`)">复制</button></div><code>${escapeHtml(code)}</code></pre>`
-    })
-    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br>')
-}
+const quickPrompts = [
+  '请帮我分析这段代码为什么没有通过。',
+  '这道题更适合用什么数据结构？',
+  '帮我解释一下这个算法的时间复杂度。',
+  '如果我要重构这段代码，应该先改哪里？'
+]
+
+const currentModeLabel = computed(() => {
+  return expertModes.find((mode) => mode.key === currentExpertMode.value)?.label || ''
+})
 
 const escapeHtml = (text) => {
   const map = {
@@ -196,25 +231,81 @@ const escapeHtml = (text) => {
     '"': '&quot;',
     "'": '&#039;'
   }
-  return text.replace(/[&<>"']/g, m => map[m])
+  return String(text || '').replace(/[&<>"']/g, (char) => map[char])
 }
+
+const formatMessage = (content) => {
+  if (!content) return ''
+
+  const codeBlocks = []
+  let processed = String(content).replace(/```(\w+)?\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const token = `__CODE_BLOCK_${codeBlocks.length}__`
+    codeBlocks.push({
+      lang: escapeHtml(lang || 'code'),
+      code: escapeHtml(code || '')
+    })
+    return token
+  })
+
+  processed = escapeHtml(processed)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+    .replace(/\n/g, '<br>')
+
+  codeBlocks.forEach((block, index) => {
+    const token = `__CODE_BLOCK_${index}__`
+    const html = `
+      <div class="code-block-wrapper">
+        <div class="code-header"><span class="code-lang">${block.lang}</span></div>
+        <pre class="code-block"><code>${block.code}</code></pre>
+      </div>
+    `
+    processed = processed.replace(token, html)
+  })
+
+  return processed
+}
+
+const normalizeMessageList = (data) => {
+  const list = Array.isArray(data) ? data : data?.list || data?.messages || data?.records || []
+  return list.map((item) => ({
+    role: item.role === 'assistant' ? 'assistant' : 'user',
+    content: item.content || item.message || item.response || '',
+    time: item.time || item.createTime || item.updateTime || new Date().toISOString()
+  }))
+}
+
+const normalizeSessionList = (data) => {
+  const list = Array.isArray(data) ? data : data?.list || data?.records || data?.items || []
+  return list.map((item) => ({
+    ...item,
+    id: item.id ?? item.sessionId,
+    sessionId: item.sessionId ?? item.id,
+    topic: item.topic || item.title || item.firstQuestion || '新对话'
+  }))
+}
+
+const getSessionKey = (session) => session?.sessionId || session?.id || Math.random()
+const getSessionId = (session) => session?.sessionId || session?.id || null
+const getSessionTitle = (session) => session?.topic || session?.title || '新对话'
 
 const formatSessionTime = (time) => {
   if (!time) return ''
   const date = new Date(time)
-  const now = new Date()
-  const diff = now - date
-  
+  if (Number.isNaN(date.getTime())) return ''
+
+  const diff = Date.now() - date.getTime()
   if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
-  return date.toLocaleDateString()
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
+  return date.toLocaleDateString('zh-CN')
 }
 
 const formatMessageTime = (time) => {
   if (!time) return ''
   const date = new Date(time)
+  if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
@@ -225,33 +316,36 @@ const scrollToBottom = async () => {
   }
 }
 
+const applyPrompt = (prompt) => {
+  inputMessage.value = prompt
+}
+
 const switchExpertMode = (mode) => {
-  const modeInfo = expertModes.find(m => m.key === mode)
   if (currentExpertMode.value === mode) {
     currentExpertMode.value = ''
     ElMessage.info('已取消专家模式')
-  } else {
-    currentExpertMode.value = mode
-    ElMessage.success(`已切换到${modeInfo.label}专家模式`)
+    return
   }
+
+  currentExpertMode.value = mode
+  const target = expertModes.find((item) => item.key === mode)
+  ElMessage.success(`已切换到 ${target?.label || '专家'} 模式`)
 }
 
 const sendMessage = async () => {
-  if (!inputMessage.value.trim()) {
+  const currentInput = inputMessage.value.trim()
+  if (!currentInput) {
     ElMessage.warning('请输入消息')
     return
   }
 
-  const userMessage = {
+  messages.value.push({
     role: 'user',
-    content: inputMessage.value.trim(),
-    time: new Date()
-  }
+    content: currentInput,
+    time: new Date().toISOString()
+  })
 
-  messages.value.push(userMessage)
-  const currentInput = inputMessage.value
   inputMessage.value = ''
-  
   await scrollToBottom()
 
   loading.value = true
@@ -263,24 +357,23 @@ const sendMessage = async () => {
     })
 
     if (res.code === 200) {
-      const aiMessage = {
+      const data = res.data || {}
+      messages.value.push({
         role: 'assistant',
-        content: res.data.response || res.data.content || res.data || '抱歉，我无法回答这个问题。',
-        time: new Date()
+        content: data.response || data.content || data.message || '抱歉，我暂时无法回答这个问题。',
+        time: data.time || data.createTime || new Date().toISOString()
+      })
+
+      if (data.sessionId || data.id) {
+        currentSessionId.value = data.sessionId || data.id
       }
-      messages.value.push(aiMessage)
-      
-      if (res.data.sessionId) {
-        if (!currentSessionId.value) {
-          currentSessionId.value = res.data.sessionId
-        }
-        fetchSessions()
-      }
+
+      await fetchSessions()
     } else {
       ElMessage.error(res.msg || '发送失败')
     }
   } catch (error) {
-    console.error('AI请求失败:', error)
+    console.error('AI 请求失败:', error)
     ElMessage.error('发送失败，请重试')
   } finally {
     loading.value = false
@@ -290,35 +383,44 @@ const sendMessage = async () => {
 
 const copyMessage = async (content) => {
   try {
-    await navigator.clipboard.writeText(content)
+    await navigator.clipboard.writeText(content || '')
     ElMessage.success('已复制到剪贴板')
-  } catch (error) {
+  } catch {
     ElMessage.error('复制失败')
   }
 }
 
 const regenerate = async (index) => {
-  if (index === 0 || messages.value[index - 1].role !== 'user') {
-    ElMessage.warning('无法重新生成')
+  if (index === 0 || messages.value[index - 1]?.role !== 'user') {
+    ElMessage.warning('当前消息无法重新生成')
     return
   }
 
-  const userMessage = messages.value[index - 1]
+  const previousUserMessage = messages.value[index - 1]
   messages.value = messages.value.slice(0, index)
-  inputMessage.value = userMessage.content
+  inputMessage.value = previousUserMessage.content
   await sendMessage()
 }
 
 const clearMessages = async () => {
+  if (messages.value.length === 0 && !currentSessionId.value) {
+    return
+  }
+
   try {
-    await ElMessageBox.confirm('确定要清空当前对话吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
+    await ElMessageBox.confirm(
+      '确定要开始一段新的对话吗？当前界面的上下文会被清空。',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
     messages.value = []
     currentSessionId.value = null
-    ElMessage.success('对话已清空')
+    ElMessage.success('已清空当前对话')
   } catch {
     return
   }
@@ -327,23 +429,23 @@ const clearMessages = async () => {
 const createNewSession = () => {
   messages.value = []
   currentSessionId.value = null
+  inputMessage.value = ''
   ElMessage.success('已创建新对话')
 }
 
 const switchSession = async (sessionId) => {
-  if (currentSessionId.value === sessionId) return
-  
+  if (!sessionId || currentSessionId.value === sessionId) return
+
   currentSessionId.value = sessionId
   messages.value = []
-  
+
   try {
     const res = await getSessionMessages(sessionId)
-    if (res.code === 200 && res.data) {
-      messages.value = (res.data || []).map(m => ({
-        ...m,
-        time: m.time || m.createTime
-      }))
+    if (res.code === 200) {
+      messages.value = normalizeMessageList(res.data)
       await scrollToBottom()
+    } else {
+      ElMessage.error(res.msg || '加载对话失败')
     }
   } catch (error) {
     console.error('加载对话失败:', error)
@@ -352,21 +454,29 @@ const switchSession = async (sessionId) => {
 }
 
 const deleteSession = async (session) => {
+  const targetId = session?.id || session?.sessionId
+  if (!targetId) return
+
   try {
-    await ElMessageBox.confirm('确定要删除这个对话吗？', '提示', {
+    await ElMessageBox.confirm('确定要删除这段对话吗？', '提示', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
     })
-    
-    await deleteAIHistory(session.id)
-    sessions.value = sessions.value.filter(s => s.id !== session.id)
-    
-    if (currentSessionId.value === session.sessionId) {
+
+    const res = await deleteAIHistory(targetId)
+    if (res?.code !== 200) {
+      ElMessage.error(res?.msg || '删除失败')
+      return
+    }
+
+    sessions.value = sessions.value.filter((item) => getSessionKey(item) !== getSessionKey(session))
+
+    if (currentSessionId.value === getSessionId(session)) {
       currentSessionId.value = null
       messages.value = []
     }
-    
+
     ElMessage.success('对话已删除')
   } catch (error) {
     if (error !== 'cancel') {
@@ -380,60 +490,106 @@ const fetchSessions = async () => {
   try {
     const res = await getAIHistory({ page: 1, size: 20 })
     if (res.code === 200) {
-      sessions.value = res.data.list || res.data || []
+      sessions.value = normalizeSessionList(res.data)
+    } else {
+      sessions.value = []
     }
   } catch (error) {
     console.error('获取对话列表失败:', error)
+    sessions.value = []
   } finally {
     sessionsLoading.value = false
   }
 }
 
-onMounted(() => {
-  fetchSessions()
-  scrollToBottom()
+onMounted(async () => {
+  await fetchSessions()
+  await scrollToBottom()
 })
 </script>
 
 <style scoped>
-.leetcode-ai {
+.ai-page {
   min-height: 100vh;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
   padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 102, 255, 0.06), transparent 22%),
+    var(--leetcode-bg-secondary, #f7f8fa);
 }
 
-.ai-container {
+.ai-shell {
   max-width: 1400px;
-  margin: 0 auto;
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  overflow: hidden;
-  display: flex;
   height: calc(100vh - 120px);
+  margin: 0 auto;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 24px;
+  background: var(--leetcode-bg, #ffffff);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.06);
 }
 
 .sidebar {
-  width: 280px;
-  border-right: 1px solid var(--leetcode-border, #E5E7EB);
+  width: 320px;
   display: flex;
   flex-direction: column;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border-right: 1px solid var(--leetcode-border, #e5e7eb);
+  background:
+    linear-gradient(180deg, rgba(0, 102, 255, 0.04), transparent 30%),
+    var(--leetcode-bg-secondary, #f7f8fa);
 }
 
 .sidebar-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px;
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
-.sidebar-header h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--leetcode-text, #24292F);
+.sidebar-kicker,
+.chat-kicker {
+  margin: 0 0 8px;
+  color: #1668dc;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.sidebar-header h2,
+.chat-header h1 {
   margin: 0;
+  font-size: 20px;
+  color: var(--leetcode-text, #24292f);
+}
+
+.mode-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
+}
+
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 999px;
+  background: var(--leetcode-bg, #ffffff);
+  color: var(--leetcode-text-secondary, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-pill.active,
+.mode-pill:hover {
+  border-color: #1668dc;
+  background: rgba(22, 104, 220, 0.08);
+  color: #1668dc;
 }
 
 .session-list {
@@ -446,55 +602,92 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
   padding: 12px;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
   transition: all 0.2s ease;
-  margin-bottom: 8px;
 }
 
 .session-item:hover {
-  background: var(--leetcode-bg, #FFFFFF);
+  background: var(--leetcode-bg, #ffffff);
+  border-color: rgba(22, 104, 220, 0.08);
 }
 
 .session-item.active {
-  background: var(--leetcode-primary, #0066FF);
-  color: white;
+  background: linear-gradient(135deg, rgba(22, 104, 220, 0.14), rgba(0, 102, 255, 0.08));
+  border-color: rgba(22, 104, 220, 0.16);
 }
 
 .session-info {
-  flex: 1;
   min-width: 0;
+  flex: 1;
 }
 
 .session-title {
+  color: var(--leetcode-text, #24292f);
   font-size: 14px;
-  font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.session-item.active .session-title {
-  color: white;
-}
-
 .session-time {
-  font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
   margin-top: 4px;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 12px;
 }
 
-.session-item.active .session-time {
-  color: rgba(255, 255, 255, 0.8);
+.empty-side-text {
+  margin: 0;
+  line-height: 1.7;
 }
 
 .chat-section {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-width: 0;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.94));
+}
+
+.chat-subtitle {
+  max-width: 680px;
+  margin: 8px 0 0;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.chat-header-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(22, 104, 220, 0.08);
+  color: #1668dc;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .chat-messages {
@@ -512,121 +705,69 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  text-align: center;
   padding: 40px;
+  text-align: center;
 }
 
 .empty-icon-wrapper {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #0066FF 0%, #66B3FF 100%);
+  width: 84px;
+  height: 84px;
+  margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
-  box-shadow: 0 8px 24px rgba(0, 102, 255, 0.3);
+  border-radius: 28px;
+  background: linear-gradient(135deg, #0066ff 0%, #66b3ff 100%);
+  box-shadow: 0 18px 40px rgba(0, 102, 255, 0.22);
 }
 
 .empty-icon {
-  font-size: 40px;
   color: white;
+  font-size: 38px;
 }
 
 .empty-chat h3 {
+  margin: 0;
+  color: var(--leetcode-text, #24292f);
   font-size: 24px;
-  font-weight: 700;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 12px 0;
 }
 
 .empty-chat p {
-  font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
-  margin: 0 0 32px 0;
+  max-width: 520px;
+  margin: 12px 0 0;
+  color: var(--leetcode-text-secondary, #6b7280);
+  line-height: 1.8;
 }
 
-.quick-actions {
+.quick-prompts {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  max-width: 400px;
+  width: min(720px, 100%);
+  margin-top: 28px;
 }
 
-.quick-action {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  border-radius: 8px;
+.prompt-card {
+  padding: 16px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 16px;
+  background: var(--leetcode-bg, #ffffff);
+  color: var(--leetcode-text, #24292f);
+  line-height: 1.7;
+  text-align: left;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  color: var(--leetcode-text, #24292F);
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s ease;
 }
 
-.quick-action:hover {
-  background: var(--leetcode-primary, #0066FF);
-  border-color: var(--leetcode-primary, #0066FF);
-  color: white;
+.prompt-card:hover {
+  border-color: #1668dc;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 102, 255, 0.3);
-}
-
-.quick-action.active {
-  background: var(--leetcode-primary, #0066FF);
-  border-color: var(--leetcode-primary, #0066FF);
-  color: white;
-  box-shadow: 0 6px 16px rgba(0, 102, 255, 0.3);
-  transform: translateY(-2px);
-}
-
-.quick-action.active::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 8px;
-  height: 8px;
-  background: white;
-  border-radius: 50%;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  box-shadow: 0 12px 28px rgba(22, 104, 220, 0.08);
 }
 
 .message-wrapper {
   display: flex;
   width: 100%;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .message-wrapper.user {
@@ -638,23 +779,22 @@ onMounted(() => {
 }
 
 .message-content {
-  max-width: 75%;
+  max-width: 76%;
   padding: 16px 20px;
-  border-radius: 12px;
-  position: relative;
+  border-radius: 18px;
 }
 
 .message-wrapper.user .message-content {
-  background: var(--leetcode-primary, #0066FF);
+  background: linear-gradient(135deg, #0066ff, #3b82f6);
   color: white;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 6px;
 }
 
 .message-wrapper.assistant .message-content {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  color: var(--leetcode-text, #24292F);
-  border-bottom-left-radius: 4px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  color: var(--leetcode-text, #24292f);
+  border-bottom-left-radius: 6px;
 }
 
 .message-header {
@@ -669,104 +809,94 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.ai-avatar, .user-avatar {
+.ai-avatar,
+.user-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
 }
 
 .ai-avatar {
-  background: linear-gradient(135deg, #0066FF 0%, #66B3FF 100%);
+  background: linear-gradient(135deg, #0066ff 0%, #66b3ff 100%);
   color: white;
 }
 
 .user-avatar {
-  background: var(--leetcode-success, #00C853);
+  background: #16a34a;
   color: white;
 }
 
 .ai-name {
+  color: var(--leetcode-text, #24292f);
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
 }
 
 .message-time {
+  color: rgba(107, 114, 128, 0.92);
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
 }
 
 .message-wrapper.user .message-time {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .message-text {
-  line-height: 1.7;
   font-size: 14px;
-  word-wrap: break-word;
+  line-height: 1.8;
+  word-break: break-word;
 }
 
-.message-text :deep(.code-block) {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 8px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+.message-text :deep(.code-block-wrapper) {
   margin: 12px 0;
   overflow: hidden;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 12px;
+  background: white;
 }
 
 .message-text :deep(.code-header) {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   padding: 8px 12px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
 }
 
 .message-text :deep(.code-lang) {
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.message-text :deep(.copy-btn) {
-  background: none;
-  border: none;
-  color: var(--leetcode-primary, #0066FF);
-  font-size: 12px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.message-text :deep(.copy-btn:hover) {
-  background: var(--leetcode-primary, #0066FF);
-  color: white;
+.message-text :deep(.code-block) {
+  margin: 0;
+  overflow-x: auto;
+  padding: 12px;
+  background: #0f172a;
 }
 
 .message-text :deep(.code-block code) {
   display: block;
-  padding: 12px;
+  color: #e2e8f0;
   font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
-  line-height: 1.5;
-  color: var(--leetcode-text, #24292F);
-  overflow-x: auto;
+  line-height: 1.6;
 }
 
 .message-text :deep(.inline-code) {
-  background: rgba(0, 0, 0, 0.05);
   padding: 2px 6px;
   border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
   font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
 }
 
 .message-wrapper.user .message-text :deep(.inline-code) {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .message-actions {
@@ -774,7 +904,7 @@ onMounted(() => {
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--leetcode-border, #E5E7EB);
+  border-top: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .typing-indicator {
@@ -787,8 +917,8 @@ onMounted(() => {
 .typing-indicator span {
   width: 8px;
   height: 8px;
-  background: var(--leetcode-primary, #0066FF);
   border-radius: 50%;
+  background: #1668dc;
   animation: typing 1.4s infinite;
 }
 
@@ -805,6 +935,7 @@ onMounted(() => {
     transform: translateY(0);
     opacity: 0.4;
   }
+
   30% {
     transform: translateY(-8px);
     opacity: 1;
@@ -813,12 +944,12 @@ onMounted(() => {
 
 .chat-input {
   padding: 20px 24px;
-  border-top: 1px solid var(--leetcode-border, #E5E7EB);
-  background: var(--leetcode-bg, #FFFFFF);
+  border-top: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg, #ffffff);
 }
 
 .input-container {
-  max-width: 800px;
+  max-width: 880px;
   margin: 0 auto;
 }
 
@@ -827,83 +958,75 @@ onMounted(() => {
 }
 
 :deep(.message-input .el-textarea__inner) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  border-radius: 8px;
-  padding: 12px 16px;
-  font-size: 14px;
-  line-height: 1.6;
+  min-height: 108px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  line-height: 1.7;
   resize: none;
 }
 
 :deep(.message-input .el-textarea__inner:focus) {
-  border-color: var(--leetcode-primary, #0066FF);
-  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+  border-color: #1668dc;
+  box-shadow: 0 0 0 3px rgba(22, 104, 220, 0.1);
 }
 
 .input-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .action-right {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .hint {
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
 }
 
-@media (max-width: 1024px) {
-  .sidebar {
-    width: 240px;
-  }
-}
-
-@media (max-width: 768px) {
-  .leetcode-ai {
-    padding: 16px;
-  }
-
-  .ai-container {
-    height: calc(100vh - 96px);
+@media (max-width: 1100px) {
+  .ai-shell {
+    height: auto;
+    min-height: calc(100vh - 120px);
     flex-direction: column;
   }
 
   .sidebar {
     width: 100%;
-    height: auto;
-    max-height: 200px;
     border-right: none;
-    border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+    border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
   }
 
   .session-list {
-    display: flex;
-    overflow-x: auto;
-    padding: 12px;
-    gap: 8px;
+    max-height: 240px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ai-page {
+    padding: 16px;
   }
 
-  .session-item {
-    flex-shrink: 0;
-    min-width: 150px;
+  .chat-header,
+  .input-actions {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .message-content {
-    max-width: 85%;
-  }
-
-  .quick-actions {
+  .quick-prompts {
     grid-template-columns: 1fr;
   }
 
-  .chat-input {
-    padding: 16px;
+  .message-content {
+    max-width: 100%;
   }
 }
 </style>

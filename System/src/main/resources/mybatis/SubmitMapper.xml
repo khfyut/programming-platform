@@ -77,4 +77,17 @@
         WHERE problem_id = #{problemId}
     </select>
 
+    <select id="countByProblemIds" resultType="java.util.Map">
+        SELECT
+            problem_id AS problemId,
+            COUNT(*) AS totalCount,
+            SUM(CASE WHEN result = 0 THEN 1 ELSE 0 END) AS passedCount
+        FROM submit
+        WHERE problem_id IN
+        <foreach collection="problemIds" item="problemId" open="(" separator="," close=")">
+            #{problemId}
+        </foreach>
+        GROUP BY problem_id
+    </select>
+
 </mapper>

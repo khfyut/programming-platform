@@ -1,43 +1,69 @@
 <template>
   <div class="community-page">
     <div class="community-container">
-      <div class="page-header">
-        <div class="header-left">
+      <section class="page-hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Community</p>
           <h1 class="page-title">学习社区</h1>
-          <p class="page-subtitle">与其他学习者一起交流、分享和成长</p>
+          <p class="page-subtitle">把提问、讨论和经验分享放在一起，让练题之外的思路交流也能持续发生。</p>
         </div>
-        <div class="header-right">
+        <div class="hero-actions">
+          <el-button plain @click="refreshCommunity" :loading="loading">
+            <el-icon><RefreshRight /></el-icon>
+            刷新内容
+          </el-button>
           <el-button type="primary" @click="showCreateDialog">
             <el-icon><Edit /></el-icon>
             发布帖子
           </el-button>
         </div>
-      </div>
+      </section>
+
+      <section class="summary-grid">
+        <article v-for="item in summaryCards" :key="item.label" class="summary-card">
+          <span class="summary-label">{{ item.label }}</span>
+          <strong class="summary-value">{{ item.value }}</strong>
+          <span class="summary-hint">{{ item.hint }}</span>
+        </article>
+      </section>
 
       <div class="content-layout">
         <div class="main-content">
-          <div class="filter-section">
-            <el-radio-group v-model="postType" size="small" @change="handleTypeChange">
-              <el-radio-button value="">全部</el-radio-button>
-              <el-radio-button value="discussion">讨论</el-radio-button>
-              <el-radio-button value="question">问答</el-radio-button>
-              <el-radio-button value="share">分享</el-radio-button>
-            </el-radio-group>
-          </div>
+          <section class="toolbar-card">
+            <div class="toolbar-head">
+              <div>
+                <h2 class="section-title">帖子列表</h2>
+                <p class="section-subtitle">按内容类型筛选，快速进入你当前更需要的讨论氛围。</p>
+              </div>
+            </div>
+
+            <div class="toolbar-row">
+              <el-radio-group v-model="postType" size="small" @change="handleTypeChange">
+                <el-radio-button value="">全部</el-radio-button>
+                <el-radio-button value="discussion">讨论</el-radio-button>
+                <el-radio-button value="question">问答</el-radio-button>
+                <el-radio-button value="share">分享</el-radio-button>
+              </el-radio-group>
+              <el-button text @click="clearFilter" :disabled="!postType">清空筛选</el-button>
+            </div>
+          </section>
 
           <div class="posts-list" v-loading="loading">
-            <div 
-              v-for="post in posts" 
+            <article
+              v-for="post in posts"
               :key="post.id"
               class="post-card"
               @click="goToPostDetail(post.id)"
             >
               <div class="post-header">
                 <div class="post-author">
-                  <el-avatar :size="40" :icon="UserFilled" />
+                  <el-avatar :size="42" :icon="UserFilled" />
                   <div class="author-info">
                     <span class="author-name">{{ post.username || '匿名用户' }}</span>
-                    <span class="post-time">{{ formatTime(post.createTime) }}</span>
+                    <div class="author-meta">
+                      <span>{{ formatTime(post.createTime) }}</span>
+                      <span>{{ getPostTypeText(post.type) }}</span>
+                    </div>
                   </div>
                 </div>
                 <el-tag :type="getPostTypeTag(post.type)" size="small">
@@ -46,30 +72,36 @@
               </div>
 
               <div class="post-content">
-                <h3 class="post-title">{{ post.title }}</h3>
-                <p class="post-summary">{{ post.content }}</p>
+                <h3 class="post-title">{{ post.title || '未命名帖子' }}</h3>
+                <p class="post-summary">{{ summarizeContent(post.content) }}</p>
               </div>
 
               <div class="post-footer">
                 <div class="post-stats">
                   <span class="stat-item">
                     <el-icon><View /></el-icon>
-                    {{ post.viewCount || 0 }}
+                    {{ Number(post.viewCount || 0) }}
                   </span>
                   <span class="stat-item">
                     <el-icon><ChatDotRound /></el-icon>
-                    {{ post.commentCount || 0 }}
+                    {{ Number(post.commentCount || 0) }}
                   </span>
                   <span class="stat-item">
                     <el-icon><Star /></el-icon>
-                    {{ post.likeCount || 0 }}
+                    {{ Number(post.likeCount || 0) }}
                   </span>
                 </div>
+                <span class="post-link">查看详情</span>
               </div>
-            </div>
+            </article>
 
             <div v-if="posts.length === 0 && !loading" class="empty-posts">
-              <el-empty description="暂无帖子" />
+              <el-empty description="当前筛选下还没有帖子">
+                <template #description>
+                  <p class="empty-text">可以先发布一个问题或经验分享，给社区开个头。</p>
+                </template>
+                <el-button type="primary" @click="showCreateDialog">发布第一条帖子</el-button>
+              </el-empty>
             </div>
           </div>
 
@@ -86,50 +118,40 @@
           </div>
         </div>
 
-        <div class="sidebar">
-          <div class="sidebar-card">
-            <div class="card-header">
-              <h3 class="card-title">社区统计</h3>
-            </div>
-            <div class="card-content">
-              <div class="stat-row">
-                <span class="stat-label">总帖子数</span>
-                <span class="stat-value">{{ statistics.totalPosts || 0 }}</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">总评论数</span>
-                <span class="stat-value">{{ statistics.totalComments || 0 }}</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">活跃用户</span>
-                <span class="stat-value">{{ statistics.activeUsers || 0 }}</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">今日帖子</span>
-                <span class="stat-value">{{ statistics.todayPosts || 0 }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="sidebar-card">
+        <aside class="sidebar">
+          <section class="sidebar-card">
             <div class="card-header">
               <h3 class="card-title">热门话题</h3>
+              <span class="card-tip">看看最近大家在讨论什么</span>
             </div>
-            <div class="card-content">
+            <div v-if="hotTopics.length > 0" class="card-content">
               <div class="topic-list">
-                <div 
-                  v-for="(topic, index) in hotTopics" 
-                  :key="index"
+                <div
+                  v-for="(topic, index) in hotTopics"
+                  :key="`${topic.name}-${index}`"
                   class="topic-item"
                 >
-                  <span class="topic-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
+                  <span class="topic-rank" :class="`rank-${index + 1}`">{{ index + 1 }}</span>
                   <span class="topic-name">{{ topic.name }}</span>
                   <span class="topic-count">{{ topic.count }}</span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+            <div v-else class="card-empty">暂无热门话题，等第一波讨论热起来后这里会更有意思。</div>
+          </section>
+
+          <section class="sidebar-card guide-card">
+            <div class="card-header">
+              <h3 class="card-title">发帖建议</h3>
+              <span class="card-tip">让交流更容易得到回应</span>
+            </div>
+            <div class="card-content guide-list">
+              <div class="guide-item">提问题时尽量带上题目名、报错或你的思路卡点。</div>
+              <div class="guide-item">分享经验时可以补充适用场景，方便别人判断要不要跟进。</div>
+              <div class="guide-item">如果是讨论帖，标题尽量具体，后续更容易沉淀有效回复。</div>
+            </div>
+          </section>
+        </aside>
       </div>
     </div>
 
@@ -170,7 +192,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -178,7 +200,8 @@ import {
   UserFilled,
   View,
   ChatDotRound,
-  Star
+  Star,
+  RefreshRight
 } from '@element-plus/icons-vue'
 import {
   getPosts,
@@ -207,41 +230,118 @@ const newPost = ref({
 const statistics = ref({
   totalPosts: 0,
   totalComments: 0,
-  activeUsers: 0
+  activeUsers: 0,
+  todayPosts: 0
 })
 
 const hotTopics = ref([])
 
+const summaryCards = computed(() => [
+  {
+    label: '总帖子数',
+    value: Number(statistics.value.totalPosts || 0),
+    hint: '社区目前沉淀的全部内容'
+  },
+  {
+    label: '总评论数',
+    value: Number(statistics.value.totalComments || 0),
+    hint: '用来衡量讨论活跃度'
+  },
+  {
+    label: '活跃用户',
+    value: Number(statistics.value.activeUsers || 0),
+    hint: '最近仍在参与交流的用户'
+  },
+  {
+    label: '今日新帖',
+    value: Number(statistics.value.todayPosts || 0),
+    hint: '今天社区新增的讨论内容'
+  }
+])
+
+const normalizePostsResponse = (data) => {
+  if (Array.isArray(data)) {
+    return {
+      list: data,
+      total: data.length
+    }
+  }
+
+  const list = data?.list || data?.content || data?.records || data?.rows || []
+  const totalCount = Number(
+    data?.total ??
+      data?.totalElements ??
+      data?.count ??
+      (Array.isArray(list) ? list.length : 0)
+  )
+
+  return {
+    list: Array.isArray(list) ? list : [],
+    total: totalCount
+  }
+}
+
+const normalizeStatistics = (data = {}) => ({
+  totalPosts: Number(data.totalPosts ?? data.postCount ?? 0),
+  totalComments: Number(data.totalComments ?? data.commentCount ?? 0),
+  activeUsers: Number(data.activeUsers ?? data.userCount ?? 0),
+  todayPosts: Number(data.todayPosts ?? data.todayCount ?? 0)
+})
+
+const normalizeTopicList = (data) => {
+  const list = Array.isArray(data) ? data : data?.list || data?.items || []
+  return list
+    .map((topic) => ({
+      name: topic?.name || topic?.topic || topic?.label || '未命名话题',
+      count: Number(topic?.count ?? topic?.postCount ?? topic?.heat ?? 0)
+    }))
+    .filter((topic) => topic.name)
+}
+
 const getPostTypeTag = (type) => {
   const types = {
-    'discussion': 'primary',
-    'question': 'warning',
-    'share': 'success'
+    discussion: 'primary',
+    question: 'warning',
+    share: 'success'
   }
   return types[type] || 'info'
 }
 
 const getPostTypeText = (type) => {
   const texts = {
-    'discussion': '讨论',
-    'question': '问答',
-    'share': '分享'
+    discussion: '讨论',
+    question: '问答',
+    share: '分享'
   }
   return texts[type] || '其他'
+}
+
+const summarizeContent = (content) => {
+  const plainText = String(content || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!plainText) {
+    return '这条帖子暂时还没有正文摘要。'
+  }
+
+  return plainText.length > 120 ? `${plainText.slice(0, 120)}...` : plainText
 }
 
 const formatTime = (time) => {
   if (!time) return '未知'
   const date = new Date(time)
-  if (isNaN(date.getTime())) return '未知'
+  if (Number.isNaN(date.getTime())) return '未知'
+
   const now = new Date()
   const diff = now - date
-  
+
   if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
-  return date.toLocaleDateString()
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`
+  return date.toLocaleDateString('zh-CN')
 }
 
 const fetchPosts = async () => {
@@ -251,14 +351,21 @@ const fetchPosts = async () => {
       page: currentPage.value - 1,
       size: pageSize.value
     }
+
     if (postType.value) {
       params.type = postType.value
     }
+
     const res = await getPosts(params)
     if (res.code === 200) {
-      posts.value = res.data || []
-      total.value = res.data?.length || 0
+      const normalized = normalizePostsResponse(res.data)
+      posts.value = normalized.list
+      total.value = normalized.total
+      return
     }
+
+    posts.value = []
+    total.value = 0
   } catch (error) {
     console.error('获取帖子列表失败:', error)
     posts.value = []
@@ -268,63 +375,18 @@ const fetchPosts = async () => {
   }
 }
 
-const generateMockPosts = () => {
-  posts.value = [
-    {
-      id: 1,
-      title: '如何高效学习动态规划？',
-      content: '最近在学习动态规划，感觉有点吃力，有没有什么好的学习方法推荐？',
-      type: 'question',
-      username: '学习者A',
-      createTime: new Date(Date.now() - 3600000),
-      viewCount: 156,
-      commentCount: 23,
-      likeCount: 45
-    },
-    {
-      id: 2,
-      title: '分享我的Java学习笔记',
-      content: '整理了一份Java基础学习笔记，包含了变量、数据类型、面向对象等核心知识点...',
-      type: 'share',
-      username: '编程爱好者',
-      createTime: new Date(Date.now() - 7200000),
-      viewCount: 342,
-      commentCount: 56,
-      likeCount: 128
-    },
-    {
-      id: 3,
-      title: '算法学习路线讨论',
-      content: '大家都是怎么学习算法的？有没有推荐的学习路线和资源？',
-      type: 'discussion',
-      username: '算法小白',
-      createTime: new Date(Date.now() - 86400000),
-      viewCount: 289,
-      commentCount: 78,
-      likeCount: 96
-    }
-  ]
-  total.value = posts.value.length
-}
-
 const fetchStatistics = async () => {
   try {
     const res = await getCommunityStatistics()
     if (res.code === 200) {
-      statistics.value = res.data || {
-        totalPosts: 0,
-        totalComments: 0,
-        activeUsers: 0
-      }
+      statistics.value = normalizeStatistics(res.data)
+      return
     }
+
+    statistics.value = normalizeStatistics()
   } catch (error) {
     console.error('获取社区统计失败:', error)
-    statistics.value = {
-      totalPosts: 0,
-      totalComments: 0,
-      activeUsers: 0,
-      todayPosts: 0
-    }
+    statistics.value = normalizeStatistics()
   }
 }
 
@@ -332,12 +394,26 @@ const fetchHotTopics = async () => {
   try {
     const res = await getHotTopics()
     if (res.code === 200) {
-      hotTopics.value = res.data || []
+      hotTopics.value = normalizeTopicList(res.data)
+      return
     }
+
+    hotTopics.value = []
   } catch (error) {
-    console.error('获取热点话题失败:', error)
+    console.error('获取热门话题失败:', error)
     hotTopics.value = []
   }
+}
+
+const refreshCommunity = async () => {
+  await Promise.all([fetchPosts(), fetchStatistics(), fetchHotTopics()])
+}
+
+const clearFilter = async () => {
+  if (!postType.value) return
+  postType.value = ''
+  currentPage.value = 1
+  await fetchPosts()
 }
 
 const showCreateDialog = () => {
@@ -354,6 +430,7 @@ const handleCreatePost = async () => {
     ElMessage.warning('请输入标题')
     return
   }
+
   if (!newPost.value.content.trim()) {
     ElMessage.warning('请输入内容')
     return
@@ -365,7 +442,8 @@ const handleCreatePost = async () => {
     if (res.code === 200) {
       ElMessage.success('发布成功')
       createDialogVisible.value = false
-      fetchPosts()
+      currentPage.value = 1
+      await Promise.all([fetchPosts(), fetchStatistics(), fetchHotTopics()])
     } else {
       ElMessage.error(res.msg || '发布失败')
     }
@@ -377,38 +455,39 @@ const handleCreatePost = async () => {
   }
 }
 
-const handleTypeChange = () => {
+const handleTypeChange = async () => {
   currentPage.value = 1
-  fetchPosts()
+  await fetchPosts()
 }
 
-const handleSizeChange = (size) => {
+const handleSizeChange = async (size) => {
   pageSize.value = size
   currentPage.value = 1
-  fetchPosts()
+  await fetchPosts()
 }
 
-const handleCurrentChange = (page) => {
+const handleCurrentChange = async (page) => {
   currentPage.value = page
-  fetchPosts()
+  await fetchPosts()
 }
 
 const goToPostDetail = (postId) => {
+  if (!postId) return
   router.push(`/community/post/${postId}`)
 }
 
 onMounted(() => {
-  fetchPosts()
-  fetchStatistics()
-  fetchHotTopics()
+  refreshCommunity()
 })
 </script>
 
 <style scoped>
 .community-page {
   min-height: 100vh;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
   padding: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(0, 102, 255, 0.05), transparent 24%),
+    var(--leetcode-bg-secondary, #f7f8fa);
 }
 
 .community-container {
@@ -416,29 +495,87 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-.page-header {
+.page-hero {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 32px;
+  gap: 20px;
+  padding: 28px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(0, 102, 255, 0.12);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 102, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.92));
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.05);
+}
+
+.hero-kicker {
+  margin: 0 0 10px;
+  color: #1668dc;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .page-title {
-  font-size: 28px;
+  margin: 0 0 8px;
+  font-size: 30px;
   font-weight: 700;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 8px 0;
+  color: var(--leetcode-text, #24292f);
 }
 
 .page-subtitle {
-  font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  max-width: 640px;
   margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--leetcode-text-secondary, #6b7280);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 18px;
+  background: var(--leetcode-bg, #ffffff);
+}
+
+.summary-label {
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 13px;
+}
+
+.summary-value {
+  color: var(--leetcode-text, #24292f);
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.summary-hint {
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .content-layout {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 320px;
   gap: 24px;
 }
 
@@ -448,11 +585,41 @@ onMounted(() => {
   gap: 20px;
 }
 
-.filter-section {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
-  padding: 16px 20px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+.toolbar-card,
+.sidebar-card {
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 18px;
+  background: var(--leetcode-bg, #ffffff);
+}
+
+.toolbar-card {
+  padding: 20px;
+}
+
+.toolbar-head {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--leetcode-text, #24292f);
+}
+
+.section-subtitle {
+  margin: 8px 0 0;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.toolbar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .posts-list {
@@ -462,24 +629,25 @@ onMounted(() => {
 }
 
 .post-card {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
   padding: 20px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 18px;
+  background: var(--leetcode-bg, #ffffff);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .post-card:hover {
-  border-color: var(--leetcode-primary, #0066FF);
+  border-color: var(--leetcode-primary, #0066ff);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 102, 255, 0.1);
+  box-shadow: 0 12px 28px rgba(0, 102, 255, 0.08);
 }
 
 .post-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
@@ -487,64 +655,87 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .author-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  min-width: 0;
 }
 
 .author-name {
   font-size: 14px;
-  font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  font-weight: 600;
+  color: var(--leetcode-text, #24292f);
 }
 
-.post-time {
+.author-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
-}
-
-.post-content {
-  margin-bottom: 16px;
 }
 
 .post-title {
-  font-size: 16px;
+  margin: 0 0 10px;
+  font-size: 18px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  margin: 0 0 8px 0;
+  color: var(--leetcode-text, #24292f);
 }
 
 .post-summary {
-  font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
   margin: 0;
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  color: var(--leetcode-text-secondary, #6b7280);
+  line-height: 1.8;
 }
 
 .post-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .post-stats {
   display: flex;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .stat-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
+}
+
+.post-link {
+  color: #1668dc;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.empty-posts {
+  padding: 50px 20px;
+  border: 1px dashed var(--leetcode-border, #e5e7eb);
+  border-radius: 18px;
+  background: var(--leetcode-bg, #ffffff);
+}
+
+.empty-text {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
 }
 
 .sidebar {
@@ -553,48 +744,38 @@ onMounted(() => {
   gap: 20px;
 }
 
-.sidebar-card {
-  background: var(--leetcode-bg, #FFFFFF);
-  border-radius: 12px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  overflow: hidden;
-}
-
 .card-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .card-title {
+  margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-  margin: 0;
+  color: var(--leetcode-text, #24292f);
+}
+
+.card-tip {
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 12px;
 }
 
 .card-content {
-  padding: 16px 20px;
+  padding: 18px 20px;
 }
 
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
+.card-empty {
+  padding: 18px 20px;
+  color: var(--leetcode-text-secondary, #6b7280);
+  line-height: 1.7;
 }
 
-.stat-label {
-  font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
-}
-
-.stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--leetcode-text, #24292F);
-}
-
-.topic-list {
+.topic-list,
+.guide-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -607,61 +788,66 @@ onMounted(() => {
 }
 
 .topic-rank {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  color: var(--leetcode-text-secondary, #6B7280);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .topic-rank.rank-1 {
-  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
   color: white;
 }
 
 .topic-rank.rank-2 {
-  background: linear-gradient(135deg, #C0C0C0 0%, #A9A9A9 100%);
+  background: linear-gradient(135deg, #c0c0c0 0%, #a9a9a9 100%);
   color: white;
 }
 
 .topic-rank.rank-3 {
-  background: linear-gradient(135deg, #CD7F32 0%, #B8860B 100%);
+  background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%);
   color: white;
 }
 
 .topic-name {
   flex: 1;
+  color: var(--leetcode-text, #24292f);
   font-size: 14px;
-  color: var(--leetcode-text, #24292F);
 }
 
 .topic-count {
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
 }
 
-.pagination-container {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
+.guide-card {
+  background:
+    linear-gradient(180deg, rgba(0, 102, 255, 0.03), transparent 60%),
+    var(--leetcode-bg, #ffffff);
 }
 
-.empty-posts {
-  padding: 60px 20px;
+.guide-item {
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 102, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(0, 102, 255, 0.04);
+  color: var(--leetcode-text-secondary, #6b7280);
+  line-height: 1.7;
 }
 
-@media (max-width: 1024px) {
-  .content-layout {
-    grid-template-columns: 1fr;
+@media (max-width: 1100px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sidebar {
-    order: -1;
+  .content-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -670,13 +856,17 @@ onMounted(() => {
     padding: 16px;
   }
 
-  .page-header {
+  .page-hero,
+  .post-header,
+  .post-footer {
     flex-direction: column;
-    gap: 16px;
+    align-items: flex-start;
   }
+}
 
-  .page-title {
-    font-size: 24px;
+@media (max-width: 560px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -1,11 +1,10 @@
 <template>
   <div class="leetcode-problems-page">
     <div class="problems-container">
-      <!-- 知识点分类栏 -->
       <div class="knowledge-categories">
         <div class="category-list">
-          <span 
-            v-for="tag in knowledgeTags" 
+          <span
+            v-for="tag in visibleKnowledgeTags"
             :key="tag.name"
             class="knowledge-tag"
             :class="{ active: selectedKnowledge === tag.name }"
@@ -14,17 +13,21 @@
             {{ tag.name }}
             <span class="tag-num">{{ tag.count }}</span>
           </span>
-          <span class="knowledge-tag expand" @click="showMoreKnowledge">
-            展开
+          <span
+            v-if="knowledgeTags.length > 12"
+            class="knowledge-tag expand"
+            :class="{ expanded: showAllKnowledge }"
+            @click="toggleKnowledgeExpand"
+          >
+            {{ showAllKnowledge ? '收起' : '展开' }}
             <el-icon class="expand-icon"><ArrowDown /></el-icon>
           </span>
         </div>
       </div>
 
-      <!-- 语言/类型分类栏 -->
       <div class="language-categories">
         <div class="lang-filter-list">
-          <button 
+          <button
             class="lang-filter-btn"
             :class="{ active: selectedLang === 'all' }"
             @click="selectLang('all')"
@@ -32,56 +35,58 @@
             <el-icon class="lang-icon"><Menu /></el-icon>
             <span>全部题目</span>
           </button>
-          <button 
-            v-for="lang in languageTypes" 
+          <button
+            v-for="lang in languageTypes"
             :key="lang.value"
             class="lang-filter-btn"
             :class="{ active: selectedLang === lang.value }"
             @click="selectLang(lang.value)"
           >
-            <el-icon class="lang-icon" :style="{ color: lang.color }"><component :is="lang.icon" /></el-icon>
+            <el-icon class="lang-icon" :style="{ color: lang.color }">
+              <component :is="resolveLanguageIcon(lang.icon)" />
+            </el-icon>
             <span>{{ lang.label }}</span>
           </button>
         </div>
       </div>
 
-      <!-- 搜索和筛选栏 -->
       <div class="search-filter-bar">
         <div class="search-box">
           <el-icon class="search-icon"><Search /></el-icon>
-          <input 
-            v-model="searchKeyword" 
-            type="text" 
+          <input
+            v-model="searchKeyword"
+            type="text"
             placeholder="搜索题目..."
             @keyup.enter="handleSearch"
           />
         </div>
         <div class="filter-actions">
-          <button class="action-btn" @click="toggleSort">
+          <button class="action-btn" :class="{ active: sortMode !== 'default' }" @click="toggleSort">
             <el-icon><Sort /></el-icon>
+            <span class="action-text">{{ sortLabel }}</span>
           </button>
-          <button class="action-btn" @click="showFilterPanel">
-            <el-icon><Filter /></el-icon>
+          <button class="action-btn" :disabled="!hasActiveFilters" @click="clearFilters">
+            <el-icon><Close /></el-icon>
+            <span class="action-text">清空筛选</span>
           </button>
         </div>
         <div class="solved-stats">
           <el-icon class="stats-icon"><CircleCheck /></el-icon>
-          <span class="stats-text">{{ solvedCount }}/{{ pagination.total }} 已解答</span>
-          <button class="random-btn" @click="goToRandomProblem">
+          <span class="stats-text">{{ solvedCount }}/{{ pagination.total }} 已解决</span>
+          <button class="random-btn" :disabled="problemList.length === 0" @click="goToRandomProblem">
             <el-icon><Refresh /></el-icon>
           </button>
         </div>
       </div>
 
-      <!-- 题目列表 -->
       <div class="problems-list-container" v-loading="loading">
         <div class="problems-list">
           <div
             v-for="(item, index) in problemList"
             :key="item.id"
             class="problem-item"
-            :class="{ 
-              solved: item.isSolved, 
+            :class="{
+              solved: item.isSolved,
               locked: item.isLocked
             }"
             :style="{ animationDelay: `${index * 40}ms` }"
@@ -99,15 +104,15 @@
               </div>
             </div>
             <div class="problem-meta">
-              <span class="pass-rate">{{ item.passRate || 0 }}%</span>
+              <span class="pass-rate">{{ Number(item.passRate || 0) }}%</span>
               <span :class="['difficulty-text', getDifficultyClass(item.difficulty)]">
                 {{ getDifficultyText(item.difficulty) }}
               </span>
               <div class="action-icons">
                 <el-icon v-if="item.isLocked" class="lock-icon"><Lock /></el-icon>
-                <button 
-                  class="favorite-btn" 
-                  :class="{ active: item.isFavorited }" 
+                <button
+                  class="favorite-btn"
+                  :class="{ active: item.isFavorited }"
                   @click.stop="toggleFavorite(item)"
                 >
                   <el-icon><StarFilled v-if="item.isFavorited" /><Star v-else /></el-icon>
@@ -120,7 +125,6 @@
         <el-empty v-if="problemList.length === 0 && !loading" description="暂无题目" class="empty-state" />
       </div>
 
-      <!-- 分页 -->
       <div class="pagination-section">
         <el-pagination
           v-model:current-page="pagination.page"
@@ -138,15 +142,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { getProblemList, getLanguages } from '@/api/problem'
-import { getKnowledgePointStats } from '@/api/knowledge'
-import { 
-  Search, 
-  Sort, 
-  Filter, 
-  CircleCheck, 
+import { onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { useProblemStore } from '@/stores/problem'
+import {
+  Search,
+  Sort,
+  Close,
+  CircleCheck,
   Select,
   Lock,
   Star,
@@ -164,213 +168,104 @@ import {
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
-const route = useRoute()
+const problemStore = useProblemStore()
 
-const loading = ref(false)
-const problemList = ref([])
-const searchKeyword = ref('')
-const selectedKnowledge = ref('')
-const selectedLang = ref('all')
-const solvedCount = ref(0)
+const {
+  loading,
+  problemList,
+  knowledgeTags,
+  languageTypes,
+  searchKeyword,
+  selectedKnowledge,
+  selectedLang,
+  solvedCount,
+  showAllKnowledge,
+  sortMode,
+  pagination,
+  visibleKnowledgeTags,
+  sortLabel,
+  hasActiveFilters
+} = storeToRefs(problemStore)
 
-// 知识点分类数据（从API获取）
-const knowledgeTags = ref([])
+const {
+  initialize,
+  fetchProblems,
+  selectKnowledge,
+  selectLang,
+  toggleKnowledgeExpand,
+  toggleSort,
+  handleSearch,
+  clearFilters,
+  toggleFavorite
+} = problemStore
 
-// 语言/类型分类数据（从API获取）
-const languageTypes = ref([])
-
-const pagination = reactive({
-  page: 1,
-  size: 20,
-  total: 0
-})
+const iconMap = {
+  DataLine,
+  Cpu,
+  Grid,
+  Coin,
+  Document,
+  Monitor
+}
 
 const getDifficultyClass = (difficulty) => {
-  const classes = { 
-    0: 'difficulty-easy', 
-    1: 'difficulty-medium', 
-    2: 'difficulty-hard', 
-    3: 'difficulty-hard' 
+  const classes = {
+    0: 'difficulty-easy',
+    1: 'difficulty-medium',
+    2: 'difficulty-hard',
+    3: 'difficulty-hard'
   }
   return classes[difficulty] || ''
 }
 
 const getDifficultyText = (difficulty) => {
-  const texts = { 
-    0: '简单', 
-    1: '中等', 
-    2: '困难', 
-    3: '困难' 
+  const texts = {
+    0: '简单',
+    1: '中等',
+    2: '困难',
+    3: '困难'
   }
   return texts[difficulty] || '未知'
 }
 
-const getStatusClass = (item) => {
-  if (item.isSolved) return 'status-solved'
-  if (item.isAttempted) return 'status-attempted'
-  if (item.isLocked) return 'status-locked'
-  return 'status-default'
-}
+const resolveLanguageIcon = (icon) => {
+  if (!icon) {
+    return Document
+  }
 
-const getKnowledgePoints = (knowledgePoints) => {
-  if (!knowledgePoints) return []
-  return knowledgePoints.split(',').filter(tag => tag.trim())
-}
+  if (typeof icon === 'string') {
+    return iconMap[icon] || Document
+  }
 
-const selectKnowledge = (knowledge) => {
-  // 切换知识点筛选时，清除语言筛选
-  selectedKnowledge.value = selectedKnowledge.value === knowledge ? '' : knowledge
-  selectedLang.value = 'all'
-  pagination.page = 1
-  fetchProblems()
-}
-
-const selectLang = (lang) => {
-  // 切换语言筛选时，清除知识点筛选
-  selectedLang.value = lang
-  selectedKnowledge.value = ''
-  pagination.page = 1
-  fetchProblems()
-}
-
-const showMoreKnowledge = () => {
-  // 展开更多知识点分类
-}
-
-const toggleSort = () => {
-  // 切换排序
-}
-
-const showFilterPanel = () => {
-  // 显示筛选面板
-}
-
-const handleSearch = () => {
-  pagination.page = 1
-  fetchProblems()
-}
-
-const toggleFavorite = (item) => {
-  item.isFavorited = !item.isFavorited
+  return icon
 }
 
 const goToRandomProblem = () => {
-  if (problemList.value.length > 0) {
-    const randomIndex = Math.floor(Math.random() * problemList.value.length)
-    goToProblem(problemList.value[randomIndex].id)
+  if (problemList.value.length === 0) {
+    return
   }
+
+  const randomIndex = Math.floor(Math.random() * problemList.value.length)
+  goToProblem(problemList.value[randomIndex].id)
 }
 
 const goToProblem = (id) => {
   router.push(`/problem/${id}`)
 }
 
-const fetchProblems = async () => {
-  loading.value = true
-  try {
-    const params = {
-      page: pagination.page,
-      size: pagination.size
-    }
-
-    if (searchKeyword.value && searchKeyword.value.trim()) {
-      params.keyword = searchKeyword.value.trim()
-    }
-
-    if (selectedLang.value && selectedLang.value !== 'all') {
-      params.language = selectedLang.value
-    }
-
-    if (selectedKnowledge.value && selectedKnowledge.value.trim()) {
-      params.knowledge = selectedKnowledge.value.trim()
-    }
-
-    const res = await getProblemList(params)
-    if (res.code === 200) {
-      // 使用后端返回的真实数据
-      problemList.value = res.data.list.map((item) => ({
-        ...item,
-        isLocked: false,
-        isPremium: false
-      }))
-      pagination.total = res.data.total
-      solvedCount.value = res.data.solvedCount || 0
-    }
-  } catch (error) {
-    console.error('获取题目列表失败:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-// 获取知识点分类数据
-const fetchKnowledgeTags = async () => {
-  try {
-    const res = await getKnowledgePointStats()
-    if (res.code === 200 && res.data) {
-      // 从API返回的数据中提取知识点及其题目数量
-      knowledgeTags.value = res.data
-        .filter(item => item.problemCount > 0) // 只显示有题目的知识点
-        .map(item => ({
-          name: item.name,
-          count: item.problemCount
-        }))
-        .slice(0, 12) // 只显示前12个
-    }
-  } catch (error) {
-    console.error('获取知识点分类失败:', error)
-    // 使用默认数据作为后备
-    knowledgeTags.value = [
-      { name: '数组', count: 2306 },
-      { name: '字符串', count: 938 },
-      { name: '哈希表', count: 870 },
-      { name: '数学', count: 721 },
-      { name: '动态规划', count: 718 },
-      { name: '排序', count: 549 },
-      { name: '贪心', count: 467 },
-      { name: '深度优先搜索', count: 395 },
-      { name: '二分查找', count: 361 },
-      { name: '位运算', count: 310 },
-    ]
-  }
-}
-
-// 获取语言分类数据
-const fetchLanguageTypes = async () => {
-  try {
-    const res = await getLanguages()
-    if (res.code === 200) {
-      languageTypes.value = res.data
-    }
-  } catch (error) {
-    console.error('获取语言分类失败:', error)
-    // 使用默认数据作为后备
-    languageTypes.value = [
-      { value: 'algorithm', label: '算法', icon: 'Cpu', color: '#F59E0B' },
-      { value: 'database', label: '数据库', icon: 'DataLine', color: '#3B82F6' },
-      { value: 'java', label: 'Java', icon: 'Document', color: '#EA2D2E' },
-      { value: 'python', label: 'Python', icon: 'Coin', color: '#3776AB' },
-    ]
-  }
-}
-
 onMounted(() => {
-  fetchProblems()
-  fetchKnowledgeTags()
-  fetchLanguageTypes()
+  initialize()
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 .leetcode-problems-page {
   width: 100%;
   min-height: 100vh;
-  background: linear-gradient(180deg, #FAFBFC 0%, #F5F7FA 100%);
+  background: linear-gradient(180deg, #fafbfc 0%, #f5f7fa 100%);
   padding: 24px 32px;
   box-sizing: border-box;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-primary, 'Segoe UI', sans-serif);
   transition: all 0.3s ease;
 }
 
@@ -379,7 +274,6 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-/* 知识点分类栏 - 力扣风格 */
 .knowledge-categories {
   margin-bottom: 12px;
 }
@@ -396,23 +290,23 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 13px;
-  color: #6B7280;
+  color: #6b7280;
   cursor: pointer;
   transition: color 0.2s ease;
   padding: 4px 0;
 }
 
 .knowledge-tag:hover {
-  color: #1F2937;
+  color: #1f2937;
 }
 
 .knowledge-tag.active {
-  color: #1F2937;
+  color: #1f2937;
   font-weight: 500;
 }
 
 .tag-num {
-  color: #9CA3AF;
+  color: #9ca3af;
   font-size: 12px;
 }
 
@@ -420,15 +314,19 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #6B7280;
+  color: #6b7280;
   font-weight: 500;
+}
+
+.knowledge-tag.expand.expanded .expand-icon {
+  transform: rotate(180deg);
 }
 
 .expand-icon {
   font-size: 12px;
+  transition: transform 0.2s ease;
 }
 
-/* 语言/类型分类栏 */
 .language-categories {
   margin-bottom: 16px;
 }
@@ -444,8 +342,8 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
@@ -455,33 +353,32 @@ onMounted(() => {
 }
 
 .lang-filter-btn:hover {
-  background: #F9FAFB;
-  border-color: #D1D5DB;
+  background: #f9fafb;
+  border-color: #d1d5db;
 }
 
 .lang-filter-btn.active {
-  background: #1F2937;
-  border-color: #1F2937;
-  color: #FFFFFF;
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #ffffff;
 }
 
 .lang-filter-btn.active .lang-icon {
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
 .lang-icon {
   font-size: 16px;
 }
 
-/* 搜索和筛选栏 */
 .search-filter-bar {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
@@ -492,20 +389,20 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 
 .search-box:focus-within {
-  background: #FFFFFF;
-  border-color: #3B82F6;
+  background: #ffffff;
+  border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-icon {
-  color: #9CA3AF;
+  color: #9ca3af;
   font-size: 16px;
 }
 
@@ -514,37 +411,61 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-size: 14px;
-  color: #1F2937;
+  color: #1f2937;
   outline: none;
 }
 
 .search-box input::placeholder {
-  color: #9CA3AF;
+  color: #9ca3af;
 }
 
 .filter-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  color: #6B7280;
+  color: #6b7280;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-  background: #F3F4F6;
-  border-color: #D1D5DB;
+  background: #f3f4f6;
+  border-color: #d1d5db;
   color: #374151;
+}
+
+.action-btn.active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.action-btn:disabled:hover {
+  background: #f9fafb;
+  border-color: #e5e7eb;
+  color: #6b7280;
+}
+
+.action-text {
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .solved-stats {
@@ -552,20 +473,20 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  background: #F0FDF4;
-  border: 1px solid #BBF7D0;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
   border-radius: 8px;
 }
 
 .stats-icon {
-  color: #10B981;
+  color: #10b981;
   font-size: 16px;
 }
 
 .stats-text {
   font-size: 13px;
   font-weight: 500;
-  color: #065F46;
+  color: #065f46;
 }
 
 .random-btn {
@@ -574,23 +495,29 @@ onMounted(() => {
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: #FFFFFF;
-  border: 1px solid #10B981;
+  background: #ffffff;
+  border: 1px solid #10b981;
   border-radius: 6px;
-  color: #10B981;
+  color: #10b981;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .random-btn:hover {
-  background: #10B981;
-  color: #FFFFFF;
+  background: #10b981;
+  color: #ffffff;
 }
 
-/* 题目列表 - 力扣风格 */
+.random-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: #ffffff;
+  color: #10b981;
+}
+
 .problems-list-container {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -604,22 +531,22 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid #F3F4F6;
+  border-bottom: 1px solid #f3f4f6;
   cursor: pointer;
   transition: background-color 0.15s ease;
   animation: fadeIn 0.3s ease-out backwards;
 }
 
 .problem-item:hover {
-  background-color: #F9FAFB;
+  background-color: #f9fafb;
 }
 
 .problem-item.solved {
-  background-color: #F0FDF4;
+  background-color: #f0fdf4;
 }
 
 .problem-item.solved:hover {
-  background-color: #DCFCE7;
+  background-color: #dcfce7;
 }
 
 .problem-item.solved .problem-title-text {
@@ -641,7 +568,6 @@ onMounted(() => {
   }
 }
 
-/* 题目主要内容区 */
 .problem-main {
   display: flex;
   align-items: center;
@@ -664,15 +590,15 @@ onMounted(() => {
 }
 
 .solved-icon {
-  color: #10B981;
+  color: #10b981;
 }
 
 .attempted-icon {
-  color: #F59E0B;
+  color: #f59e0b;
 }
 
 .default-icon {
-  color: #3B82F6;
+  color: #3b82f6;
 }
 
 .problem-content {
@@ -684,27 +610,25 @@ onMounted(() => {
 }
 
 .problem-id {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: #6B7280;
+  color: #6b7280;
   flex-shrink: 0;
 }
 
 .problem-title-text {
   font-size: 14px;
   font-weight: 500;
-  color: #1F2937;
+  color: #1f2937;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .problem-item:hover .problem-title-text {
-  color: #3B82F6;
+  color: #3b82f6;
 }
 
-/* 题目元信息区 */
 .problem-meta {
   display: flex;
   align-items: center;
@@ -715,7 +639,7 @@ onMounted(() => {
 .pass-rate {
   font-size: 13px;
   font-weight: 500;
-  color: #6B7280;
+  color: #6b7280;
   min-width: 45px;
   text-align: right;
 }
@@ -728,18 +652,17 @@ onMounted(() => {
 }
 
 .difficulty-easy {
-  color: #10B981;
+  color: #10b981;
 }
 
 .difficulty-medium {
-  color: #F59E0B;
+  color: #f59e0b;
 }
 
 .difficulty-hard {
-  color: #EF4444;
+  color: #ef4444;
 }
 
-/* 操作图标区 */
 .action-icons {
   display: flex;
   align-items: center;
@@ -748,7 +671,7 @@ onMounted(() => {
 
 .lock-icon {
   font-size: 14px;
-  color: #9CA3AF;
+  color: #9ca3af;
 }
 
 .favorite-btn {
@@ -759,27 +682,25 @@ onMounted(() => {
   height: 20px;
   background: transparent;
   border: none;
-  color: #D1D5DB;
+  color: #d1d5db;
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
 }
 
 .favorite-btn:hover {
-  color: #F59E0B;
+  color: #f59e0b;
   transform: scale(1.15);
 }
 
 .favorite-btn.active {
-  color: #F59E0B;
+  color: #f59e0b;
 }
 
-/* 空状态 */
 .empty-state {
   padding: 80px 20px;
 }
 
-/* 分页 */
 .pagination-section {
   display: flex;
   justify-content: center;
@@ -793,8 +714,8 @@ onMounted(() => {
 }
 
 :deep(.pagination button) {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   color: #374151;
   border-radius: 8px;
   min-width: 36px;
@@ -804,15 +725,15 @@ onMounted(() => {
 }
 
 :deep(.pagination button:hover:not(:disabled)) {
-  border-color: #3B82F6;
-  color: #3B82F6;
-  background: #EFF6FF;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
 }
 
 :deep(.pagination button.is-active) {
-  background: #1F2937;
-  border-color: #1F2937;
-  color: #FFFFFF;
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #ffffff;
 }
 
 :deep(.pagination button:disabled) {
@@ -821,8 +742,8 @@ onMounted(() => {
 }
 
 :deep(.pagination .el-pager li) {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   color: #374151;
   border-radius: 8px;
   min-width: 36px;
@@ -832,36 +753,35 @@ onMounted(() => {
 }
 
 :deep(.pagination .el-pager li:hover) {
-  border-color: #3B82F6;
-  color: #3B82F6;
-  background: #EFF6FF;
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
 }
 
 :deep(.pagination .el-pager li.is-active) {
-  background: #1F2937;
-  border-color: #1F2937;
-  color: #FFFFFF;
+  background: #1f2937;
+  border-color: #1f2937;
+  color: #ffffff;
 }
 
 :deep(.pagination__total) {
-  color: #6B7280;
+  color: #6b7280;
   font-size: 14px;
   font-weight: 500;
 }
 
 :deep(.pagination__sizes .el-select .el-input__wrapper) {
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
 
-/* 响应式 */
 @media (max-width: 768px) {
   .leetcode-problems-page {
     padding: 16px;
   }
 
-  .category-tags {
+  .category-list {
     overflow-x: auto;
     flex-wrap: nowrap;
     padding-bottom: 8px;
@@ -869,6 +789,11 @@ onMounted(() => {
 
   .search-filter-bar {
     flex-wrap: wrap;
+  }
+
+  .filter-actions,
+  .action-btn {
+    width: 100%;
   }
 
   .solved-stats {
@@ -881,6 +806,7 @@ onMounted(() => {
   }
 
   .problem-meta {
+    flex-wrap: wrap;
     gap: 16px;
   }
 

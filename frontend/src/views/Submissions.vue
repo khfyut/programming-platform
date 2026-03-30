@@ -3,7 +3,7 @@
     <div class="submissions-container">
       <div class="page-header">
         <h1 class="page-title">提交记录</h1>
-        <p class="page-subtitle">查看您的所有提交历史</p>
+        <p class="page-subtitle">查看您所有提交的历史结果与代码详情</p>
       </div>
 
       <div class="filter-section">
@@ -33,6 +33,12 @@
           </el-select>
         </div>
         <div class="filter-right">
+          <el-select v-model="sortBy" class="filter-select sort-select" @change="handleSortChange">
+            <el-option label="最新提交" value="latest" />
+            <el-option label="最早提交" value="oldest" />
+            <el-option label="耗时优先" value="runtime" />
+            <el-option label="内存优先" value="memory" />
+          </el-select>
           <el-button @click="resetFilters" class="reset-btn">
             <el-icon><RefreshLeft /></el-icon>
             重置
@@ -51,8 +57,13 @@
           <div class="submission-left">
             <div class="submission-info">
               <div class="submission-header">
-                <div class="submission-title">{{ submission.problemTitle }}</div>
-                <span v-if="submission.difficulty" :class="['difficulty-badge', getDifficultyClass(submission.difficulty)]">
+                <div class="submission-title">
+                  {{ submission.problemTitle || `题目 #${submission.problemId || submission.id}` }}
+                </div>
+                <span
+                  v-if="submission.difficulty"
+                  :class="['difficulty-badge', getDifficultyClass(submission.difficulty)]"
+                >
                   {{ getDifficultyText(submission.difficulty) }}
                 </span>
               </div>
@@ -60,9 +71,9 @@
                 <span :class="['result-badge', getResultClass(submission.result)]">
                   {{ getResultText(submission.result) }}
                 </span>
-                <span class="language-badge">{{ submission.language.toUpperCase() }}</span>
-                <span class="time-badge">{{ submission.timeCost }}ms</span>
-                <span class="memory-badge">{{ submission.memoryCost }}KB</span>
+                <span class="language-badge">{{ formatLanguage(submission.language) }}</span>
+                <span class="time-badge">{{ formatMetric(submission.timeCost, 'ms') }}</span>
+                <span class="memory-badge">{{ formatMetric(submission.memoryCost, 'KB') }}</span>
               </div>
               <div v-if="submission.tags && submission.tags.length > 0" class="submission-tags">
                 <span v-for="tag in submission.tags" :key="tag" class="tag-badge">{{ tag }}</span>
@@ -92,92 +103,111 @@
       </div>
     </div>
 
-    <el-dialog v-model="detailDialogVisible" title="提交详情" width="800px" class="detail-dialog">
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="提交详情"
+      width="min(880px, 94vw)"
+      top="5vh"
+      destroy-on-close
+      class="detail-dialog"
+    >
       <div v-loading="detailLoading" class="detail-content">
         <div v-if="currentSubmission">
-        <div class="detail-section">
-          <h3 class="detail-title">基本信息</h3>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="detail-label">题目</span>
-              <span class="detail-value">{{ currentSubmission.problemTitle }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">困难度</span>
-              <span v-if="currentSubmission.difficulty" :class="['detail-value', 'difficulty-' + currentSubmission.difficulty.toLowerCase()]">
-                {{ getDifficultyText(currentSubmission.difficulty) }}
-              </span>
-              <span v-else class="detail-value">未知</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">结果</span>
-              <span :class="['detail-value', 'result-' + currentSubmission.result]">
-                {{ getResultText(currentSubmission.result) }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">语言</span>
-              <span class="detail-value">{{ currentSubmission.language.toUpperCase() }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">提交时间</span>
-              <span class="detail-value">{{ formatDateTime(currentSubmission.submitTime) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">执行时间</span>
-              <span class="detail-value">{{ currentSubmission.timeCost }}ms</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">内存使用</span>
-              <span class="detail-value">{{ currentSubmission.memoryCost }}KB</span>
+          <div class="detail-section">
+            <h3 class="detail-title">基本信息</h3>
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">题目</span>
+                <span class="detail-value">
+                  {{ currentSubmission.problemTitle || `题目 #${currentSubmission.problemId || currentSubmission.id}` }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">难度</span>
+                <span
+                  v-if="currentSubmission.difficulty"
+                  :class="['detail-value', `difficulty-${getDifficultyClass(currentSubmission.difficulty)}`]"
+                >
+                  {{ getDifficultyText(currentSubmission.difficulty) }}
+                </span>
+                <span v-else class="detail-value">未知</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">结果</span>
+                <span :class="['detail-value', `result-${currentSubmission.result}`]">
+                  {{ getResultText(currentSubmission.result) }}
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">语言</span>
+                <span class="detail-value">{{ formatLanguage(currentSubmission.language) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">提交时间</span>
+                <span class="detail-value">{{ formatDateTime(currentSubmission.submitTime) }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">执行时间</span>
+                <span class="detail-value">{{ formatMetric(currentSubmission.timeCost, 'ms') }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">内存使用</span>
+                <span class="detail-value">{{ formatMetric(currentSubmission.memoryCost, 'KB') }}</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div v-if="currentSubmission.tags && currentSubmission.tags.length > 0" class="detail-section">
-          <h3 class="detail-title">标签</h3>
-          <div class="detail-tags">
-            <span v-for="tag in currentSubmission.tags" :key="tag" class="detail-tag-badge">{{ tag }}</span>
+
+          <div v-if="currentSubmission.tags && currentSubmission.tags.length > 0" class="detail-section">
+            <h3 class="detail-title">标签</h3>
+            <div class="detail-tags">
+              <span v-for="tag in currentSubmission.tags" :key="tag" class="detail-tag-badge">{{ tag }}</span>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <h3 class="detail-title">代码</h3>
+            <pre class="code-display">{{ currentSubmission.code || '暂无代码内容' }}</pre>
+          </div>
+
+          <div v-if="currentSubmission.error" class="detail-section">
+            <h3 class="detail-title">错误信息</h3>
+            <pre class="error-display">{{ currentSubmission.error }}</pre>
           </div>
         </div>
-
-        <div class="detail-section">
-          <h3 class="detail-title">代码</h3>
-          <pre class="code-display">{{ currentSubmission.code }}</pre>
-        </div>
-
-        <div v-if="currentSubmission.error" class="detail-section">
-          <h3 class="detail-title">错误信息</h3>
-          <pre class="error-display">{{ currentSubmission.error }}</pre>
-        </div>
-        </div>
+        <el-empty v-else-if="!detailLoading" description="暂无提交详情" />
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
-import { getMySubmissions, getSubmitDetail } from '@/api/submit'
+import { useSubmissionStore } from '@/stores/submission'
 import { RefreshLeft, ArrowRight } from '@element-plus/icons-vue'
 
 const route = useRoute()
-const loading = ref(false)
-const submissionList = ref([])
-const detailDialogVisible = ref(false)
-const currentSubmission = ref(null)
-const detailLoading = ref(false)
+const submissionStore = useSubmissionStore()
 
-const filters = reactive({
-  result: null,
-  language: null
-})
+const {
+  loading,
+  submissionList,
+  detailDialogVisible,
+  currentSubmission,
+  detailLoading,
+  sortBy,
+  filters,
+  pagination
+} = storeToRefs(submissionStore)
 
-const pagination = reactive({
-  page: 1,
-  size: 10,
-  total: 0
-})
+const {
+  handleSortChange,
+  fetchSubmissions,
+  viewDetail,
+  openDetailFromRoute,
+  resetFilters
+} = submissionStore
 
 const getResultClass = (result) => {
   const classes = { 0: 'success', 1: 'error', 2: 'error', 3: 'warning', 4: 'warning' }
@@ -190,32 +220,48 @@ const getResultText = (result) => {
 }
 
 const getDifficultyClass = (difficulty) => {
-  const classes = { 'EASY': 'easy', 'MEDIUM': 'medium', 'HARD': 'hard' }
+  const classes = { EASY: 'easy', MEDIUM: 'medium', HARD: 'hard' }
   return classes[difficulty] || 'info'
 }
 
 const getDifficultyText = (difficulty) => {
-  const texts = { 'EASY': '简单', 'MEDIUM': '中等', 'HARD': '困难' }
+  const texts = { EASY: '简单', MEDIUM: '中等', HARD: '困难' }
   return texts[difficulty] || '未知'
+}
+
+const formatLanguage = (language) => {
+  if (!language) return '--'
+  return String(language).toUpperCase()
+}
+
+const formatMetric = (value, unit) => {
+  if (value === null || value === undefined || value === '') {
+    return '--'
+  }
+  return `${value}${unit}`
 }
 
 const formatTime = (time) => {
   if (!time) return '未知'
+
   const date = new Date(time)
-  if (isNaN(date.getTime())) return '未知'
-  const now = new Date()
-  const diff = now - date
-  
+  if (Number.isNaN(date.getTime())) return '未知'
+
+  const now = Date.now()
+  const diff = now - date.getTime()
+
   if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  return `${Math.floor(diff / 86400000)}天前`
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  return `${Math.floor(diff / 86400000)} 天前`
 }
 
 const formatDateTime = (time) => {
   if (!time) return '未知'
+
   const date = new Date(time)
-  if (isNaN(date.getTime())) return '未知'
+  if (Number.isNaN(date.getTime())) return '未知'
+
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -224,83 +270,6 @@ const formatDateTime = (time) => {
     minute: '2-digit',
     second: '2-digit'
   })
-}
-
-const fetchSubmissions = async () => {
-  loading.value = true
-  try {
-    const params = {
-      page: pagination.page,
-      size: pagination.size
-    }
-
-    if (filters.result !== null && filters.result !== undefined) {
-      params.result = filters.result
-    }
-
-    if (filters.language !== null && filters.language !== undefined) {
-      params.language = filters.language
-    }
-
-    const res = await getMySubmissions(params)
-    if (res.code === 200) {
-      let list = res.data.list || []
-      submissionList.value = list.map(item => ({
-        ...item,
-        problemTitle: item.problemTitle || item.title || item.problemName,
-        difficulty: item.difficulty,
-        tags: item.tags || item.tagList || []
-      }))
-      pagination.total = res.data.total
-    }
-  } catch (error) {
-    console.error('获取提交记录失败:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const viewDetail = async (submission) => {
-  const submitId = Number(submission?.id || submission)
-  if (!submitId) return
-
-  detailLoading.value = true
-  currentSubmission.value = null
-  detailDialogVisible.value = true
-  try {
-    const res = await getSubmitDetail(submitId)
-    if (res.code === 200) {
-      let data = res.data
-      const fallbackSubmission = typeof submission === 'object' ? submission : {}
-      if (data) {
-        data.problemTitle = data.problemTitle || data.title || data.problemName || fallbackSubmission.problemTitle
-        data.difficulty = data.difficulty || fallbackSubmission.difficulty
-        data.submitTime = data.submitTime || data.createTime || data.createdAt || fallbackSubmission.submitTime
-      }
-      currentSubmission.value = data
-    } else {
-      currentSubmission.value = typeof submission === 'object' ? submission : null
-    }
-  } catch (error) {
-    console.error('获取提交详情失败:', error)
-    currentSubmission.value = typeof submission === 'object' ? submission : null
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-const openDetailFromRoute = async (submitId) => {
-  const id = Number(submitId)
-  if (!id) return
-  const matched = submissionList.value.find((item) => Number(item.id) === id)
-  await viewDetail(matched || id)
-}
-
-const resetFilters = () => {
-  filters.result = null
-  filters.language = null
-  pagination.page = 1
-  fetchSubmissions()
 }
 
 onMounted(() => {
@@ -322,7 +291,7 @@ watch(
 .leetcode-submissions {
   width: 100%;
   min-height: 100vh;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   padding: 24px;
   box-sizing: border-box;
 }
@@ -330,29 +299,29 @@ watch(
 .submissions-container {
   max-width: 1200px;
   margin: 0 auto;
-  background: var(--leetcode-bg, #FFFFFF);
+  background: var(--leetcode-bg, #ffffff);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   overflow: hidden;
   animation: fadeInUp 0.3s ease-out;
 }
 
 .page-header {
   padding: 32px 32px 24px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .page-title {
   font-size: 28px;
   font-weight: 700;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   margin: 0 0 8px 0;
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   margin: 0;
 }
 
@@ -361,8 +330,8 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding: 20px 32px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
-  background: var(--leetcode-bg, #FFFFFF);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg, #ffffff);
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -377,15 +346,20 @@ watch(
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .filter-select {
   width: 140px;
 }
 
+.sort-select {
+  width: 150px;
+}
+
 :deep(.filter-select .el-input__wrapper) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   border-radius: 6px;
   padding: 6px 12px;
   transition: all 0.2s ease;
@@ -393,20 +367,20 @@ watch(
 }
 
 :deep(.filter-select .el-input__wrapper:hover) {
-  border-color: var(--leetcode-primary, #0066FF);
-  background: #FFFFFF;
+  border-color: var(--leetcode-primary, #0066ff);
+  background: #ffffff;
 }
 
 :deep(.filter-select .el-input__wrapper.is-focus) {
-  border-color: var(--leetcode-primary, #0066FF);
-  background: #FFFFFF;
+  border-color: var(--leetcode-primary, #0066ff);
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
 }
 
 .reset-btn {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  color: var(--leetcode-text-secondary, #6B7280);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  color: var(--leetcode-text-secondary, #6b7280);
   border-radius: 6px;
   padding: 8px 16px;
   font-weight: 500;
@@ -414,8 +388,8 @@ watch(
 }
 
 .reset-btn:hover {
-  background: var(--leetcode-primary, #0066FF);
-  border-color: var(--leetcode-primary, #0066FF);
+  background: var(--leetcode-primary, #0066ff);
+  border-color: var(--leetcode-primary, #0066ff);
   color: white;
 }
 
@@ -429,14 +403,14 @@ watch(
   justify-content: space-between;
   align-items: center;
   padding: 20px 32px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
   cursor: pointer;
   transition: all 0.2s ease;
   animation: fadeInUp 0.3s ease-out backwards;
 }
 
 .submission-card:hover {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   transform: translateX(4px);
 }
 
@@ -464,7 +438,7 @@ watch(
 .submission-title {
   font-size: 16px;
   font-weight: 500;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
 }
 
 .difficulty-badge {
@@ -478,17 +452,17 @@ watch(
 
 .difficulty-badge.easy {
   background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
+  color: var(--leetcode-success, #00c853);
 }
 
 .difficulty-badge.medium {
   background: rgba(255, 179, 0, 0.1);
-  color: var(--leetcode-warning, #FFB300);
+  color: var(--leetcode-warning, #ffb300);
 }
 
 .difficulty-badge.hard {
   background: rgba(238, 77, 56, 0.1);
-  color: var(--leetcode-danger, #EE4D2E);
+  color: var(--leetcode-danger, #ee4d2e);
 }
 
 .submission-tags {
@@ -504,7 +478,7 @@ watch(
   font-size: 11px;
   font-weight: 500;
   background: rgba(0, 102, 255, 0.08);
-  color: var(--leetcode-primary, #0066FF);
+  color: var(--leetcode-primary, #0066ff);
   border: 1px solid rgba(0, 102, 255, 0.15);
 }
 
@@ -512,6 +486,7 @@ watch(
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .result-badge {
@@ -525,22 +500,22 @@ watch(
 
 .result-badge.success {
   background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
+  color: var(--leetcode-success, #00c853);
 }
 
 .result-badge.error {
   background: rgba(238, 77, 56, 0.1);
-  color: var(--leetcode-danger, #EE4D2E);
+  color: var(--leetcode-danger, #ee4d2e);
 }
 
 .result-badge.warning {
   background: rgba(255, 179, 0, 0.1);
-  color: var(--leetcode-warning, #FFB300);
+  color: var(--leetcode-warning, #ffb300);
 }
 
 .result-badge.info {
   background: rgba(134, 144, 156, 0.1);
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .language-badge,
@@ -551,8 +526,8 @@ watch(
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  color: var(--leetcode-text-secondary, #6B7280);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .submission-right {
@@ -563,18 +538,18 @@ watch(
 
 .submission-time {
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
 }
 
 .arrow-icon {
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 16px;
   transition: transform 0.2s ease;
 }
 
 .submission-card:hover .arrow-icon {
   transform: translateX(4px);
-  color: var(--leetcode-primary, #0066FF);
+  color: var(--leetcode-primary, #0066ff);
 }
 
 .empty-state {
@@ -585,8 +560,8 @@ watch(
   display: flex;
   justify-content: center;
   padding: 20px 32px;
-  border-top: 1px solid var(--leetcode-border, #E5E7EB);
-  background: var(--leetcode-bg, #FFFFFF);
+  border-top: 1px solid var(--leetcode-border, #e5e7eb);
+  background: var(--leetcode-bg, #ffffff);
 }
 
 :deep(.pagination) {
@@ -596,9 +571,9 @@ watch(
 }
 
 :deep(.pagination button) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  color: var(--leetcode-text, #24292F);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  color: var(--leetcode-text, #24292f);
   border-radius: 6px;
   min-width: 32px;
   height: 32px;
@@ -606,21 +581,21 @@ watch(
 }
 
 :deep(.pagination button:hover) {
-  border-color: var(--leetcode-primary, #0066FF);
-  color: var(--leetcode-primary, #0066FF);
-  background: #FFFFFF;
+  border-color: var(--leetcode-primary, #0066ff);
+  color: var(--leetcode-primary, #0066ff);
+  background: #ffffff;
 }
 
 :deep(.pagination button.is-active) {
-  background: var(--leetcode-primary, #0066FF);
-  border-color: var(--leetcode-primary, #0066FF);
+  background: var(--leetcode-primary, #0066ff);
+  border-color: var(--leetcode-primary, #0066ff);
   color: white;
 }
 
 :deep(.pagination .el-pager li) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  color: var(--leetcode-text, #24292F);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  color: var(--leetcode-text, #24292f);
   border-radius: 6px;
   min-width: 32px;
   height: 32px;
@@ -628,38 +603,38 @@ watch(
 }
 
 :deep(.pagination .el-pager li:hover) {
-  border-color: var(--leetcode-primary, #0066FF);
-  color: var(--leetcode-primary, #0066FF);
-  background: #FFFFFF;
+  border-color: var(--leetcode-primary, #0066ff);
+  color: var(--leetcode-primary, #0066ff);
+  background: #ffffff;
 }
 
 :deep(.pagination .el-pager li.is-active) {
-  background: var(--leetcode-primary, #0066FF);
-  border-color: var(--leetcode-primary, #0066FF);
+  background: var(--leetcode-primary, #0066ff);
+  border-color: var(--leetcode-primary, #0066ff);
   color: white;
 }
 
 :deep(.pagination__total) {
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 14px;
   font-weight: 500;
 }
 
 :deep(.pagination__sizes .el-select .el-input__wrapper) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   border-radius: 6px;
 }
 
 :deep(.pagination__jump) {
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-size: 14px;
   font-weight: 500;
 }
 
 :deep(.pagination__jump .el-input__wrapper) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   border-radius: 6px;
 }
 
@@ -678,10 +653,10 @@ watch(
 .detail-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   margin: 0;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
 }
 
 .detail-grid {
@@ -698,40 +673,40 @@ watch(
 
 .detail-label {
   font-size: 12px;
-  color: var(--leetcode-text-secondary, #6B7280);
+  color: var(--leetcode-text-secondary, #6b7280);
   font-weight: 500;
 }
 
 .detail-value {
   font-size: 14px;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   font-weight: 500;
 }
 
 .detail-value.result-0 {
-  color: var(--leetcode-success, #00C853);
+  color: var(--leetcode-success, #00c853);
 }
 
 .detail-value.result-1,
 .detail-value.result-2 {
-  color: var(--leetcode-danger, #EE4D2E);
+  color: var(--leetcode-danger, #ee4d2e);
 }
 
 .detail-value.result-3,
 .detail-value.result-4 {
-  color: var(--leetcode-warning, #FFB300);
+  color: var(--leetcode-warning, #ffb300);
 }
 
 .detail-value.difficulty-easy {
-  color: var(--leetcode-success, #00C853);
+  color: var(--leetcode-success, #00c853);
 }
 
 .detail-value.difficulty-medium {
-  color: var(--leetcode-warning, #FFB300);
+  color: var(--leetcode-warning, #ffb300);
 }
 
 .detail-value.difficulty-hard {
-  color: var(--leetcode-danger, #EE4D2E);
+  color: var(--leetcode-danger, #ee4d2e);
 }
 
 .detail-tags {
@@ -747,19 +722,19 @@ watch(
   font-size: 13px;
   font-weight: 500;
   background: rgba(0, 102, 255, 0.08);
-  color: var(--leetcode-primary, #0066FF);
+  color: var(--leetcode-primary, #0066ff);
   border: 1px solid rgba(0, 102, 255, 0.2);
 }
 
 .code-display {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
   padding: 16px;
   border-radius: 6px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   white-space: pre-wrap;
   word-wrap: break-word;
   margin: 0;
@@ -771,41 +746,43 @@ watch(
   background: rgba(238, 77, 56, 0.05);
   padding: 16px;
   border-radius: 6px;
-  border: 1px solid var(--leetcode-danger, #EE4D2E);
+  border: 1px solid var(--leetcode-danger, #ee4d2e);
   font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--leetcode-danger, #EE4D2E);
+  color: var(--leetcode-danger, #ee4d2e);
   white-space: pre-wrap;
   word-wrap: break-word;
   margin: 0;
 }
 
 :deep(.detail-dialog) {
-  background: var(--leetcode-bg, #FFFFFF);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
+  background: var(--leetcode-bg, #ffffff);
+  border: 1px solid var(--leetcode-border, #e5e7eb);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   border-radius: 12px;
 }
 
 :deep(.detail-dialog .el-dialog__header) {
-  border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
+  border-bottom: 1px solid var(--leetcode-border, #e5e7eb);
   padding: 20px 24px;
 }
 
 :deep(.detail-dialog .el-dialog__title) {
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   font-size: 16px;
   font-weight: 600;
 }
 
 :deep(.detail-dialog .el-dialog__body) {
-  color: var(--leetcode-text, #24292F);
+  color: var(--leetcode-text, #24292f);
   padding: 24px;
+  max-height: min(72vh, 820px);
+  overflow-y: auto;
 }
 
 :deep(.detail-dialog .el-dialog__footer) {
-  border-top: 1px solid var(--leetcode-border, #E5E7EB);
+  border-top: 1px solid var(--leetcode-border, #e5e7eb);
   padding: 16px 24px;
 }
 
@@ -845,7 +822,8 @@ watch(
     align-items: stretch;
   }
 
-  .filter-select {
+  .filter-select,
+  .sort-select {
     width: 100%;
   }
 
@@ -860,10 +838,6 @@ watch(
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
-  }
-
-  .submission-meta {
-    flex-wrap: wrap;
   }
 
   .submission-right {

@@ -1,5 +1,5 @@
 <template>
-  <div class="collections-page">
+  <div v-loading="loading" class="collections-page">
     <section class="summary-grid">
       <article class="summary-card">
         <div class="summary-glow"></div>
@@ -34,7 +34,10 @@
             <div class="section-kicker">Achievements</div>
             <h3>成就与扩展</h3>
           </div>
-          <el-button text @click="goCommunity">进入社区</el-button>
+          <div class="panel-actions">
+            <el-button text @click="refreshCollections">刷新</el-button>
+            <el-button text @click="goCommunity">进入社区</el-button>
+          </div>
         </div>
 
         <div v-if="achievements.length > 0" class="achievement-list">
@@ -48,7 +51,9 @@
             </div>
           </div>
         </div>
-        <el-empty v-else description="暂无成就数据" />
+        <el-empty v-else description="暂无成就数据">
+          <el-button type="primary" @click="goProblems">去题库继续练习</el-button>
+        </el-empty>
       </div>
 
       <div class="panel-card favorites-panel">
@@ -76,7 +81,9 @@
             </el-button>
           </button>
         </div>
-        <el-empty v-else description="暂无收藏题目" />
+        <el-empty v-else description="暂无收藏题目">
+          <el-button type="primary" @click="goProblems">去收藏值得回看的题目</el-button>
+        </el-empty>
       </div>
 
       <div class="panel-card favorites-panel">
@@ -104,7 +111,9 @@
             </el-button>
           </button>
         </div>
-        <el-empty v-else description="暂无收藏帖子" />
+        <el-empty v-else description="暂无收藏帖子">
+          <el-button type="primary" @click="goCommunity">去社区找讨论</el-button>
+        </el-empty>
       </div>
 
       <div class="panel-card posts-panel">
@@ -130,14 +139,16 @@
             <div class="item-meta">{{ formatRelativeTime(post.createTime) }}</div>
           </button>
         </div>
-        <el-empty v-else description="你还没有发布帖子" />
+        <el-empty v-else description="你还没有发布帖子">
+          <el-button type="primary" @click="goCommunity">去发布第一篇经验</el-button>
+        </el-empty>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Trophy } from '@element-plus/icons-vue'
@@ -159,6 +170,8 @@ const favoritePosts = ref([])
 const myPosts = ref([])
 const achievements = ref([])
 const myRank = ref(null)
+const loading = ref(false)
+const loadedUserId = ref(null)
 
 const rankLabel = computed(() => {
   if (!myRank.value) {
@@ -200,6 +213,28 @@ const normalizeAchievement = (item, index) => ({
   description: item.description || item.condition || '继续练习会逐步解锁更多成就'
 })
 
+const normalizeList = (data) => {
+  if (Array.isArray(data)) {
+    return data
+  }
+
+  return data?.list || data?.records || data?.content || data?.items || []
+}
+
+const ensureUserReady = async () => {
+  if (userStore.userInfo?.id || !userStore.token) {
+    return userStore.userInfo?.id || null
+  }
+
+  try {
+    await userStore.fetchUserInfo()
+    return userStore.userInfo?.id || null
+  } catch (error) {
+    console.error('加载当前用户信息失败:', error)
+    return null
+  }
+}
+
 const fetchFavorites = async () => {
   if (!userId.value) {
     return
@@ -210,13 +245,20 @@ const fetchFavorites = async () => {
     getFavorites(userId.value, 'POST')
   ])
 
-  favoriteProblems.value = problemRes?.code === 200 ? problemRes.data || [] : []
-  favoritePosts.value = postRes?.code === 200 ? postRes.data || [] : []
+  favoriteProblems.value = problemRes?.code === 200 ? normalizeList(problemRes.data) : []
+  favoritePosts.value = postRes?.code === 200 ? normalizeList(postRes.data) : []
 }
 
 const fetchMyPosts = async () => {
   const res = await getMyPosts()
-  myPosts.value = res?.code === 200 ? res.data || [] : []
+  myPosts.value = res?.code === 200
+    ? normalizeList(res.data).map((item) => ({
+        ...item,
+        title: item.title || `帖子 ${item.id || ''}`.trim(),
+        summary: item.summary || item.content || '暂无摘要',
+        createTime: item.createTime || item.updateTime || ''
+      }))
+    : []
 }
 
 const fetchAchievements = async () => {
@@ -225,7 +267,7 @@ const fetchAchievements = async () => {
   }
 
   const res = await getUserAchievements(userId.value)
-  achievements.value = res?.code === 200 ? (res.data || []).map(normalizeAchievement) : []
+  achievements.value = res?.code === 200 ? normalizeList(res.data).map(normalizeAchievement) : []
 }
 
 const fetchRank = async () => {
@@ -233,13 +275,35 @@ const fetchRank = async () => {
   myRank.value = res?.code === 200 ? res.data || null : null
 }
 
-const loadData = async () => {
+const loadData = async ({ force = false } = {}) => {
+  const currentUserId = await ensureUserReady()
+
+  if (!currentUserId) {
+    return
+  }
+
+  if (loading.value) {
+    return
+  }
+
+  if (!force && loadedUserId.value === currentUserId) {
+    return
+  }
+
+  loading.value = true
   try {
     await Promise.all([fetchFavorites(), fetchMyPosts(), fetchAchievements(), fetchRank()])
+    loadedUserId.value = currentUserId
   } catch (error) {
     console.error('加载收藏与扩展失败:', error)
     ElMessage.error('加载收藏与扩展失败')
+  } finally {
+    loading.value = false
   }
+}
+
+const refreshCollections = () => {
+  loadData({ force: true })
 }
 
 const removeFavoriteItem = async (targetId, targetType) => {
@@ -278,8 +342,17 @@ const goCommunity = () => {
   router.push('/community')
 }
 
+watch(
+  userId,
+  (value, oldValue) => {
+    if (value && value !== oldValue) {
+      loadData({ force: true })
+    }
+  }
+)
+
 onMounted(() => {
-  loadData()
+  loadData({ force: true })
 })
 </script>
 
@@ -338,6 +411,7 @@ onMounted(() => {
   margin-top: 6px;
   color: var(--text-tertiary);
   font-size: 13px;
+  line-height: 1.7;
 }
 
 .content-grid {
@@ -356,6 +430,12 @@ onMounted(() => {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .panel-header h3 {
@@ -387,7 +467,10 @@ onMounted(() => {
   width: 100%;
   text-align: left;
   cursor: pointer;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .list-item:hover {
@@ -434,12 +517,43 @@ onMounted(() => {
 .item-meta {
   color: var(--text-secondary);
   font-size: 13px;
+  line-height: 1.7;
 }
 
 @media (max-width: 960px) {
   .summary-grid,
   .content-grid {
     grid-template-columns: 1fr;
+  }
+
+  .panel-header,
+  .achievement-item,
+  .list-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .panel-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .item-meta {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .summary-card,
+  .panel-card {
+    border-radius: 16px;
+  }
+
+  .summary-card,
+  .panel-card,
+  .achievement-item,
+  .list-item {
+    padding: 16px;
   }
 }
 </style>

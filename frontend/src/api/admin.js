@@ -119,48 +119,6 @@ export const assignRolePermissions = (data) => {
   })
 }
 
-export const getClassList = () => {
-  return request('/api/admin/class/list')
-}
-
-export const addClass = (data) => {
-  return request('/api/admin/class/add', {
-    method: 'POST',
-    data: data
-  })
-}
-
-export const updateClass = (data) => {
-  return request('/api/admin/class/update', {
-    method: 'POST',
-    data: data
-  })
-}
-
-export const deleteClass = (id) => {
-  return request(`/api/admin/class/delete/${id}`, {
-    method: 'POST'
-  })
-}
-
-export const getClassUsers = (classId) => {
-  return request(`/api/admin/class/${classId}/users`)
-}
-
-export const addUserToClass = (data) => {
-  return request('/api/admin/class/user/add', {
-    method: 'POST',
-    data: data
-  })
-}
-
-export const removeUserFromClass = (data) => {
-  return request('/api/admin/class/user/remove', {
-    method: 'POST',
-    data: data
-  })
-}
-
 export const getKnowledgeList = () => {
   return request('/api/admin/knowledge/list')
 }
@@ -207,28 +165,6 @@ export const deletePath = (id) => {
   return request(`/api/admin/path/delete/${id}`, {
     method: 'POST'
   })
-}
-
-export const getAuditLogs = (params) => {
-  const query = params ? new URLSearchParams(params).toString() : ''
-  return request(`/api/admin/audit/list${query ? '?' + query : ''}`)
-}
-
-export const getSystemStatus = () => {
-  return request('/api/admin/system/status')
-}
-
-export const getSystemMetrics = () => {
-  return request('/api/admin/system/metrics')
-}
-
-export const getSandboxStatus = () => {
-  return request('/api/admin/system/sandbox')
-}
-
-export const getSystemLogs = (params) => {
-  const query = params ? new URLSearchParams(params).toString() : ''
-  return request(`/api/admin/system/logs${query ? '?' + query : ''}`)
 }
 
 export const getDashboard = () => {

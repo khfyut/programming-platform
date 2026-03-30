@@ -12,7 +12,6 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import * as monaco from 'monaco-editor'
 import { useThemeStore } from '@/stores/theme'
 import ContextMenu from './ContextMenu.vue'
 
@@ -37,6 +36,7 @@ const emit = defineEmits(['update:modelValue', 'ai-action'])
 const editorContainer = ref(null)
 const containerRef = ref(null)
 let editor = null
+let monacoModule = null
 const themeStore = useThemeStore()
 
 const contextMenuVisible = ref(false)
@@ -47,9 +47,9 @@ const getTheme = () => {
 }
 
 const updateTheme = () => {
-  if (editor) {
+  if (editor && monacoModule) {
     const newTheme = getTheme()
-    monaco.editor.setTheme(newTheme)
+    monacoModule.editor.setTheme(newTheme)
   }
 }
 
@@ -89,7 +89,18 @@ const handleContextMenuSelect = (item) => {
   }
 }
 
-onMounted(() => {
+const ensureMonaco = async () => {
+  if (monacoModule) {
+    return monacoModule
+  }
+
+  monacoModule = await import('monaco-editor/esm/vs/editor/editor.api')
+  return monacoModule
+}
+
+onMounted(async () => {
+  const monaco = await ensureMonaco()
+
   editor = monaco.editor.create(editorContainer.value, {
     value: props.modelValue || '',
     language: props.language,
@@ -122,8 +133,8 @@ onMounted(() => {
 })
 
 watch(() => props.language, (newLanguage) => {
-  if (editor) {
-    monaco.editor.setModelLanguage(editor.getModel(), newLanguage)
+  if (editor && monacoModule && editor.getModel()) {
+    monacoModule.editor.setModelLanguage(editor.getModel(), newLanguage)
   }
 })
 

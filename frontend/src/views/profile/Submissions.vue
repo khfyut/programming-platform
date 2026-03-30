@@ -69,7 +69,7 @@
       </div>
     </section>
 
-    <el-dialog v-model="detailVisible" title="提交详情" width="760px">
+    <el-dialog v-model="detailVisible" title="提交详情" width="760px" @closed="clearRequestedDetail">
       <div v-loading="detailLoading">
         <template v-if="currentDetail">
           <div class="detail-grid">
@@ -114,10 +114,11 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getMySubmissions, getSubmitDetail } from '@/api/submit'
 
+const route = useRoute()
 const router = useRouter()
 
 const resultFilter = ref(null)
@@ -125,6 +126,7 @@ const submissions = ref([])
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const currentDetail = ref(null)
+const autoOpenedSubmitId = ref(null)
 
 const pagination = reactive({
   page: 1,
@@ -206,6 +208,7 @@ const fetchSubmissions = async () => {
         submitTime: item.submitTime || item.createTime || item.createdAt
       }))
       pagination.total = res.data?.total || 0
+      tryOpenRequestedDetail()
       return
     }
 
@@ -217,6 +220,22 @@ const fetchSubmissions = async () => {
     submissions.value = []
     pagination.total = 0
   }
+}
+
+const tryOpenRequestedDetail = async () => {
+  const requestedId = route.query.submitId
+
+  if (!requestedId) {
+    autoOpenedSubmitId.value = null
+    return
+  }
+
+  if (String(autoOpenedSubmitId.value) === String(requestedId)) {
+    return
+  }
+
+  autoOpenedSubmitId.value = requestedId
+  await viewDetail(requestedId)
 }
 
 const viewDetail = async (submitId) => {
@@ -250,7 +269,19 @@ const goToWrongBook = () => {
   router.push('/wrong-book')
 }
 
+const clearRequestedDetail = () => {
+  if (!route.query.submitId) {
+    return
+  }
+
+  autoOpenedSubmitId.value = null
+  const query = { ...route.query }
+  delete query.submitId
+  router.replace({ query })
+}
+
 watch(() => [pagination.page, pagination.size], fetchSubmissions, { immediate: true })
+watch(() => route.query.submitId, tryOpenRequestedDetail, { immediate: true })
 </script>
 
 <style scoped>

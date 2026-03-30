@@ -11,6 +11,11 @@
         </div>
       </div>
 
+      <div class="sidebar-status">
+        <span class="status-label">当前分区</span>
+        <strong class="status-value">{{ activeMenuItem?.label || '个人中心' }}</strong>
+      </div>
+
       <nav class="sidebar-nav">
         <router-link
           v-for="item in menuItems"
@@ -49,11 +54,11 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import {
-  User,
+  Collection,
   DataLine,
   Document,
-  Collection,
   Setting,
+  User,
   Warning
 } from '@element-plus/icons-vue'
 
@@ -69,6 +74,10 @@ const menuItems = [
   { name: 'ProfileCollections', label: '收藏与扩展', icon: Collection },
   { name: 'ProfileSettings', label: '资料设置', icon: Setting }
 ]
+
+const activeMenuItem = computed(() =>
+  menuItems.find((item) => item.name === currentRoute.value) || menuItems[0]
+)
 </script>
 
 <style scoped>
@@ -140,6 +149,28 @@ const menuItems = [
   gap: 8px;
 }
 
+.sidebar-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.status-label {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.status-value {
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
 .nav-item {
   position: relative;
   display: flex;
@@ -150,7 +181,11 @@ const menuItems = [
   border: 1px solid transparent;
   border-radius: 14px;
   color: var(--text-secondary);
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .nav-item:hover {
@@ -197,7 +232,10 @@ const menuItems = [
   border-radius: 14px;
   color: var(--warning-color);
   background: var(--warning-light);
-  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+  transition:
+    transform var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .footer-shortcut:hover {
@@ -235,22 +273,44 @@ const menuItems = [
 
   .sidebar-nav {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
   }
 
   .nav-item {
-    flex: 1 1 calc(50% - 8px);
+    flex: 0 0 168px;
+  }
+
+  .sidebar-footer {
+    margin-top: 0;
   }
 }
 
 @media (max-width: 640px) {
+  .profile-workspace {
+    gap: 16px;
+  }
+
   .profile-main,
   .profile-sidebar {
     padding: 16px;
   }
 
+  .sidebar-user,
+  .sidebar-status {
+    padding-bottom: 0;
+  }
+
   .nav-item {
-    flex-basis: 100%;
+    flex-basis: auto;
+    min-width: 150px;
+  }
+
+  .footer-shortcut {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

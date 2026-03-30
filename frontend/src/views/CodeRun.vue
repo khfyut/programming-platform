@@ -102,13 +102,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { defineAsyncComponent, ref, onMounted } from 'vue'
 import { runCode as runCodeApi } from '@/api/code'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, CircleCheck, CircleClose } from '@element-plus/icons-vue'
-import MonacoEditor from '@/components/MonacoEditor.vue'
 import AIDialog from '@/components/AIDialog.vue'
+
+const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
 
 const userStore = useUserStore()
 

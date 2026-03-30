@@ -19,12 +19,8 @@ export const useUserStore = defineStore('user', () => {
 
   const login = async (username, password) => {
     const res = await loginApi({ username, password })
-    console.log('登录响应:', res)
-    console.log('res.data:', res.data)
-    console.log('res.data.token:', res.data?.token)
     if (res.code === 200) {
       const tokenValue = res.data?.token || res.data
-      console.log('设置 token:', tokenValue)
       setToken(tokenValue)
       await fetchUserInfo()
       return true

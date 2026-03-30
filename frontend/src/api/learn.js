@@ -10,13 +10,13 @@ export const getRecommendations = () => {
 
 export const getAssessment = (params) => {
   const query = params ? new URLSearchParams(params).toString() : ''
-  return request(`/api/learn/assessment${query ? '?' + query : ''}`)
+  return request(`/api/learn/assessment${query ? `?${query}` : ''}`)
 }
 
 export const commitAssessment = (data) => {
   return request('/api/learn/assessment/commit', {
     method: 'POST',
-    data: data
+    data
   })
 }
 
@@ -50,7 +50,7 @@ export const completeLevel = (levelId) => {
 
 export const getAvailablePaths = (params) => {
   const query = params ? new URLSearchParams(params).toString() : ''
-  return request(`/api/learn/paths${query ? '?' + query : ''}`)
+  return request(`/api/learn/paths${query ? `?${query}` : ''}`)
 }
 
 export const getPathDetail = (pathId) => {
@@ -71,7 +71,7 @@ export const getWeeklyReport = () => {
 
 export const getMonthlyReport = (params) => {
   const query = params ? new URLSearchParams(params).toString() : ''
-  return request(`/api/learn/report/monthly${query ? '?' + query : ''}`)
+  return request(`/api/learn/report/monthly${query ? `?${query}` : ''}`)
 }
 
 export const getWeakKnowledgePoints = () => {
@@ -84,7 +84,7 @@ export const getKnowledgeDistribution = () => {
 
 export const getErrorFrequency = (params) => {
   const query = params ? new URLSearchParams(params).toString() : ''
-  return request(`/api/learn/errors/frequency${query ? '?' + query : ''}`)
+  return request(`/api/learn/errors/frequency${query ? `?${query}` : ''}`)
 }
 
 export const getLevelProblems = (levelId) => {
@@ -119,8 +119,7 @@ export const updateLevelProblems = (levelId, problemIds) => {
 }
 
 export const getLevelResources = (levelId) => {
-  // 添加时间戳参数，避免缓存
-  const timestamp = new Date().getTime()
+  const timestamp = Date.now()
   return request(`/api/learn/level/${levelId}/resources?timestamp=${timestamp}`)
 }
 

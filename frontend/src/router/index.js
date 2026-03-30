@@ -20,7 +20,7 @@ const routes = [
   },
   {
     path: '/path/:id',
-    redirect: to => `/learn/path/${to.params.id}`
+    redirect: (to) => `/learn/path/${to.params.id}`
   },
   {
     path: '/editor',
@@ -43,19 +43,19 @@ const routes = [
       },
       {
         path: 'dashboard/learn/path/:id',
-        redirect: to => `/learn/path/${to.params.id}`
+        redirect: (to) => `/learn/path/${to.params.id}`
       },
       {
         path: 'dashboard/learn/path/:pathId/level/:levelId',
-        redirect: to => `/learn/path/${to.params.pathId}/level/${to.params.levelId}`
+        redirect: (to) => `/learn/path/${to.params.pathId}/level/${to.params.levelId}`
       },
       {
         path: 'dashboard/problem/:id',
-        redirect: to => `/problem/${to.params.id}`
+        redirect: (to) => `/problem/${to.params.id}`
       },
       {
         path: 'learning-path/:id',
-        redirect: to => `/learn/path/${to.params.id}`
+        redirect: (to) => `/learn/path/${to.params.id}`
       },
       {
         path: 'knowledge-graph',
@@ -63,11 +63,11 @@ const routes = [
       },
       {
         path: 'code-run/:id',
-        redirect: to => `/problem/${to.params.id}`
+        redirect: (to) => `/problem/${to.params.id}`
       },
       {
         path: 'submissions/:id',
-        redirect: to => ({
+        redirect: (to) => ({
           path: '/submissions',
           query: { submitId: to.params.id }
         })
@@ -202,19 +202,31 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to) => {
   const userStore = useUserStore()
   const token = userStore.token
 
-  if (to.meta.requiresAuth && !token) {
-    next('/login')
-  } else if (to.meta.requiresAdmin && userStore.userInfo?.role !== 1) {
-    next('/')
-  } else if ((to.path === '/login' || to.path === '/register') && token) {
-    next('/learn')
-  } else {
-    next()
+  if (token && !userStore.userInfo) {
+    try {
+      await userStore.fetchUserInfo()
+    } catch (error) {
+      console.error('Failed to hydrate user info before navigation:', error)
+    }
   }
+
+  if (to.meta.requiresAuth && !token) {
+    return '/login'
+  }
+
+  if (to.meta.requiresAdmin && Number(userStore.userInfo?.role) !== 1) {
+    return '/'
+  }
+
+  if ((to.path === '/login' || to.path === '/register') && token) {
+    return '/learn'
+  }
+
+  return true
 })
 
 export default router

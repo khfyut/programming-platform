@@ -60,10 +60,17 @@
       </div>
     </div>
 
-    <el-dialog v-model="showNodeDialog" title="知识点详情" width="640px">
+    <el-dialog
+      v-model="showNodeDialog"
+      title="知识点详情"
+      width="min(720px, 94vw)"
+      top="8vh"
+      destroy-on-close
+      class="node-dialog"
+    >
       <div v-if="selectedNode" class="node-detail">
         <h3>{{ selectedNode.name }}</h3>
-        <el-descriptions :column="2" border>
+        <el-descriptions :column="detailColumns" border>
           <el-descriptions-item label="描述">
             {{ selectedNode.description || '暂无描述' }}
           </el-descriptions-item>
@@ -95,9 +102,14 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import * as echarts from 'echarts'
+import { init, use } from 'echarts/core'
+import { GraphChart } from 'echarts/charts'
+import { TitleComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
 import { ElMessage } from 'element-plus'
 import { getKnowledgeGraph, getNodeDetail } from '@/api/knowledgeGraph'
+
+use([TitleComponent, TooltipComponent, GraphChart, CanvasRenderer])
 
 const chartContainer = ref(null)
 const chartInstance = ref(null)
@@ -106,8 +118,10 @@ const masteryRange = ref([0, 100])
 const showNodeDialog = ref(false)
 const selectedNode = ref(null)
 const loading = ref(false)
+const viewportWidth = ref(window.innerWidth)
 
 const chartHeight = computed(() => Math.max(window.innerHeight - 260, 420))
+const detailColumns = computed(() => (viewportWidth.value <= 768 ? 1 : 2))
 
 const normalizeGraphData = (data = {}) => ({
   nodes: Array.isArray(data.nodes) ? data.nodes : [],
@@ -140,7 +154,7 @@ const createChart = () => {
   }
 
   if (!chartInstance.value) {
-    chartInstance.value = echarts.init(chartContainer.value)
+    chartInstance.value = init(chartContainer.value)
   }
 
   return chartInstance.value
@@ -266,6 +280,11 @@ const refreshGraph = () => {
 }
 
 const handleResize = () => {
+  viewportWidth.value = window.innerWidth
+  if (chartContainer.value) {
+    chartContainer.value.style.height = `${Math.max(window.innerHeight - 260, 420)}px`
+  }
+
   if (chartInstance.value) {
     chartInstance.value.resize()
   }
@@ -371,6 +390,11 @@ onUnmounted(() => {
 
 .node-detail h3 {
   margin: 0 0 16px;
+}
+
+:deep(.node-dialog .el-dialog__body) {
+  max-height: min(70vh, 720px);
+  overflow-y: auto;
 }
 
 @media (max-width: 768px) {

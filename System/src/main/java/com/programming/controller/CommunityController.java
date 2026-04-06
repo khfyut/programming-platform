@@ -1,7 +1,8 @@
 package com.programming.controller;
 
-import com.programming.entity.CommunityPost;
 import com.programming.entity.CommunityComment;
+import com.programming.entity.CommunityPost;
+import com.programming.exception.BusinessException;
 import com.programming.service.CommunityService;
 import com.programming.util.ResultUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +19,6 @@ public class CommunityController {
     @Autowired
     private CommunityService communityService;
 
-    // 帖子相关
     @GetMapping("/posts")
     public ResultUtil<List<CommunityPost>> getPosts(
             @RequestParam(required = false) String type,
@@ -46,7 +46,7 @@ public class CommunityController {
     }
 
     @PostMapping("/post")
-    public ResultUtil createPost(HttpServletRequest request, @RequestBody CommunityPost post) {
+    public ResultUtil<?> createPost(HttpServletRequest request, @RequestBody CommunityPost post) {
         try {
             Long userId = (Long) request.getAttribute("userId");
             post.setUserId(userId);
@@ -58,28 +58,34 @@ public class CommunityController {
     }
 
     @PutMapping("/post/{postId}")
-    public ResultUtil updatePost(@PathVariable Long postId, @RequestBody CommunityPost post) {
+    public ResultUtil<?> updatePost(HttpServletRequest request, @PathVariable Long postId, @RequestBody CommunityPost post) {
         try {
+            Long userId = (Long) request.getAttribute("userId");
             post.setId(postId);
-            communityService.updatePost(post);
+            communityService.updatePost(post, userId);
             return ResultUtil.success("帖子更新成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
     @DeleteMapping("/post/{postId}")
-    public ResultUtil deletePost(@PathVariable Long postId) {
+    public ResultUtil<?> deletePost(HttpServletRequest request, @PathVariable Long postId) {
         try {
-            communityService.deletePost(postId);
+            Long userId = (Long) request.getAttribute("userId");
+            communityService.deletePost(postId, userId);
             return ResultUtil.success("帖子删除成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
     @PostMapping("/post/{postId}/like")
-    public ResultUtil likePost(@PathVariable Long postId) {
+    public ResultUtil<?> likePost(@PathVariable Long postId) {
         try {
             communityService.likePost(postId);
             return ResultUtil.success("点赞成功");
@@ -88,7 +94,6 @@ public class CommunityController {
         }
     }
 
-    // 评论相关
     @GetMapping("/post/{postId}/comments")
     public ResultUtil<List<CommunityComment>> getCommentsByPostId(@PathVariable Long postId) {
         try {
@@ -100,7 +105,7 @@ public class CommunityController {
     }
 
     @PostMapping("/post/{postId}/comment")
-    public ResultUtil createComment(HttpServletRequest request, @PathVariable Long postId, @RequestBody CommunityComment comment) {
+    public ResultUtil<?> createComment(HttpServletRequest request, @PathVariable Long postId, @RequestBody CommunityComment comment) {
         try {
             Long userId = (Long) request.getAttribute("userId");
             comment.setPostId(postId);
@@ -113,28 +118,34 @@ public class CommunityController {
     }
 
     @PutMapping("/comment/{commentId}")
-    public ResultUtil updateComment(@PathVariable Long commentId, @RequestBody CommunityComment comment) {
+    public ResultUtil<?> updateComment(HttpServletRequest request, @PathVariable Long commentId, @RequestBody CommunityComment comment) {
         try {
+            Long userId = (Long) request.getAttribute("userId");
             comment.setId(commentId);
-            communityService.updateComment(comment);
+            communityService.updateComment(comment, userId);
             return ResultUtil.success("评论更新成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
     @DeleteMapping("/comment/{commentId}")
-    public ResultUtil deleteComment(@PathVariable Long commentId) {
+    public ResultUtil<?> deleteComment(HttpServletRequest request, @PathVariable Long commentId) {
         try {
-            communityService.deleteComment(commentId);
+            Long userId = (Long) request.getAttribute("userId");
+            communityService.deleteComment(commentId, userId);
             return ResultUtil.success("评论删除成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
     @PostMapping("/comment/{commentId}/like")
-    public ResultUtil likeComment(@PathVariable Long commentId) {
+    public ResultUtil<?> likeComment(@PathVariable Long commentId) {
         try {
             communityService.likeComment(commentId);
             return ResultUtil.success("点赞成功");
@@ -143,34 +154,34 @@ public class CommunityController {
         }
     }
 
-    // 用户相关
-    @GetMapping("/user/posts")
+    @GetMapping({"/user/posts", "/my/posts"})
     public ResultUtil<List<CommunityPost>> getUserPosts(HttpServletRequest request,
-                                                      @RequestParam(defaultValue = "0") int page,
-                                                      @RequestParam(defaultValue = "10") int size) {
+                                                        @RequestParam(required = false) Long userId,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        @RequestParam(defaultValue = "10") int size) {
         try {
-            Long userId = (Long) request.getAttribute("userId");
-            List<CommunityPost> posts = communityService.getUserPosts(userId, page, size);
+            Long targetUserId = userId != null ? userId : (Long) request.getAttribute("userId");
+            List<CommunityPost> posts = communityService.getUserPosts(targetUserId, page, size);
             return ResultUtil.success(posts);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
-    @GetMapping("/user/comments")
+    @GetMapping({"/user/comments", "/my/comments"})
     public ResultUtil<List<CommunityComment>> getUserComments(HttpServletRequest request,
-                                                            @RequestParam(defaultValue = "0") int page,
-                                                            @RequestParam(defaultValue = "10") int size) {
+                                                              @RequestParam(required = false) Long userId,
+                                                              @RequestParam(defaultValue = "0") int page,
+                                                              @RequestParam(defaultValue = "10") int size) {
         try {
-            Long userId = (Long) request.getAttribute("userId");
-            List<CommunityComment> comments = communityService.getUserComments(userId, page, size);
+            Long targetUserId = userId != null ? userId : (Long) request.getAttribute("userId");
+            List<CommunityComment> comments = communityService.getUserComments(targetUserId, page, size);
             return ResultUtil.success(comments);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
-    // 统计相关
     @GetMapping("/statistics")
     public ResultUtil<Map<String, Object>> getCommunityStatistics() {
         try {
@@ -181,7 +192,6 @@ public class CommunityController {
         }
     }
 
-    // 热点话题
     @GetMapping("/hot-topics")
     public ResultUtil<List<Map<String, Object>>> getHotTopics(@RequestParam(defaultValue = "10") int limit) {
         try {

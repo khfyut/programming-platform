@@ -1,64 +1,43 @@
-# 编程学习平台
+# 个性化在线编程与学习平台
 
-本项目是一个前后端分离的在线编程学习平台，包含题库、提交与评测、学习路径、知识图谱、社区、个人中心、管理后台等模块。
+这是一个前后端分离的在线编程学习平台项目，当前仓库已经整理为“正式代码 + 数据补丁 + 测试资产 + 文档资产”四个主块，适合继续开发、联调和毕业设计交付。
 
-## 项目结构
+## 核心目录
 
-- `System`：Spring Boot 后端
-- `frontend`：Vue 3 + Vite 前端
+- `frontend/`
+  - Vue 3 + Vite 前端
+- `System/`
+  - Spring Boot + MyBatis 后端
+- `db/`
+  - 数据库补丁、种子数据、历史 SQL 归档
+- `scripts/`
+  - 可复用脚本
+- `tests/`
+  - 手工联调脚本与后续测试入口
+- `loadtest/`
+  - JMeter 压测配置与结果摘要
+- `docs/`
+  - 设计、报告、测试截图、论文材料、历史归档
 
-## 运行端口
+## 推荐阅读顺序
 
-- 前端开发端口：`3000`
-- 后端服务端口：`8080`
+1. [docs/README.md](/D:/Desktop/毕业设计/Code/docs/README.md)
+2. [System/README.md](/D:/Desktop/毕业设计/Code/System/README.md)
+3. [frontend/README.md](/D:/Desktop/毕业设计/Code/frontend/README.md)
 
-## 本地启动（宿主机）
+## 当前保留的正式数据库补丁
 
-### 1. 后端
+- [20260327_learning_experience_patch.sql](/D:/Desktop/毕业设计/Code/db/seed/20260327_learning_experience_patch.sql)
+- [20260327_problem_detail_and_solution_patch.sql](/D:/Desktop/毕业设计/Code/db/seed/20260327_problem_detail_and_solution_patch.sql)
+- [20260327_user_knowledge_mastery_backfill.sql](/D:/Desktop/毕业设计/Code/db/seed/20260327_user_knowledge_mastery_backfill.sql)
 
-进入 `System` 后启动 Spring Boot。后端配置使用环境变量，建议先复制一份环境变量模板：
+## 仓库约定
 
-```bash
-cp .env.example .env
-```
-
-然后根据你的环境设置变量（数据库、Redis、Docker Host、AI Key）。
-
-### 2. 前端
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-访问：`http://localhost:3000`
-
-## 前端可用脚本
-
-在 `frontend` 目录：
-
-```bash
-npm run dev
-npm run build
-npm run preview
-npm run lint
-```
-
-## 关键配置项
-
-后端配置文件：`System/src/main/resources/application.yml`
-
-关键环境变量：
-
-- `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD`
-- `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DATABASE`
-- `PROGRAMMING_JWT_SECRET` / `PROGRAMMING_JWT_EXPIRE`
-- `PROGRAMMING_DOCKER_HOST` / `PROGRAMMING_DOCKER_TIMEOUT` / `PROGRAMMING_DOCKER_MEMORY`
-- `PROGRAMMING_AI_API_KEY` / `PROGRAMMING_AI_API_URL` / `PROGRAMMING_AI_PROMPT`
-- `SERVER_PORT`
+- 正式代码只放在 `frontend/` 和 `System/`
+- 正式数据补丁只放在 `db/`
+- 临时或过程材料不要再直接放仓库根目录
+- 测试截图和压测摘要统一归档到 `docs/` 与 `loadtest/`
 
 ## 说明
 
-- 项目根目录的 `.env.example` 仅用于示例，不会自动生效。
-- 建议在运行环境中显式注入环境变量，避免将真实密钥写入仓库。
+仓库中仍可能存在少量历史文件需要后续继续收敛，但根目录已经只保留项目入口级内容，适合继续作为主开发目录使用。

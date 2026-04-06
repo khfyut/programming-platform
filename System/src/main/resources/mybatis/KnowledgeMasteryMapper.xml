@@ -6,15 +6,52 @@
 <mapper namespace="com.programming.mapper.KnowledgeMasteryMapper">
     <!-- 知识点相关 -->
     <select id="selectAllKnowledgePoints" resultType="com.programming.entity.KnowledgePoint">
-        SELECT * FROM knowledge_point ORDER BY level ASC, id ASC
+        SELECT
+            id,
+            name,
+            parent_id,
+            level,
+            description,
+            difficulty,
+            category AS domain,
+            1 AS importance,
+            create_time,
+            update_time
+        FROM knowledge_point
+        ORDER BY level ASC, id ASC
     </select>
 
     <select id="selectKnowledgePointById" resultType="com.programming.entity.KnowledgePoint">
-        SELECT * FROM knowledge_point WHERE id = #{id}
+        SELECT
+            id,
+            name,
+            parent_id,
+            level,
+            description,
+            difficulty,
+            category AS domain,
+            1 AS importance,
+            create_time,
+            update_time
+        FROM knowledge_point
+        WHERE id = #{id}
     </select>
 
     <select id="selectKnowledgePointsByParentId" resultType="com.programming.entity.KnowledgePoint">
-        SELECT * FROM knowledge_point WHERE parent_id = #{parentId} ORDER BY id ASC
+        SELECT
+            id,
+            name,
+            parent_id,
+            level,
+            description,
+            difficulty,
+            category AS domain,
+            1 AS importance,
+            create_time,
+            update_time
+        FROM knowledge_point
+        WHERE parent_id = #{parentId}
+        ORDER BY id ASC
     </select>
 
     <insert id="insertKnowledgePoint" parameterType="com.programming.entity.KnowledgePoint">

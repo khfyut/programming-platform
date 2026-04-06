@@ -18,6 +18,7 @@ public interface UserMapper {
     void updateStatus(@Param("id") Long id, @Param("status") Integer status);
     void updateRole(@Param("id") Long id, @Param("roleId") Long roleId);
     void updateAbilityProfile(@Param("id") Long id, @Param("abilityProfile") String abilityProfile);
-    void updateProfile(@Param("id") Long id, @Param("bio") String bio, @Param("avatarUrl") String avatarUrl, @Param("githubUrl") String githubUrl, @Param("blogUrl") String blogUrl);
+    void updateProfile(@Param("id") Long id, @Param("username") String username, @Param("bio") String bio, @Param("avatarUrl") String avatarUrl, @Param("githubUrl") String githubUrl, @Param("blogUrl") String blogUrl);
+    void updatePassword(@Param("id") Long id, @Param("password") String password);
     void updateStudyStats(@Param("id") Long id, @Param("totalSolved") Integer totalSolved, @Param("totalSubmissions") Integer totalSubmissions, @Param("studyHours") Integer studyHours, @Param("ranking") Integer ranking);
 }

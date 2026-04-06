@@ -8,10 +8,10 @@ public interface WrongBookService {
     // 错题本管理
     WrongBook getUserWrongBook(Long userId);
     List<WrongBookItem> getWrongBookItems(Long userId, String knowledgePoint, Integer difficulty);
-    WrongBookItem getWrongBookItemById(Long id);
+    WrongBookItem getWrongBookItemById(Long userId, Long id);
     void addWrongBookItem(Long userId, Long problemId, Long submitId, String code, String language, String errorMessage, String knowledgePoints);
-    void updateWrongBookItemStatus(Long id, Integer status);
-    void removeWrongBookItem(Long id);
+    void updateWrongBookItemStatus(Long userId, Long id, Integer status);
+    void removeWrongBookItem(Long userId, Long id);
     
     // 复习计划
     List<ReviewPlan> getReviewPlans(Long userId);

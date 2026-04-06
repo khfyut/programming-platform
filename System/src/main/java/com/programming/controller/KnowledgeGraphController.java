@@ -30,7 +30,7 @@ public class KnowledgeGraphController {
             @RequestParam(required = false) Integer maxMastery,
             @RequestAttribute Long userId) {
 
-        Map<String, Object> graphData = knowledgeMasteryService.getKnowledgeGraph();
+        Map<String, Object> graphData = knowledgeMasteryService.getKnowledgeGraph(userId, domain, minMastery, maxMastery);
         return ResultUtil.success(graphData);
     }
 
@@ -42,7 +42,7 @@ public class KnowledgeGraphController {
             @PathVariable Long nodeId,
             @RequestAttribute Long userId) {
 
-        Object nodeDetail = knowledgeMasteryService.getKnowledgePointById(nodeId);
+        Object nodeDetail = knowledgeMasteryService.getKnowledgePointDetail(userId, nodeId);
         return ResultUtil.success(nodeDetail);
     }
 

@@ -78,11 +78,19 @@
 
     <update id="updateProfile">
         UPDATE user 
-        SET bio = #{bio}, 
+        SET username = #{username},
+            bio = #{bio}, 
             avatar_url = #{avatarUrl}, 
             github_url = #{githubUrl}, 
             blog_url = #{blogUrl}, 
             update_time = NOW() 
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePassword">
+        UPDATE user
+        SET password = #{password},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 

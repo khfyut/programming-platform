@@ -10,7 +10,8 @@ const CHROME_PATHS = [
 const BASE_URL = 'http://127.0.0.1:3000'
 const DEBUG_PORT = 9222
 const OUTPUT_DIR = path.join(__dirname, '..', 'test_screenshots', 'browser_repro')
-const USER_DATA_DIR = path.join(OUTPUT_DIR, 'chrome-profile')
+const RUN_ID = `${Date.now()}-${process.pid}`
+const USER_DATA_DIR = path.join(OUTPUT_DIR, 'chrome-profile', RUN_ID)
 const REPORT_PATH = path.join(OUTPUT_DIR, 'report.json')
 
 const ADMIN_USERNAME = 'admin'
@@ -129,9 +130,6 @@ if (!chromePath) {
 }
 
 const launchChrome = () => {
-  if (fs.existsSync(USER_DATA_DIR)) {
-    fs.rmSync(USER_DATA_DIR, { recursive: true, force: true })
-  }
   ensureDir(USER_DATA_DIR)
 
   return spawn(
@@ -273,7 +271,7 @@ async function main() {
 
     const visibleDialogCount = () =>
       evaluate(`
-        Array.from(document.querySelectorAll('.el-dialog'))
+        Array.from(document.querySelectorAll('.el-dialog, .el-message-box'))
           .filter((el) => el.offsetParent !== null)
           .length
       `)
@@ -487,13 +485,32 @@ async function main() {
     })
 
     await runStep('wrong-book', 'review action does not accidentally open detail', async () => {
-      const beforeDialogs = await visibleDialogCount()
-      await clickSelector('.wrong-right .el-button:not(.is-disabled)', 0)
-      const afterDialogs = await visibleDialogCount()
-      if (afterDialogs > beforeDialogs) {
+      const reviewButtonCount = await evaluate(`
+        Array.from(document.querySelectorAll('.wrong-right .el-button--primary:not(.is-disabled)'))
+          .filter((el) => el.offsetParent !== null)
+          .length
+      `)
+      if (reviewButtonCount === 0) {
+        return { skipped: true, reason: 'No pending review button available' }
+      }
+
+      const beforeDetailDialogs = await evaluate(`
+        Array.from(document.querySelectorAll('.detail-dialog .el-dialog'))
+          .filter((el) => el.offsetParent !== null)
+          .length
+      `)
+      await clickSelector('.wrong-right .el-button--primary:not(.is-disabled)', 0)
+      await sleep(600)
+      const afterDetailDialogs = await evaluate(`
+        Array.from(document.querySelectorAll('.detail-dialog .el-dialog'))
+          .filter((el) => el.offsetParent !== null)
+          .length
+      `)
+      if (afterDetailDialogs > beforeDetailDialogs) {
         throw new Error('Inner review button opened detail dialog instead of handling review')
       }
-      return { beforeDialogs, afterDialogs }
+
+      return { beforeDetailDialogs, afterDetailDialogs }
     })
 
     await runStep('wrong-book', 'wrong item opens detail dialog', async () => {
@@ -551,6 +568,67 @@ async function main() {
         throw new Error('Quick prompt button did not fill the message textarea')
       }
       return { before, after }
+    })
+
+    await runStep('ai', 'session delete button opens confirm without switching session', async () => {
+      const sessionCount = await evaluate(`
+        Array.from(document.querySelectorAll('.session-item'))
+          .filter((el) => el.offsetParent !== null)
+          .length
+      `)
+      if (sessionCount === 0) {
+        return { skipped: true, reason: 'No saved sessions available' }
+      }
+
+      const beforeSelected = await evaluate(`
+        (() => {
+          const active = document.querySelector('.session-item.active')
+          return active ? (active.innerText || active.textContent || '').replace(/\\s+/g, ' ').trim() : ''
+        })()
+      `)
+      const beforeDialogs = await visibleDialogCount()
+      await clickSelector('.session-item .el-button', 0)
+      const afterDialogs = await visibleDialogCount()
+      if (afterDialogs <= beforeDialogs) {
+        throw new Error('Session delete button did not open confirmation dialog')
+      }
+
+      const afterSelected = await evaluate(`
+        (() => {
+          const active = document.querySelector('.session-item.active')
+          return active ? (active.innerText || active.textContent || '').replace(/\\s+/g, ' ').trim() : ''
+        })()
+      `)
+      if (normalizeText(beforeSelected) !== normalizeText(afterSelected)) {
+        throw new Error('Clicking delete changed the selected session unexpectedly')
+      }
+
+      await clickSelector('.el-message-box__btns .el-button', 0)
+      return { beforeSelected, afterSelected, beforeDialogs, afterDialogs }
+    })
+
+    await navigate(`${BASE_URL}/problem/1`)
+    await screenshot('08b-problem-detail-menu')
+
+    await runStep('problem-detail', 'user menu opens language dialog', async () => {
+      const beforeDialogs = await visibleDialogCount()
+      await clickSelector('.user-info')
+      await sleep(400)
+      await clickText('设置语言')
+      const afterDialogs = await visibleDialogCount()
+      if (afterDialogs <= beforeDialogs) {
+        throw new Error('Language menu item did not open a dialog')
+      }
+      await clickSelector('.el-dialog__footer .el-button', 0)
+      return { beforeDialogs, afterDialogs }
+    })
+
+    await runStep('problem-detail', 'user menu profile item navigates', async () => {
+      await clickSelector('.user-info')
+      await sleep(400)
+      await clickText('个人主页')
+      await waitFor('location.pathname === "/profile"', 5000)
+      return { path: await locationPath() }
     })
 
     await navigate(`${BASE_URL}/profile`)

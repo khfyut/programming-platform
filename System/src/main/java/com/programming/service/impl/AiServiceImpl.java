@@ -138,6 +138,9 @@ public class AiServiceImpl implements AiService {
             AiSession existingSession = null;
             if (sessionId != null && !sessionId.isEmpty()) {
                 existingSession = aiSessionMapper.selectSessionBySessionId(sessionId);
+                if (existingSession != null && (existingSession.getUserId() == null || !existingSession.getUserId().equals(userId))) {
+                    throw new RuntimeException("Session not found");
+                }
             }
             
             if (existingSession == null) {
@@ -209,8 +212,9 @@ public class AiServiceImpl implements AiService {
     }
 
     @Override
-    public List<AiMessage> getChatHistory(String sessionId) {
-        return aiSessionMapper.selectMessagesBySessionId(sessionId);
+    public List<AiMessage> getChatHistory(Long userId, String sessionId) {
+        AiSession session = requireOwnedSessionBySessionId(userId, sessionId);
+        return aiSessionMapper.selectMessagesBySessionId(session.getSessionId());
     }
 
     @Override
@@ -263,7 +267,9 @@ public class AiServiceImpl implements AiService {
     }
 
     @Override
-    public void deleteSession(Long id) {
+    public void deleteSession(Long userId, Long id) {
+        AiSession session = requireOwnedSessionById(userId, id);
+        aiSessionMapper.deleteMessagesBySessionId(session.getSessionId());
         aiSessionMapper.deleteSession(id);
     }
 
@@ -401,6 +407,22 @@ public class AiServiceImpl implements AiService {
             log.error("调用AI API异常", e);
             throw new RuntimeException("调用AI API异常: " + e.getMessage());
         }
+    }
+
+    private AiSession requireOwnedSessionById(Long userId, Long id) {
+        AiSession session = aiSessionMapper.selectSessionById(id);
+        if (session == null || session.getUserId() == null || !session.getUserId().equals(userId)) {
+            throw new RuntimeException("Session not found");
+        }
+        return session;
+    }
+
+    private AiSession requireOwnedSessionBySessionId(Long userId, String sessionId) {
+        AiSession session = aiSessionMapper.selectSessionBySessionId(sessionId);
+        if (session == null || session.getUserId() == null || !session.getUserId().equals(userId)) {
+            throw new RuntimeException("Session not found");
+        }
+        return session;
     }
 
     @Autowired

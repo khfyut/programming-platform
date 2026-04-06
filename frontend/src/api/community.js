@@ -71,7 +71,7 @@ export const getUserPosts = (params) => {
 }
 
 export const getMyPosts = () => {
-  return request('/api/community/my/posts')
+  return request('/api/community/user/posts')
 }
 
 export const getUserComments = (params) => {

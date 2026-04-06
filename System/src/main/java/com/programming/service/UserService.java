@@ -1,6 +1,7 @@
 package com.programming.service;
 
 import com.programming.entity.User;
+import com.programming.vo.ChangePasswordVO;
 import com.programming.vo.LoginVO;
 import com.programming.vo.RegisterVO;
 
@@ -11,4 +12,5 @@ public interface UserService {
     void register(RegisterVO registerVO);
     User getUserInfo(Long userId);
     void updateLanguage(Long userId, String language);
+    void changePassword(Long userId, ChangePasswordVO changePasswordVO);
 }

@@ -21,7 +21,7 @@ public interface ProblemMapper {
     int deleteById(@Param("id") Long id);
     List<Problem> findByTags(@Param("tag") String tag);
     List<Problem> findByDifficulty(@Param("difficulty") Integer difficulty);
-    List<Problem> findByKnowledgePoint(@Param("knowledgePointId") Long knowledgePointId, @Param("limit") int limit);
+    List<Problem> findByKnowledgePoint(@Param("knowledgePoint") String knowledgePoint, @Param("limit") int limit);
     List<Problem> selectAll();
     List<Map<String, Object>> getLanguageStats();
 }

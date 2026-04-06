@@ -1,20 +1,34 @@
 package com.programming.service.impl;
 
-import com.programming.entity.*;
-import com.programming.mapper.*;
+import com.programming.entity.AssessmentQuestion;
+import com.programming.entity.KnowledgePoint;
+import com.programming.entity.LearnRecord;
+import com.programming.entity.LearningPath;
+import com.programming.entity.PathChapter;
+import com.programming.entity.PathLevel;
+import com.programming.entity.Problem;
+import com.programming.entity.Submit;
+import com.programming.entity.UserKnowledgeMastery;
+import com.programming.entity.UserPathProgress;
+import com.programming.mapper.KnowledgeMasteryMapper;
+import com.programming.mapper.LearnRecordMapper;
+import com.programming.mapper.LearningPathMapper;
+import com.programming.mapper.ProblemMapper;
+import com.programming.mapper.SubmitMapper;
+import com.programming.service.KnowledgeMasteryService;
 import com.programming.service.LearnService;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-@Slf4j
 @Service
 public class LearnServiceImpl implements LearnService {
 
@@ -34,48 +48,50 @@ public class LearnServiceImpl implements LearnService {
     private KnowledgeMasteryMapper knowledgeMasteryMapper;
 
     @Autowired
-    private UserMapper userMapper;
+    private KnowledgeMasteryService knowledgeMasteryService;
 
     @Override
     public Map<String, Object> getStatistics(Long userId) {
         LearnRecord record = learnRecordMapper.findByUserId(userId);
-        
+
         int solved = 0;
         int submitted = 0;
         int accuracy = 0;
         int streak = 0;
-        
+
         Map<String, Object> difficultyStats = new HashMap<>();
         difficultyStats.put("easy", 0);
         difficultyStats.put("medium", 0);
         difficultyStats.put("hard", 0);
-        
+
         if (record != null) {
             solved = record.getCorrectCount() != null ? record.getCorrectCount() : 0;
             submitted = record.getProblemCount() != null ? record.getProblemCount() : 0;
         }
-        
+
         if (submitted > 0 && solved > 0) {
             accuracy = (int) Math.round((double) solved / submitted * 100);
         }
-        
+
         int totalCount = submitMapper.countByUserId(userId, null);
         List<Submit> allSubmits = submitMapper.findByUserId(userId, null, 0, totalCount > 0 ? totalCount : 1);
-        
+
         for (Submit submit : allSubmits) {
-            if (submit.getProblemId() != null) {
-                Problem problem = problemMapper.findById(submit.getProblemId());
-                if (problem != null && submit.getResult() != null && submit.getResult() == 0) {
-                    if (problem.getDifficulty() != null) {
-                        if (problem.getDifficulty() == 0) {
-                            difficultyStats.put("easy", (int) difficultyStats.get("easy") + 1);
-                        } else if (problem.getDifficulty() == 1) {
-                            difficultyStats.put("medium", (int) difficultyStats.get("medium") + 1);
-                        } else if (problem.getDifficulty() == 2) {
-                            difficultyStats.put("hard", (int) difficultyStats.get("hard") + 1);
-                        }
-                    }
-                }
+            if (submit.getProblemId() == null) {
+                continue;
+            }
+
+            Problem problem = problemMapper.findById(submit.getProblemId());
+            if (problem == null || submit.getResult() == null || submit.getResult() != 0 || problem.getDifficulty() == null) {
+                continue;
+            }
+
+            if (problem.getDifficulty() == 0) {
+                difficultyStats.put("easy", (int) difficultyStats.get("easy") + 1);
+            } else if (problem.getDifficulty() == 1) {
+                difficultyStats.put("medium", (int) difficultyStats.get("medium") + 1);
+            } else if (problem.getDifficulty() == 2) {
+                difficultyStats.put("hard", (int) difficultyStats.get("hard") + 1);
             }
         }
 
@@ -88,176 +104,184 @@ public class LearnServiceImpl implements LearnService {
         Map<String, Object> result = new HashMap<>();
         result.put("stats", stats);
         result.put("difficultyStats", difficultyStats);
-
         return result;
     }
 
     @Override
     public Map<String, Object> getRecommend(Long userId) {
         Map<String, Object> result = new HashMap<>();
-        
-        // 1. 获取用户学习记录
-        LearnRecord record = learnRecordMapper.findByUserId(userId);
-        
-        // 2. 分析用户薄弱环节
         List<KnowledgePoint> weakPoints = getWeakKnowledgePoints(userId);
-        
-        // 3. 基于用户历史推荐题目
-        List<Problem> recommendedProblems = new ArrayList<>();
-        
-        // 4. 基于用户能力水平推荐学习模块
-        List<Map<String, Object>> recommendedModules = new ArrayList<>();
-        
-        // 5. 分析用户提交历史
-        List<Submit> submits = submitMapper.findByUserId(userId, null, 0, 20);
-        
-        // 6. 确定用户偏好的编程语言
-        String preferredLanguage = null;
-        if (!submits.isEmpty()) {
-            // 统计用户使用最多的语言
-            Map<String, Integer> languageCount = new HashMap<>();
-            for (Submit submit : submits) {
-                if (submit.getLanguage() != null) {
-                    languageCount.put(submit.getLanguage(), languageCount.getOrDefault(submit.getLanguage(), 0) + 1);
+        List<Submit> recentSubmits = submitMapper.findByUserId(userId, null, 0, 20);
+        String preferredLanguage = detectPreferredLanguage(recentSubmits);
+        Set<Long> passedProblemIds = new LinkedHashSet<>(submitMapper.findPassedProblemIdsByUserId(userId));
+
+        LinkedHashMap<Long, Problem> recommendedProblemMap = new LinkedHashMap<>();
+        for (KnowledgePoint point : weakPoints) {
+            if (point == null || point.getName() == null || point.getName().isBlank()) {
+                continue;
+            }
+
+            List<Problem> problems = problemMapper.findByKnowledgePoint(point.getName(), 5);
+            for (Problem problem : problems) {
+                if (problem == null
+                        || problem.getId() == null
+                        || passedProblemIds.contains(problem.getId())
+                        || !matchesPreferredLanguage(problem, preferredLanguage)) {
+                    continue;
                 }
-            }
-            
-            // 找出使用最多的语言
-            int maxCount = 0;
-            for (Map.Entry<String, Integer> entry : languageCount.entrySet()) {
-                if (entry.getValue() > maxCount) {
-                    maxCount = entry.getValue();
-                    preferredLanguage = entry.getKey();
-                }
-            }
-        }
-        
-        // 7. 推荐题目
-        if (weakPoints.isEmpty()) {
-            // 如果没有薄弱环节，推荐基础题目
-            if (preferredLanguage != null) {
-                recommendedProblems = problemMapper.findByPage(0, 5, 0, preferredLanguage, null);
-            } else {
-                recommendedProblems = problemMapper.findByPage(0, 5, 0, null, null);
-            }
-        } else {
-            // 根据薄弱知识点推荐相关题目
-            for (KnowledgePoint point : weakPoints) {
-                List<Problem> problems = problemMapper.findByKnowledgePoint(point.getId(), 3);
-                recommendedProblems.addAll(problems);
-                if (recommendedProblems.size() >= 5) {
+                recommendedProblemMap.putIfAbsent(problem.getId(), problem);
+                if (recommendedProblemMap.size() >= 5) {
                     break;
                 }
             }
-            
-            // 如果推荐题目不足，补充基础题目
-            if (recommendedProblems.size() < 5) {
-                int remaining = 5 - recommendedProblems.size();
-                if (preferredLanguage != null) {
-                    List<Problem> additionalProblems = problemMapper.findByPage(0, remaining, 0, preferredLanguage, null);
-                    recommendedProblems.addAll(additionalProblems);
-                } else {
-                    List<Problem> additionalProblems = problemMapper.findByPage(0, remaining, 0, null, null);
-                    recommendedProblems.addAll(additionalProblems);
-                }
+
+            if (recommendedProblemMap.size() >= 5) {
+                break;
             }
         }
-        
-        // 8. 推荐学习模块
+
+        fillRecommendedProblems(recommendedProblemMap, preferredLanguage, 0, passedProblemIds);
+        fillRecommendedProblems(recommendedProblemMap, preferredLanguage, null, passedProblemIds);
+        List<Problem> recommendedProblems = new ArrayList<>(recommendedProblemMap.values());
+
+        List<Map<String, Object>> recommendedModules = new ArrayList<>();
         List<LearningPath> paths = learningPathMapper.selectAllPaths();
         for (LearningPath path : paths) {
-            if (preferredLanguage != null && path.getLanguage() != null && 
-                path.getLanguage().toLowerCase().contains(preferredLanguage.toLowerCase())) {
-                Map<String, Object> module = new HashMap<>();
-                module.put("pathId", path.getId());
-                module.put("pathName", path.getName());
-                module.put("description", path.getDescription());
-                module.put("language", path.getLanguage());
-                module.put("direction", path.getDirection());
-                recommendedModules.add(module);
+            if (path == null || path.getId() == null) {
+                continue;
+            }
+
+            boolean languageMatched = preferredLanguage == null
+                    || (path.getLanguage() != null
+                    && path.getLanguage().toLowerCase().contains(preferredLanguage.toLowerCase()));
+            if (!languageMatched) {
+                continue;
+            }
+
+            recommendedModules.add(buildModule(path));
+            if (recommendedModules.size() >= 3) {
+                break;
+            }
+        }
+
+        if (recommendedModules.size() < 3) {
+            for (LearningPath path : paths) {
+                if (path == null || path.getId() == null) {
+                    continue;
+                }
+
+                boolean alreadyAdded = false;
+                for (Map<String, Object> module : recommendedModules) {
+                    if (path.getId().equals(module.get("pathId"))) {
+                        alreadyAdded = true;
+                        break;
+                    }
+                }
+                if (alreadyAdded) {
+                    continue;
+                }
+
+                recommendedModules.add(buildModule(path));
                 if (recommendedModules.size() >= 3) {
                     break;
                 }
             }
         }
-        
-        // 9. 添加学习建议
+
         List<String> suggestions = new ArrayList<>();
         if (!weakPoints.isEmpty()) {
-            suggestions.add("建议加强以下知识点的学习：" + weakPoints.stream().map(KnowledgePoint::getName).reduce((a, b) -> a + ", " + b).orElse(""));
+            List<String> weakPointNames = new ArrayList<>();
+            for (KnowledgePoint point : weakPoints) {
+                if (point != null && point.getName() != null && !point.getName().isBlank()) {
+                    weakPointNames.add(point.getName());
+                }
+            }
+            if (!weakPointNames.isEmpty()) {
+                suggestions.add("Focus on these knowledge points first: " + String.join(", ", weakPointNames));
+            }
         }
-        suggestions.add("建议每天坚持练习编程题目，保持学习节奏");
-        suggestions.add("尝试解决不同类型的问题，扩展编程思维");
-        
+        if (preferredLanguage != null && !preferredLanguage.isBlank()) {
+            suggestions.add("Keep practicing with " + preferredLanguage + " to build stable problem-solving rhythm.");
+        } else {
+            suggestions.add("Keep a steady practice rhythm and review the problems you miss.");
+        }
+        suggestions.add("Summarize recurring mistakes after each session and revisit the wrong-book regularly.");
+
         result.put("problems", recommendedProblems);
         result.put("modules", recommendedModules);
         result.put("suggestions", suggestions);
         result.put("weakPoints", weakPoints);
         result.put("preferredLanguage", preferredLanguage);
-        
         return result;
     }
 
-    // 个性化自适应学习路径
     @Override
     public List<AssessmentQuestion> getAssessmentQuestions() {
-        // 这里需要实现获取测评题目的逻辑
-        // 暂时返回空列表，实际项目中需要根据具体需求实现
         return new ArrayList<>();
     }
 
     @Override
     @Transactional
     public Map<String, Object> submitAssessment(Map<String, Object> params) {
-        Long userId = Long.valueOf(params.get("userId").toString());
-        List<Map<String, Object>> answers = (List<Map<String, Object>>) params.get("answers");
-        
-        // 这里需要实现测评结果处理和学习路径生成逻辑
-        // 暂时返回空数据，实际项目中需要根据具体需求实现
         Map<String, Object> result = new HashMap<>();
         result.put("pathId", 1L);
-        result.put("recommendedPath", "基础入门路径");
+        result.put("recommendedPath", "introductory-path");
         return result;
     }
 
     @Override
     public LearningPath getLearningPath(Long userId) {
-        // 这里需要实现获取用户学习路径的逻辑
-        // 暂时返回空数据，实际项目中需要根据具体需求实现
-        return learningPathMapper.selectPathById(1L);
+        List<UserPathProgress> progresses = learningPathMapper.selectUserProgressByUserId(userId);
+        if (!progresses.isEmpty() && progresses.get(0).getPathId() != null) {
+            return learningPathMapper.selectPathById(progresses.get(0).getPathId());
+        }
+
+        List<LearningPath> paths = learningPathMapper.selectAllPaths();
+        return paths.isEmpty() ? null : paths.get(0);
     }
 
     @Override
     @Transactional
     public Map<String, Object> unlockLevel(Long userId, Long levelId) {
-        // 这里需要实现解锁关卡的逻辑
-        // 暂时返回空数据，实际项目中需要根据具体需求实现
         Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("message", "关卡解锁成功");
+        result.put("success", learningPathMapper.selectLevelById(levelId) != null);
+        result.put("message", learningPathMapper.selectLevelById(levelId) != null ? "pending-learning-service-flow" : "level-not-found");
         return result;
     }
 
     @Override
     public Map<String, Object> getPathProgress(Long userId) {
-        // 这里需要实现获取学习路径进度的逻辑
-        // 暂时返回空数据，实际项目中需要根据具体需求实现
         Map<String, Object> result = new HashMap<>();
-        result.put("completedLevels", 2);
-        result.put("totalLevels", 10);
-        result.put("progress", 20);
+        List<UserPathProgress> progresses = learningPathMapper.selectUserProgressByUserId(userId);
+        if (progresses.isEmpty()) {
+            result.put("completedLevels", 0);
+            result.put("totalLevels", 0);
+            result.put("progress", 0);
+            return result;
+        }
+
+        UserPathProgress progress = progresses.get(0);
+        int totalLevels = 0;
+        List<PathChapter> chapters = learningPathMapper.selectChaptersByPathId(progress.getPathId());
+        for (PathChapter chapter : chapters) {
+            List<PathLevel> levels = learningPathMapper.selectLevelsByChapterId(chapter.getId());
+            totalLevels += levels.size();
+        }
+
+        int completedLevels = parseIdSet(progress.getCompletedLevels()).size();
+        int percent = totalLevels > 0 ? (int) Math.round(completedLevels * 100.0 / totalLevels) : 0;
+        result.put("pathId", progress.getPathId());
+        result.put("completedLevels", completedLevels);
+        result.put("totalLevels", totalLevels);
+        result.put("progress", percent);
+        result.put("currentChapterId", progress.getCurrentChapterId());
+        result.put("currentLevelId", progress.getCurrentLevelId());
         return result;
     }
 
-    // 知识点掌握度与学情分析
     @Override
     public Map<String, Object> getKnowledgeGraph() {
-        // 这里需要实现获取知识图谱的逻辑
-        // 暂时返回空数据，实际项目中需要根据具体需求实现
-        Map<String, Object> result = new HashMap<>();
-        result.put("nodes", new ArrayList<>());
-        result.put("edges", new ArrayList<>());
-        return result;
+        return knowledgeMasteryService.getKnowledgeGraph();
     }
 
     @Override
@@ -267,50 +291,140 @@ public class LearnServiceImpl implements LearnService {
 
     @Override
     public Map<String, Object> getWeeklyReport(Long userId) {
-        // 这里需要实现获取周学习报告的逻辑
-        // 暂时返回空数据，实际项目中需要根据具体需求实现
-        Map<String, Object> result = new HashMap<>();
-        result.put("solvedProblems", 10);
-        result.put("accuracy", 85);
-        result.put("studyTime", "5小时30分钟");
-        result.put("weakPoints", new ArrayList<>());
-        return result;
+        return knowledgeMasteryService.getWeeklyReport(userId);
     }
 
     @Override
     public List<KnowledgePoint> getWeakKnowledgePoints(Long userId) {
-        // 这里需要实现获取薄弱知识点的逻辑
-        // 暂时返回空列表，实际项目中需要根据具体需求实现
-        return new ArrayList<>();
+        List<UserKnowledgeMastery> weakMasteries = knowledgeMasteryMapper.selectUserWeakKnowledgePoints(userId, 2);
+        LinkedHashMap<Long, KnowledgePoint> weakPointMap = new LinkedHashMap<>();
+
+        for (UserKnowledgeMastery mastery : weakMasteries) {
+            if (mastery == null || mastery.getKnowledgeId() == null) {
+                continue;
+            }
+
+            KnowledgePoint knowledgePoint = knowledgeMasteryMapper.selectKnowledgePointById(mastery.getKnowledgeId());
+            if (knowledgePoint != null && knowledgePoint.getId() != null) {
+                weakPointMap.putIfAbsent(knowledgePoint.getId(), knowledgePoint);
+            }
+        }
+
+        return new ArrayList<>(weakPointMap.values());
     }
-    
+
     @Override
     public Map<String, Integer> getDifficultyStats(Long userId) {
         Map<String, Integer> difficultyStats = new HashMap<>();
         difficultyStats.put("easy", 0);
         difficultyStats.put("medium", 0);
         difficultyStats.put("hard", 0);
-        
+
         int totalCount = submitMapper.countByUserId(userId, null);
         List<Submit> allSubmits = submitMapper.findByUserId(userId, null, 0, totalCount > 0 ? totalCount : 1);
-        
+
         for (Submit submit : allSubmits) {
-            if (submit.getProblemId() != null) {
-                Problem problem = problemMapper.findById(submit.getProblemId());
-                if (problem != null && submit.getResult() != null && submit.getResult() == 0) {
-                    if (problem.getDifficulty() != null) {
-                        if (problem.getDifficulty() == 0) {
-                            difficultyStats.put("easy", difficultyStats.get("easy") + 1);
-                        } else if (problem.getDifficulty() == 1) {
-                            difficultyStats.put("medium", difficultyStats.get("medium") + 1);
-                        } else if (problem.getDifficulty() == 2) {
-                            difficultyStats.put("hard", difficultyStats.get("hard") + 1);
-                        }
-                    }
-                }
+            if (submit.getProblemId() == null) {
+                continue;
+            }
+
+            Problem problem = problemMapper.findById(submit.getProblemId());
+            if (problem == null || submit.getResult() == null || submit.getResult() != 0 || problem.getDifficulty() == null) {
+                continue;
+            }
+
+            if (problem.getDifficulty() == 0) {
+                difficultyStats.put("easy", difficultyStats.get("easy") + 1);
+            } else if (problem.getDifficulty() == 1) {
+                difficultyStats.put("medium", difficultyStats.get("medium") + 1);
+            } else if (problem.getDifficulty() == 2) {
+                difficultyStats.put("hard", difficultyStats.get("hard") + 1);
             }
         }
-        
+
         return difficultyStats;
+    }
+
+    private String detectPreferredLanguage(List<Submit> submits) {
+        Map<String, Integer> languageCount = new HashMap<>();
+        for (Submit submit : submits) {
+            if (submit == null || submit.getLanguage() == null || submit.getLanguage().isBlank()) {
+                continue;
+            }
+            languageCount.put(submit.getLanguage(), languageCount.getOrDefault(submit.getLanguage(), 0) + 1);
+        }
+
+        String preferredLanguage = null;
+        int maxCount = 0;
+        for (Map.Entry<String, Integer> entry : languageCount.entrySet()) {
+            if (entry.getValue() > maxCount) {
+                maxCount = entry.getValue();
+                preferredLanguage = entry.getKey();
+            }
+        }
+        return preferredLanguage;
+    }
+
+    private boolean matchesPreferredLanguage(Problem problem, String preferredLanguage) {
+        if (preferredLanguage == null || preferredLanguage.isBlank()) {
+            return true;
+        }
+        if (problem.getLanguage() == null || problem.getLanguage().isBlank()) {
+            return true;
+        }
+
+        String problemLanguage = problem.getLanguage().toLowerCase();
+        String preferred = preferredLanguage.toLowerCase();
+        return problemLanguage.equals(preferred)
+                || problemLanguage.contains(preferred)
+                || preferred.contains(problemLanguage);
+    }
+
+    private Set<Long> parseIdSet(String rawIds) {
+        if (rawIds == null || rawIds.isBlank()) {
+            return new LinkedHashSet<>();
+        }
+
+        Set<Long> ids = new LinkedHashSet<>();
+        for (String part : rawIds.split(",")) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            try {
+                ids.add(Long.parseLong(part.trim()));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return ids;
+    }
+
+    private void fillRecommendedProblems(LinkedHashMap<Long, Problem> recommendedProblemMap,
+                                         String preferredLanguage,
+                                         Integer difficulty,
+                                         Set<Long> excludedProblemIds) {
+        if (recommendedProblemMap.size() >= 5) {
+            return;
+        }
+
+        List<Problem> fallbackProblems = problemMapper.findByPage(0, 10, difficulty, preferredLanguage, null);
+        for (Problem problem : fallbackProblems) {
+            if (problem == null || problem.getId() == null || excludedProblemIds.contains(problem.getId())) {
+                continue;
+            }
+            recommendedProblemMap.putIfAbsent(problem.getId(), problem);
+            if (recommendedProblemMap.size() >= 5) {
+                break;
+            }
+        }
+    }
+
+    private Map<String, Object> buildModule(LearningPath path) {
+        Map<String, Object> module = new HashMap<>();
+        module.put("pathId", path.getId());
+        module.put("pathName", path.getName());
+        module.put("description", path.getDescription());
+        module.put("language", path.getLanguage());
+        module.put("direction", path.getDirection());
+        return module;
     }
 }

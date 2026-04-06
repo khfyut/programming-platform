@@ -2,16 +2,14 @@ package com.programming.controller;
 
 import com.programming.entity.Problem;
 import com.programming.entity.TestCase;
-import com.programming.entity.User;
 import com.programming.service.ProblemService;
 import com.programming.service.TestCaseService;
-import com.programming.service.UserService;
 import com.programming.util.JwtUtil;
 import com.programming.util.ResultUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -32,9 +30,6 @@ public class ProblemController {
     private TestCaseService testCaseService;
 
     @Autowired
-    private UserService userService;
-
-    @Autowired
     private DataSource dataSource;
 
     @Autowired
@@ -49,7 +44,6 @@ public class ProblemController {
             @RequestParam(required = false) String knowledge,
             HttpServletRequest request) {
         try {
-            // 获取当前登录用户ID
             Long userId = null;
             String token = request.getHeader("Authorization");
             if (token != null && token.startsWith("Bearer ")) {
@@ -58,7 +52,7 @@ public class ProblemController {
                     userId = jwtUtil.getUserIdFromToken(token);
                 }
             }
-            
+
             return ResultUtil.success(problemService.getProblemList(page, size, difficulty, language, knowledge, userId));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
@@ -69,8 +63,7 @@ public class ProblemController {
     public ResultUtil<Problem> getProblemDetail(@PathVariable Long id) {
         try {
             Problem problem = problemService.getProblemDetail(id);
-            List<TestCase> testCases = testCaseService.getTestCasesByProblemId(id);
-            problem.setTestCases(testCases);
+            problem.setTestCases(testCaseService.getSampleTestCasesByProblemId(id));
             return ResultUtil.success(problem);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
@@ -80,8 +73,7 @@ public class ProblemController {
     @GetMapping("/{id}/test-cases/sample")
     public ResultUtil<List<TestCase>> getSampleTestCases(@PathVariable Long id) {
         try {
-            List<TestCase> testCases = testCaseService.getSampleTestCasesByProblemId(id);
-            return ResultUtil.success(testCases);
+            return ResultUtil.success(testCaseService.getSampleTestCasesByProblemId(id));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -90,8 +82,7 @@ public class ProblemController {
     @GetMapping("/{id}/test-cases/all")
     public ResultUtil<List<TestCase>> getAllTestCases(@PathVariable Long id) {
         try {
-            List<TestCase> testCases = testCaseService.getTestCasesByProblemId(id);
-            return ResultUtil.success(testCases);
+            return ResultUtil.success(testCaseService.getTestCasesByProblemId(id));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -142,8 +133,7 @@ public class ProblemController {
     @GetMapping("/tag/{tag}")
     public ResultUtil<List<Problem>> getProblemsByTag(@PathVariable String tag) {
         try {
-            List<Problem> problems = problemService.getProblemsByTag(tag);
-            return ResultUtil.success(problems);
+            return ResultUtil.success(problemService.getProblemsByTag(tag));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -162,35 +152,34 @@ public class ProblemController {
     public ResultUtil<Map<String, Object>> testJdbcQuery() {
         try {
             Map<String, Object> result = new HashMap<>();
-            
+
             Connection conn = dataSource.getConnection();
-            
             result.put("url", conn.getMetaData().getURL());
             result.put("user", conn.getMetaData().getUserName());
             result.put("database", conn.getCatalog());
-            
+
             Statement stmt = conn.createStatement();
-            
+
             ResultSet rs1 = stmt.executeQuery("SELECT COUNT(*) as cnt FROM problem");
             if (rs1.next()) {
                 result.put("total", rs1.getInt("cnt"));
             }
-            
+
             ResultSet rs2 = stmt.executeQuery("SELECT id, title FROM problem ORDER BY id DESC LIMIT 5");
             List<Map<String, Object>> problems = new ArrayList<>();
             while (rs2.next()) {
-                Map<String, Object> p = new HashMap<>();
-                p.put("id", rs2.getLong("id"));
-                p.put("title", rs2.getString("title"));
-                problems.add(p);
+                Map<String, Object> problem = new HashMap<>();
+                problem.put("id", rs2.getLong("id"));
+                problem.put("title", rs2.getString("title"));
+                problems.add(problem);
             }
             result.put("latestProblems", problems);
-            
+
             rs1.close();
             rs2.close();
             stmt.close();
             conn.close();
-            
+
             return ResultUtil.success(result);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());

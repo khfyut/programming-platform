@@ -104,7 +104,7 @@
                   </div>
                 </div>
               </div>
-              <div class="wrong-right">
+              <div class="wrong-right" @click.stop>
                 <el-button
                   type="primary"
                   size="small"

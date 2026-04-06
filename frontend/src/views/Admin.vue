@@ -157,7 +157,7 @@ const fetchUsers = async () => {
       userList.value = res.data?.list || []
     }
   } catch (error) {
-    console.error('鑾峰彇鐢ㄦ埛鍒楄〃澶辫触:', error)
+    console.error('获取用户列表失败:', error)
   } finally {
     usersLoading.value = false
   }
@@ -171,7 +171,7 @@ const fetchProblems = async () => {
       problemList.value = res.data.list || []
     }
   } catch (error) {
-    console.error('鑾峰彇棰樼洰鍒楄〃澶辫触:', error)
+    console.error('获取题目列表失败:', error)
   } finally {
     problemsLoading.value = false
   }
@@ -185,7 +185,7 @@ const fetchAllSubmissions = async () => {
       submissionList.value = res.data?.list || []
     }
   } catch (error) {
-    console.error('鑾峰彇鎻愪氦璁板綍澶辫触:', error)
+    console.error('获取提交记录失败:', error)
   } finally {
     submissionsLoading.value = false
   }
@@ -206,10 +206,10 @@ const saveProblem = async ({ form, done } = {}) => {
       fetchProblems()
       fetchStatistics()
     } else {
-      ElMessage.error(res.msg || '鎿嶄綔澶辫触')
+      ElMessage.error(res.msg || '操作失败')
     }
   } catch (error) {
-    ElMessage.error('鎿嶄綔澶辫触锛岃閲嶈瘯')
+    ElMessage.error('操作失败，请重试')
   }
 }
 
@@ -223,15 +223,15 @@ const deleteProblem = async (id) => {
 
     const res = await deleteProblemApi(id)
     if (res.code === 200) {
-      ElMessage.success('鍒犻櫎鎴愬姛')
+      ElMessage.success('删除成功')
       fetchProblems()
       fetchStatistics()
     } else {
-      ElMessage.error(res.msg || '鍒犻櫎澶辫触')
+      ElMessage.error(res.msg || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('鍒犻櫎澶辫触锛岃閲嶈瘯')
+      ElMessage.error('删除失败，请重试')
     }
   }
 }
@@ -256,11 +256,11 @@ const importProblems = async ({ type, file, done } = {}) => {
       fetchProblems()
       fetchStatistics()
     } else {
-      ElMessage.error(res.msg || '瀵煎叆澶辫触')
+      ElMessage.error(res.msg || '导入失败')
     }
   } catch (error) {
-    console.error('瀵煎叆澶辫触:', error)
-    ElMessage.error('瀵煎叆澶辫触锛岃閲嶈瘯')
+    console.error('导入失败:', error)
+    ElMessage.error('导入失败，请重试')
   } finally {
     importLoading.value = false
   }
@@ -274,10 +274,10 @@ const toggleUserStatus = async (user) => {
       ElMessage.success(newStatus === 1 ? '用户已启用' : '用户已禁用')
       fetchUsers()
     } else {
-      ElMessage.error(res.msg || '鎿嶄綔澶辫触')
+      ElMessage.error(res.msg || '操作失败')
     }
   } catch (error) {
-    ElMessage.error('鎿嶄綔澶辫触锛岃閲嶈瘯')
+    ElMessage.error('操作失败，请重试')
   }
 }
 

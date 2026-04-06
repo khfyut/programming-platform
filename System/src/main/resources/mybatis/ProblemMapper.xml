@@ -101,7 +101,7 @@
 
     <select id="findByKnowledgePoint" resultMap="BaseResultMap">
         SELECT * FROM problem
-        WHERE FIND_IN_SET(#{knowledgePointId}, knowledge_points) > 0
+        WHERE FIND_IN_SET(#{knowledgePoint}, knowledge_points) > 0
         ORDER BY id DESC
         LIMIT #{limit}
     </select>

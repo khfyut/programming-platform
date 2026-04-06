@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-30T11:48:50.033Z",
+  "generatedAt": "2026-03-30T12:13:52.673Z",
   "browser": "chrome.exe",
   "baseUrl": "http://127.0.0.1:3000",
   "results": [
@@ -58,8 +58,8 @@
       "page": "wrong-book",
       "action": "review action does not accidentally open detail",
       "ok": true,
-      "beforeDialogs": 0,
-      "afterDialogs": 0
+      "beforeDetailDialogs": 0,
+      "afterDetailDialogs": 0
     },
     {
       "page": "wrong-book",
@@ -96,6 +96,28 @@
       "after": "请帮我分析这段代码为什么没有通过。"
     },
     {
+      "page": "ai",
+      "action": "session delete button opens confirm without switching session",
+      "ok": true,
+      "beforeSelected": "",
+      "afterSelected": "",
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "problem-detail",
+      "action": "user menu opens language dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "problem-detail",
+      "action": "user menu profile item navigates",
+      "ok": true,
+      "path": "/profile"
+    },
+    {
       "page": "profile",
       "action": "settings button navigates to settings page",
       "ok": true,
@@ -126,102 +148,112 @@
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:48:50.830Z"
+      "when": "2026-03-30T12:13:53.188Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:48:50.867Z"
+      "when": "2026-03-30T12:13:53.219Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:48:56.319Z"
+      "when": "2026-03-30T12:13:58.686Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:48:56.321Z"
+      "when": "2026-03-30T12:13:58.686Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:48:59.445Z"
+      "when": "2026-03-30T12:14:01.837Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:48:59.447Z"
+      "when": "2026-03-30T12:14:01.839Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:04.480Z"
+      "when": "2026-03-30T12:14:06.825Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:04.483Z"
+      "when": "2026-03-30T12:14:06.828Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:11.131Z"
+      "when": "2026-03-30T12:14:14.051Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:11.132Z"
+      "when": "2026-03-30T12:14:14.053Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:14.169Z"
+      "when": "2026-03-30T12:14:17.022Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:14.172Z"
+      "when": "2026-03-30T12:14:17.023Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:19.019Z"
+      "when": "2026-03-30T12:14:21.919Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:19.026Z"
+      "when": "2026-03-30T12:14:21.933Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:21.994Z"
+      "when": "2026-03-30T12:14:26.761Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:21.998Z"
+      "when": "2026-03-30T12:14:26.764Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:25.069Z"
+      "when": "2026-03-30T12:14:34.186Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:25.070Z"
+      "when": "2026-03-30T12:14:34.189Z"
     },
     {
       "type": "debug",
       "text": "[vite] connecting...",
-      "when": "2026-03-30T11:49:29.061Z"
+      "when": "2026-03-30T12:14:37.118Z"
     },
     {
       "type": "debug",
       "text": "[vite] connected.",
-      "when": "2026-03-30T11:49:29.067Z"
+      "when": "2026-03-30T12:14:37.121Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:14:41.043Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:14:41.046Z"
     }
   ]
 }

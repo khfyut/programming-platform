@@ -4,7 +4,6 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.programming.mapper.CommunityMapper">
-    <!-- 帖子相关 -->
     <select id="selectPosts" resultType="com.programming.entity.CommunityPost">
         SELECT * FROM community_post
         <where>
@@ -37,11 +36,11 @@
     <update id="updatePost" parameterType="com.programming.entity.CommunityPost">
         UPDATE community_post
         SET title = #{title}, content = #{content}, update_time = NOW()
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </update>
 
     <delete id="deletePost">
-        DELETE FROM community_post WHERE id = #{id}
+        DELETE FROM community_post WHERE id = #{id} AND user_id = #{userId}
     </delete>
 
     <update id="incrementPostLikes">
@@ -52,11 +51,14 @@
         UPDATE community_post SET views = views + 1 WHERE id = #{id}
     </update>
 
-    <!-- 评论相关 -->
     <select id="selectCommentsByPostId" resultType="com.programming.entity.CommunityComment">
         SELECT * FROM community_comment
         WHERE post_id = #{postId}
         ORDER BY create_time ASC
+    </select>
+
+    <select id="selectCommentById" resultType="com.programming.entity.CommunityComment">
+        SELECT * FROM community_comment WHERE id = #{id}
     </select>
 
     <insert id="insertComment" parameterType="com.programming.entity.CommunityComment">
@@ -67,18 +69,17 @@
     <update id="updateComment" parameterType="com.programming.entity.CommunityComment">
         UPDATE community_comment
         SET content = #{content}, update_time = NOW()
-        WHERE id = #{id}
+        WHERE id = #{id} AND user_id = #{userId}
     </update>
 
     <delete id="deleteComment">
-        DELETE FROM community_comment WHERE id = #{id}
+        DELETE FROM community_comment WHERE id = #{id} AND user_id = #{userId}
     </delete>
 
     <update id="incrementCommentLikes">
         UPDATE community_comment SET likes = likes + 1 WHERE id = #{id}
     </update>
 
-    <!-- 用户相关 -->
     <select id="selectPostsByUserId" resultType="com.programming.entity.CommunityPost">
         SELECT * FROM community_post
         WHERE user_id = #{userId}
@@ -93,7 +94,25 @@
         LIMIT #{size} OFFSET #{page}
     </select>
 
-    <!-- 统计相关 -->
+    <select id="countPostsByUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM community_post WHERE user_id = #{userId}
+    </select>
+
+    <select id="countCommentsByUserId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM community_comment WHERE user_id = #{userId}
+    </select>
+
+    <select id="findRecentPostsByUserId" resultType="com.programming.entity.CommunityPost">
+        SELECT * FROM community_post
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC, id DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
+    <select id="findPostById" resultType="com.programming.entity.CommunityPost">
+        SELECT * FROM community_post WHERE id = #{id}
+    </select>
+
     <select id="countTotalPosts" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM community_post
     </select>
@@ -118,10 +137,10 @@
     <select id="selectHotTopics" resultType="java.util.Map">
         SELECT
             CASE type
-                WHEN 'discussion' THEN '讨论'
-                WHEN 'question' THEN '问答'
-                WHEN 'share' THEN '分享'
-                ELSE IFNULL(type, '其他')
+                WHEN 'discussion' THEN 'Discussion'
+                WHEN 'question' THEN 'Question'
+                WHEN 'share' THEN 'Share'
+                ELSE IFNULL(type, 'Other')
             END AS name,
             COUNT(*) AS count
         FROM community_post

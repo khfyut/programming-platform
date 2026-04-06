@@ -1,185 +1,87 @@
-# IDE files
+# IDE / editor
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# Build files
-build/
-target/
-dist/
+# Local tooling / caches
+/.m2/
+/.trae/
+.cache/
+.parcel-cache/
+.eslintcache
+.npm/
 
-# Dependency directories
-node_modules/
-
-# Log files
-logs/
-*.log
-
-# Environment files
+# Environment
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# OS generated files
-Thumbs.db
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
+# Build artifacts
+build/
+out/
+target/
+dist/
+coverage/
+.next/
+.nuxt/
+.vuepress/dist
+.serverless/
+.fusebox/
+.dynamodb/
 
-# Database files
-*.sql
-*.db
+# Dependencies
+node_modules/
+jspm_packages/
 
-# Backup files
-*.bak
-*.backup
-
-# IDE specific files
-.project
-.classpath
-.settings/
-
-# Temporary files
+# Logs / temp
+logs/
+*.log
 *.tmp
 *.temp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Editor directories and files
-.idea
-.vscode
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+ehthumbs.db
 
-# Java specific
+# Java archives / binaries
 *.class
 *.jar
 *.war
 *.nar
 *.ear
-*.zip
-*.tar.gz
-*.rar
 
-# Node.js specific
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Vue specific
-dist/
-coverage/
-
-# Spring Boot specific
-.mvn/
-
-# Docker specific
-docker-compose.override.yml
-
-# Local configuration files
-application-*.yml
-
-# Test files
-test-results/
-
-# Misc
-*.md.bak
-*.orig.*
-
-# OS specific
-# Windows
-Thumbs.db
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Linux
-*~
-
-# Build artifacts
-build/
-out/
-
-# Skills directory (embedded git repo)
-skills/
-
-# Dependency directories
-node_modules/
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
+# Packaged archives
+*.bak
+*.backup
 *.tgz
 
-# Yarn Integrity file
-.yarn-integrity
+# Local Spring config overrides
+application-*.yml
 
-# dotenv environment variables file
-.env
-.env.test
+# Browser repro temporary profile
+/test_screenshots/
+/docs/testing/screenshots/**/chrome-profile/
 
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+# Local backup / dump outputs
+/backups/
 
-# Next.js build output
-.next
+# JMeter raw artifacts
+/System/loadtest-run-output/report-*/
+/System/loadtest-run-output/results-*.jtl
+/System/loadtest-run-output/backend-*.log
+/System/loadtest-run-output/backend-*.err.log
+/System/loadtest-run-output/jmeter-*.log
+/loadtest/results/results-*.jtl
 
-# Nuxt.js build / generate output
-.nuxt
-dist
-
-# Gatsby files
-.cache/
-# Comment in the public line in if your project uses Gatsby and not Next.js
-# public
-
-# vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless/
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
-
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
+# Skills sub-repo kept as external asset
+/skills/

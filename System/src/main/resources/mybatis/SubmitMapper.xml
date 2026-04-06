@@ -57,6 +57,13 @@
         SELECT * FROM submit WHERE id = #{id}
     </select>
 
+    <select id="findRecentByUserId" resultMap="BaseResultMap">
+        SELECT * FROM submit
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC, id DESC
+        LIMIT #{size} OFFSET #{page}
+    </select>
+
     <select id="countPassedByUserId" resultType="int">
         SELECT COUNT(DISTINCT problem_id) FROM submit WHERE user_id = #{userId} AND result = 0
     </select>

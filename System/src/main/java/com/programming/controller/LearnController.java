@@ -193,9 +193,10 @@ public class LearnController {
     }
 
     @GetMapping("/knowledge/graph")
-    public ResultUtil getKnowledgeGraph() {
+    public ResultUtil getKnowledgeGraph(HttpServletRequest request) {
         try {
-            return ResultUtil.success(knowledgeMasteryService.getKnowledgeGraph());
+            Long userId = (Long) request.getAttribute("userId");
+            return ResultUtil.success(knowledgeMasteryService.getKnowledgeGraph(userId, null, null, null));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }

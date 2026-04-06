@@ -50,9 +50,10 @@ public class SubmitController {
     }
 
     @GetMapping("/detail/{submitId}")
-    public ResultUtil<SubmitWithProblemVO> getSubmitDetail(@PathVariable Long submitId) {
+    public ResultUtil<SubmitWithProblemVO> getSubmitDetail(@PathVariable Long submitId, HttpServletRequest request) {
         try {
-            SubmitWithProblemVO submit = submitService.getSubmitDetail(submitId);
+            Long userId = (Long) request.getAttribute("userId");
+            SubmitWithProblemVO submit = submitService.getSubmitDetail(userId, submitId);
             return ResultUtil.success(submit);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());

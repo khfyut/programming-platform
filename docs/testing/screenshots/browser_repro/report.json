@@ -1,0 +1,256 @@
+{
+  "generatedAt": "2026-03-30T12:04:06.527Z",
+  "browser": "chrome.exe",
+  "baseUrl": "http://127.0.0.1:3000",
+  "results": [
+    {
+      "page": "login",
+      "action": "register link navigates",
+      "ok": true,
+      "path": "/register"
+    },
+    {
+      "page": "register",
+      "action": "login link navigates back",
+      "ok": true,
+      "path": "/login"
+    },
+    {
+      "page": "login",
+      "action": "submit button logs in",
+      "ok": true,
+      "path": "/"
+    },
+    {
+      "page": "learn",
+      "action": "my plan button navigates",
+      "ok": true,
+      "path": "/learn/assessment"
+    },
+    {
+      "page": "problems",
+      "action": "sort button changes label/state",
+      "ok": true,
+      "before": "默认排序",
+      "after": "通过率优先"
+    },
+    {
+      "page": "problems",
+      "action": "favorite button stays on list and toggles",
+      "ok": true,
+      "beforeActive": false,
+      "afterActive": true
+    },
+    {
+      "page": "problems",
+      "action": "problem card opens detail page",
+      "ok": true,
+      "path": "/problem/17"
+    },
+    {
+      "page": "wrong-book",
+      "action": "review plan button opens dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "wrong-book",
+      "action": "review action does not accidentally open detail",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 0
+    },
+    {
+      "page": "wrong-book",
+      "action": "wrong item opens detail dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "submissions",
+      "action": "submission card opens detail dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "community",
+      "action": "create post button opens dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "community",
+      "action": "post card opens detail page",
+      "ok": true,
+      "path": "/community/post/2"
+    },
+    {
+      "page": "ai",
+      "action": "quick prompt button fills textarea",
+      "ok": true,
+      "before": "",
+      "after": "请帮我分析这段代码为什么没有通过。"
+    },
+    {
+      "page": "ai",
+      "action": "session delete button opens confirm without switching session",
+      "ok": false,
+      "error": "Session delete button did not open confirmation dialog"
+    },
+    {
+      "page": "problem-detail",
+      "action": "user menu opens language dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "problem-detail",
+      "action": "user menu profile item navigates",
+      "ok": true,
+      "path": "/profile"
+    },
+    {
+      "page": "profile",
+      "action": "settings button navigates to settings page",
+      "ok": true,
+      "path": "/profile/settings"
+    },
+    {
+      "page": "profile",
+      "action": "recent submission inner problem button opens problem page",
+      "ok": true,
+      "path": "/problem/1"
+    },
+    {
+      "page": "admin",
+      "action": "user role edit button opens dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    },
+    {
+      "page": "admin",
+      "action": "role tab add button opens dialog",
+      "ok": true,
+      "beforeDialogs": 0,
+      "afterDialogs": 1
+    }
+  ],
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:07.259Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:07.264Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:12.631Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:12.632Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:15.725Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:15.727Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:20.693Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:20.697Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:27.359Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:27.361Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:30.323Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:30.327Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:35.169Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:35.172Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:39.081Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:39.083Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:46.538Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:46.541Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:49.638Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:49.642Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "when": "2026-03-30T12:04:53.621Z"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "when": "2026-03-30T12:04:53.632Z"
+    }
+  ]
+}

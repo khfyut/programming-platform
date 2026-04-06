@@ -1,13 +1,20 @@
 package com.programming.service.impl;
 
-import com.programming.entity.*;
+import com.programming.entity.Problem;
+import com.programming.entity.ReviewPlan;
+import com.programming.entity.Submit;
+import com.programming.entity.WrongBook;
+import com.programming.entity.WrongBookItem;
 import com.programming.mapper.WrongBookMapper;
 import com.programming.service.WrongBookService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class WrongBookServiceImpl implements WrongBookService {
@@ -33,15 +40,15 @@ public class WrongBookServiceImpl implements WrongBookService {
     }
 
     @Override
-    public WrongBookItem getWrongBookItemById(Long id) {
-        return wrongBookMapper.selectWrongBookItemById(id);
+    public WrongBookItem getWrongBookItemById(Long userId, Long id) {
+        return requireOwnedWrongBookItem(userId, id);
     }
 
     @Override
-    public void addWrongBookItem(Long userId, Long problemId, Long submitId, String code, String language, String errorMessage, String knowledgePoints) {
+    public void addWrongBookItem(Long userId, Long problemId, Long submitId, String code, String language,
+                                 String errorMessage, String knowledgePoints) {
         WrongBook wrongBook = getUserWrongBook(userId);
-        
-        // 检查是否已经存在该题目
+
         WrongBookItem existingItem = wrongBookMapper.selectWrongBookItemByProblemId(wrongBook.getId(), problemId);
         if (existingItem == null) {
             WrongBookItem item = new WrongBookItem();
@@ -55,30 +62,26 @@ public class WrongBookServiceImpl implements WrongBookService {
             item.setReviewStatus(0);
             item.setLastReviewTime(null);
             wrongBookMapper.insertWrongBookItem(item);
-            
-            // 自动生成复习计划
+
             createReviewPlan(userId, item.getId());
         }
     }
 
     @Override
-    public void updateWrongBookItemStatus(Long id, Integer status) {
-        WrongBookItem item = wrongBookMapper.selectWrongBookItemById(id);
-        if (item != null) {
-            item.setReviewStatus(status);
-            item.setLastReviewTime(LocalDateTime.now());
-            wrongBookMapper.updateWrongBookItem(item);
-        }
+    public void updateWrongBookItemStatus(Long userId, Long id, Integer status) {
+        WrongBookItem item = requireOwnedWrongBookItem(userId, id);
+        item.setReviewStatus(status);
+        item.setLastReviewTime(LocalDateTime.now());
+        wrongBookMapper.updateWrongBookItem(item);
     }
 
     @Override
-    public void removeWrongBookItem(Long id) {
-        // 删除对应的复习计划
+    public void removeWrongBookItem(Long userId, Long id) {
+        requireOwnedWrongBookItem(userId, id);
         ReviewPlan plan = wrongBookMapper.selectReviewPlanByWrongItemId(id);
         if (plan != null) {
             wrongBookMapper.deleteReviewPlan(plan.getId());
         }
-        // 删除错题项
         wrongBookMapper.deleteWrongBookItem(id);
     }
 
@@ -95,14 +98,12 @@ public class WrongBookServiceImpl implements WrongBookService {
 
     @Override
     public void createReviewPlan(Long userId, Long wrongItemId) {
-        // 检查是否已经存在复习计划
         ReviewPlan existingPlan = wrongBookMapper.selectReviewPlanByWrongItemId(wrongItemId);
         if (existingPlan == null) {
             ReviewPlan plan = new ReviewPlan();
             plan.setUserId(userId);
             plan.setWrongItemId(wrongItemId);
-            // 根据艾宾浩斯遗忘曲线设置首次复习时间
-            plan.setNextReviewTime(LocalDateTime.now().plusDays(1)); // 1天后
+            plan.setNextReviewTime(LocalDateTime.now().plusDays(1));
             plan.setReviewCount(0);
             plan.setStatus(0);
             wrongBookMapper.insertReviewPlan(plan);
@@ -115,28 +116,26 @@ public class WrongBookServiceImpl implements WrongBookService {
         if (plan != null) {
             if (reviewed) {
                 plan.setReviewCount(plan.getReviewCount() + 1);
-                // 根据复习次数调整下次复习时间
                 long nextReviewInterval;
                 switch (plan.getReviewCount()) {
                     case 1:
-                        nextReviewInterval = 2 * 24 * 60 * 60 * 1000; // 2天后
+                        nextReviewInterval = 2L * 24 * 60 * 60 * 1000;
                         break;
                     case 2:
-                        nextReviewInterval = 4 * 24 * 60 * 60 * 1000; // 4天后
+                        nextReviewInterval = 4L * 24 * 60 * 60 * 1000;
                         break;
                     case 3:
-                        nextReviewInterval = 7 * 24 * 60 * 60 * 1000; // 7天后
+                        nextReviewInterval = 7L * 24 * 60 * 60 * 1000;
                         break;
                     case 4:
-                        nextReviewInterval = 15 * 24 * 60 * 60 * 1000; // 15天后
+                        nextReviewInterval = 15L * 24 * 60 * 60 * 1000;
                         break;
                     default:
-                        nextReviewInterval = 30 * 24 * 60 * 60 * 1000; // 30天后
+                        nextReviewInterval = 30L * 24 * 60 * 60 * 1000;
                 }
                 plan.setNextReviewTime(LocalDateTime.now().plusDays(nextReviewInterval / (24 * 60 * 60 * 1000)));
             } else {
-                // 未掌握，缩短复习间隔
-                plan.setNextReviewTime(LocalDateTime.now().plusHours(12)); // 12小时后
+                plan.setNextReviewTime(LocalDateTime.now().plusHours(12));
             }
             wrongBookMapper.updateReviewPlan(plan);
         }
@@ -164,14 +163,9 @@ public class WrongBookServiceImpl implements WrongBookService {
 
     @Override
     public List<Problem> getRecommendedProblems(Long userId, Long wrongItemId, Integer limit) {
-        WrongBookItem item = wrongBookMapper.selectWrongBookItemById(wrongItemId);
-        if (item != null) {
-            // 获取题目难度
-            // 这里可以通过problem表查询难度，暂时假设为中等难度
-            Integer difficulty = 1;
-            return wrongBookMapper.selectRecommendedProblems(item.getKnowledgePoints(), difficulty, limit);
-        }
-        return new ArrayList<>();
+        WrongBookItem item = requireOwnedWrongBookItem(userId, wrongItemId);
+        Integer difficulty = 1;
+        return wrongBookMapper.selectRecommendedProblems(item.getKnowledgePoints(), difficulty, limit);
     }
 
     @Override
@@ -181,37 +175,40 @@ public class WrongBookServiceImpl implements WrongBookService {
 
     @Override
     public void autoAddWrongItem(Long userId, Submit submit, Problem problem) {
-        // 只处理非AC的提交
         if (submit.getResult() != 0) {
-            String errorMessage = "";
-            // 构建错误信息
+            String errorMessage;
             switch (submit.getResult()) {
                 case 1:
-                    errorMessage = "答案错误";
+                    errorMessage = "Wrong answer";
                     break;
                 case 2:
-                    errorMessage = "编译错误";
+                    errorMessage = "Compile error";
                     break;
                 case 3:
-                    errorMessage = "运行时错误";
+                    errorMessage = "Runtime error";
                     break;
                 case 4:
-                    errorMessage = "超时";
+                    errorMessage = "Time limit exceeded";
                     break;
                 default:
-                    errorMessage = "未知错误";
+                    errorMessage = "Unknown error";
             }
-            
-            addWrongBookItem(userId, submit.getProblemId(), submit.getId(), submit.getCode(), 
-                submit.getLanguage(), errorMessage, problem.getKnowledgePoints());
+
+            addWrongBookItem(
+                    userId,
+                    submit.getProblemId(),
+                    submit.getId(),
+                    submit.getCode(),
+                    submit.getLanguage(),
+                    errorMessage,
+                    problem.getKnowledgePoints()
+            );
         }
     }
 
     @Override
     public void autoGenerateReviewPlans(Long userId) {
-        // 获取用户的错题本
         WrongBook wrongBook = getUserWrongBook(userId);
-        // 获取所有未生成复习计划的错题项
         List<WrongBookItem> items = wrongBookMapper.selectWrongBookItems(wrongBook.getId(), null, null);
         for (WrongBookItem item : items) {
             ReviewPlan plan = wrongBookMapper.selectReviewPlanByWrongItemId(item.getId());
@@ -219,5 +216,14 @@ public class WrongBookServiceImpl implements WrongBookService {
                 createReviewPlan(userId, item.getId());
             }
         }
+    }
+
+    private WrongBookItem requireOwnedWrongBookItem(Long userId, Long wrongItemId) {
+        WrongBookItem item = wrongBookMapper.selectWrongBookItemById(wrongItemId);
+        WrongBook wrongBook = wrongBookMapper.selectWrongBookByUserId(userId);
+        if (item == null || wrongBook == null || !wrongBook.getId().equals(item.getWrongBookId())) {
+            throw new RuntimeException("Wrong book item not found");
+        }
+        return item;
     }
 }

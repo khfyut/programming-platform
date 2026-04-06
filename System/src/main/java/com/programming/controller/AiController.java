@@ -57,7 +57,7 @@ public class AiController {
     public ResultUtil deleteHistory(@PathVariable Long id, HttpServletRequest request) {
         try {
             Long userId = (Long) request.getAttribute("userId");
-            aiService.deleteSession(id);
+            aiService.deleteSession(userId, id);
             return ResultUtil.success("删除成功");
         } catch (Exception e) {
             return ResultUtil.error("删除失败：" + e.getMessage());
@@ -68,7 +68,7 @@ public class AiController {
     public ResultUtil getSessionMessages(@PathVariable String sessionId, HttpServletRequest request) {
         try {
             Long userId = (Long) request.getAttribute("userId");
-            var messages = aiService.getChatHistory(sessionId);
+            var messages = aiService.getChatHistory(userId, sessionId);
             return ResultUtil.success(messages);
         } catch (Exception e) {
             return ResultUtil.error("获取消息失败：" + e.getMessage());

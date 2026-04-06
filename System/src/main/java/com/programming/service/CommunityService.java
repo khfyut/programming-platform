@@ -13,9 +13,9 @@ public interface CommunityService {
     
     void createPost(CommunityPost post);
     
-    void updatePost(CommunityPost post);
+    void updatePost(CommunityPost post, Long operatorUserId);
     
-    void deletePost(Long postId);
+    void deletePost(Long postId, Long operatorUserId);
     
     void likePost(Long postId);
     
@@ -24,9 +24,9 @@ public interface CommunityService {
     
     void createComment(CommunityComment comment);
     
-    void updateComment(CommunityComment comment);
+    void updateComment(CommunityComment comment, Long operatorUserId);
     
-    void deleteComment(Long commentId);
+    void deleteComment(Long commentId, Long operatorUserId);
     
     void likeComment(Long commentId);
     

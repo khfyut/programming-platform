@@ -258,7 +258,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import { getMySubmissions } from '@/api/submit'
 import { getUserPosts } from '@/api/community'
-import { getFavorites, getStudyActivities, getUserAchievements, getUserProfile, updateProfile } from '@/api/userProfile'
+import { getFavorites, getStudyActivities, getStudyStats, getUserAchievements, getUserProfile, updateProfile } from '@/api/userProfile'
 import { getActivePaths, getDifficultyStats, getKnowledgeMastery, getMyLearnStats, getRecommendations } from '@/api/learn'
 
 const route = useRoute()
@@ -284,6 +284,36 @@ const editDialogVisible = ref(false)
 const editForm = ref({ bio: '', avatarUrl: '', githubUrl: '', blogUrl: '' })
 
 const isOwner = computed(() => String(userId.value || '') === String(userStore.userInfo?.id || ''))
+
+const normalizeStats = (payload = {}) => {
+  const data = payload.stats || payload
+  const passRatePercent = data.passRate !== undefined ? Math.round(Number(data.passRate) * 100) : Number(data.accuracy || 0)
+  stats.value = {
+    solved: data.solved ?? data.totalSolved ?? 0,
+    submitted: data.submitted ?? data.totalSubmissions ?? 0,
+    accuracy: passRatePercent,
+    streak: data.streak ?? 0,
+    studyHours: data.studyHours ?? 0,
+    ranking: data.ranking ?? payload.ranking ?? profile.value.ranking ?? 0,
+    solvedTrend: data.solvedTrend ?? data.weeklySolvedTrend ?? 0,
+    submittedTrend: data.submittedTrend ?? data.weeklySubmittedTrend ?? 0,
+    accuracyTrend: data.accuracyTrend ?? data.weeklyAccuracyTrend ?? 0,
+    streakTrend: data.streakTrend ?? data.weeklyStreakTrend ?? 0,
+    studyHoursTrend: data.studyHoursTrend ?? data.weeklyStudyHoursTrend ?? 0,
+    rankingTrend: data.rankingTrend ?? data.weeklyRankingTrend ?? 0
+  }
+}
+
+const resetPrivateSections = () => {
+  knowledgeMastery.value = []
+  weakPoints.value = []
+  recommendedProblems.value = []
+  recentSubmissions.value = []
+  favorites.value = []
+  if (activeTab.value === 'favorites') {
+    activeTab.value = 'activities'
+  }
+}
 
 const statCards = computed(() => [
   { key: 'solved', label: '已解题', value: stats.value.solved, trend: stats.value.solvedTrend, unit: '', icon: CircleCheck },
@@ -319,7 +349,17 @@ const getBarWidth = (count) => {
   const total = difficultyStats.value.easy + difficultyStats.value.medium + difficultyStats.value.hard
   return total > 0 ? (count / total) * 100 : 0
 }
-const getDifficultyTagType = (difficulty) => difficulty === 'easy' ? 'success' : difficulty === 'medium' ? 'warning' : 'danger'
+const normalizeDifficultyKey = (difficulty) => {
+  const value = String(difficulty ?? '').trim().toLowerCase()
+  if (value === '0' || value === 'easy') return 'easy'
+  if (value === '1' || value === 'medium' || value === 'normal') return 'medium'
+  if (value === '2' || value === 'hard') return 'hard'
+  return 'hard'
+}
+const getDifficultyTagType = (difficulty) => {
+  const normalized = normalizeDifficultyKey(difficulty)
+  return normalized === 'easy' ? 'success' : normalized === 'medium' ? 'warning' : 'danger'
+}
 const getDifficultyText = (difficulty) => difficulty === 'easy' ? '简单' : difficulty === 'medium' ? '中等' : '困难'
 const getResultTagType = (result) => isAcceptedResult(result) ? 'success' : 'danger'
 const getSubmissionResultText = (result) => isAcceptedResult(result) ? '通过' : '未通过'
@@ -332,7 +372,10 @@ const formatActivityText = (activity) => {
 const loadProfile = async () => {
   try {
     const res = await getUserProfile(userId.value)
-    if (res?.code === 200) profile.value = { ...profile.value, ...(res.data || {}) }
+    if (res?.code === 200) {
+      profile.value = { ...profile.value, ...(res.data || {}) }
+      stats.value = { ...stats.value, ranking: Number(res.data?.ranking || 0) }
+    }
   } catch (error) {
     console.error('获取个人资料失败:', error)
   }
@@ -340,25 +383,9 @@ const loadProfile = async () => {
 
 const loadStats = async () => {
   try {
-    const res = await getMyLearnStats(userId.value)
+    const res = isOwner.value ? await getMyLearnStats() : await getStudyStats(userId.value)
     if (res?.code === 200) {
-      const payload = res.data || {}
-      const data = payload.stats || payload
-      const passRatePercent = data.passRate !== undefined ? Math.round(Number(data.passRate) * 100) : Number(data.accuracy || 0)
-      stats.value = {
-        solved: data.solved ?? data.totalSolved ?? 0,
-        submitted: data.submitted ?? data.totalSubmissions ?? 0,
-        accuracy: passRatePercent,
-        streak: data.streak ?? 0,
-        studyHours: data.studyHours ?? 0,
-        ranking: data.ranking ?? payload.ranking ?? 0,
-        solvedTrend: data.solvedTrend ?? data.weeklySolvedTrend ?? 0,
-        submittedTrend: data.submittedTrend ?? data.weeklySubmittedTrend ?? 0,
-        accuracyTrend: data.accuracyTrend ?? data.weeklyAccuracyTrend ?? 0,
-        streakTrend: data.streakTrend ?? data.weeklyStreakTrend ?? 0,
-        studyHoursTrend: data.studyHoursTrend ?? data.weeklyStudyHoursTrend ?? 0,
-        rankingTrend: data.rankingTrend ?? data.weeklyRankingTrend ?? 0
-      }
+      normalizeStats(res.data || {})
     }
   } catch (error) {
     console.error('获取学习统计失败:', error)
@@ -376,8 +403,13 @@ const loadActivePaths = async () => {
 }
 
 const loadKnowledgeMastery = async () => {
+  if (!isOwner.value) {
+    knowledgeMastery.value = []
+    weakPoints.value = []
+    return
+  }
   try {
-    const res = await getKnowledgeMastery(userId.value)
+    const res = await getKnowledgeMastery()
     if (res?.code === 200) {
       const list = normalizeList(res.data?.masteryList || res.data)
       const normalized = list.map((item) => {
@@ -411,12 +443,17 @@ const loadDifficulty = async () => {
 }
 
 const loadRecommendations = async () => {
+  if (!isOwner.value) {
+    recommendedProblems.value = []
+    return
+  }
   try {
-    const res = await getRecommendations(userId.value)
+    const res = await getRecommendations()
     if (res?.code === 200) {
       const source = res.data?.problems || res.data
       recommendedProblems.value = normalizeList(source).map((item) => ({
         ...item,
+        difficulty: normalizeDifficultyKey(item.difficulty),
         title: item.title || '未命名题目',
         description: item.description || item.content || '这道题暂时还没有补充描述。',
         viewCount: Number(item.viewCount || 0),
@@ -430,6 +467,10 @@ const loadRecommendations = async () => {
 }
 
 const loadRecentSubmissions = async () => {
+  if (!isOwner.value) {
+    recentSubmissions.value = []
+    return
+  }
   try {
     const res = await getMySubmissions({ page: 1, size: 5 })
     if (res?.code === 200) {
@@ -473,8 +514,8 @@ const loadPosts = async () => {
         ...item,
         title: item.title || '未命名帖子',
         createTime: item.createTime || item.updateTime || '',
-        viewCount: Number(item.viewCount || 0),
-        commentCount: Number(item.commentCount || 0)
+        viewCount: Number(item.viewCount || item.views || 0),
+        commentCount: Number(item.commentCount || item.comments || 0)
       }))
     }
   } catch (error) {
@@ -484,6 +525,10 @@ const loadPosts = async () => {
 }
 
 const loadFavorites = async () => {
+  if (!isOwner.value) {
+    favorites.value = []
+    return
+  }
   try {
     const [postRes, problemRes] = await Promise.all([getFavorites(userId.value, 'POST'), getFavorites(userId.value, 'PROBLEM')])
     favorites.value = [
@@ -498,6 +543,9 @@ const loadFavorites = async () => {
 
 const loadAll = async () => {
   if (!userId.value) return
+  if (!isOwner.value) {
+    resetPrivateSections()
+  }
   await Promise.all([loadProfile(), loadStats(), loadActivePaths(), loadKnowledgeMastery(), loadDifficulty(), loadRecommendations(), loadRecentSubmissions(), loadActivities(), loadAchievements(), loadPosts(), loadFavorites()])
 }
 

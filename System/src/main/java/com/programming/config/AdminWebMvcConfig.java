@@ -20,9 +20,24 @@ public class AdminWebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/user/login", "/api/user/register", "/api/problem/**");
+                .excludePathPatterns(
+                        "/api/user/login",
+                        "/api/user/register",
+                        "/api/problem/list",
+                        "/api/problem/detail/*",
+                        "/api/problem/*/test-cases/sample",
+                        "/api/problem/tag/*",
+                        "/api/problem/languages"
+                );
 
         registry.addInterceptor(adminInterceptor)
-                .addPathPatterns("/api/admin/**");
+                .addPathPatterns(
+                        "/api/admin/**",
+                        "/api/problem/test-jdbc",
+                        "/api/problem/*/test-cases/all",
+                        "/api/problem/*/test-cases",
+                        "/api/problem/*/test-cases/batch",
+                        "/api/problem/test-cases/*"
+                );
     }
 }

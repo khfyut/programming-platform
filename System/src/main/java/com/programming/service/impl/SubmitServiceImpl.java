@@ -389,13 +389,19 @@ public class SubmitServiceImpl implements SubmitService {
     }
 
     @Override
-    public SubmitWithProblemVO getSubmitDetail(Long submitId) {
+    public SubmitWithProblemVO getSubmitDetail(Long userId, Long submitId) {
+        Submit submit = requireOwnedSubmit(userId, submitId);
+        List<SubmitTestCaseResult> results = submitTestCaseResultMapper.findBySubmitId(submitId);
+        submit.setTestCaseResults(results);
+        return convertToVO(submit);
+    }
+
+    private Submit requireOwnedSubmit(Long userId, Long submitId) {
         Submit submit = submitMapper.findById(submitId);
-        if (submit != null) {
-            List<SubmitTestCaseResult> results = submitTestCaseResultMapper.findBySubmitId(submitId);
-            submit.setTestCaseResults(results);
+        if (submit == null || submit.getUserId() == null || !submit.getUserId().equals(userId)) {
+            throw new RuntimeException("Submission not found");
         }
-        return submit != null ? convertToVO(submit) : null;
+        return submit;
     }
 
     private record EvaluatedCase(SubmitTestCaseResult result, int resultCode, String statusText, boolean passed) {

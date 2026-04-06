@@ -11,15 +11,16 @@ class WebSocketManager {
       return
     }
 
-    const wsUrl = `ws://localhost:8080/ws/judge-progress`
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/ws/judge-progress`
     this.socket = new WebSocket(wsUrl)
 
     this.socket.onopen = () => {
       console.log('WebSocket connected')
       this.isConnected = true
       this.trigger('open')
-      
-      // 发送用户ID进行关联
+
+      // 发送 userId 与后端会话关联
       if (userId) {
         const message = JSON.stringify({ userId })
         this.socket.send(message)
@@ -32,8 +33,8 @@ class WebSocketManager {
         const data = JSON.parse(event.data)
         console.log('WebSocket message:', data)
         this.trigger('message', data)
-        
-        // 根据消息类型触发不同的事件
+
+        // 根据消息类型触发对应事件
         if (data.type) {
           this.trigger(data.type, data)
         }

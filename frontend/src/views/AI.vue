@@ -27,12 +27,15 @@
         </div>
 
         <div class="session-list" v-loading="sessionsLoading">
-          <button
+          <div
             v-for="session in sessions"
             :key="getSessionKey(session)"
-            type="button"
             :class="['session-item', { active: currentSessionId === getSessionId(session) }]"
+            role="button"
+            tabindex="0"
             @click="switchSession(getSessionId(session))"
+            @keydown.enter.prevent="switchSession(getSessionId(session))"
+            @keydown.space.prevent="switchSession(getSessionId(session))"
           >
             <div class="session-info">
               <div class="session-title">{{ getSessionTitle(session) }}</div>
@@ -41,7 +44,7 @@
             <el-button type="danger" size="small" text @click.stop="deleteSession(session)">
               <el-icon><Delete /></el-icon>
             </el-button>
-          </button>
+          </div>
 
           <el-empty v-if="sessions.length === 0 && !sessionsLoading" description="暂无对话记录">
             <template #description>
@@ -616,6 +619,11 @@ onMounted(async () => {
 .session-item:hover {
   background: var(--leetcode-bg, #ffffff);
   border-color: rgba(22, 104, 220, 0.08);
+}
+
+.session-item:focus-visible {
+  outline: 2px solid rgba(22, 104, 220, 0.28);
+  outline-offset: 2px;
 }
 
 .session-item.active {

@@ -15,7 +15,7 @@ public interface AiService {
     
     // 多轮对话相关
     ResultUtil chat(Map<String, Object> params);
-    List<AiMessage> getChatHistory(String sessionId);
+    List<AiMessage> getChatHistory(Long userId, String sessionId);
     
     // 代码优化相关
     ResultUtil optimizeCode(String code, String language);
@@ -30,7 +30,7 @@ public interface AiService {
     
     // 会话管理
     List<AiSession> getSessions(Long userId);
-    void deleteSession(Long id);
+    void deleteSession(Long userId, Long id);
     
     // AI能力增强
     SseEmitter explainCode(String code, String language);

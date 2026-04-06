@@ -19,6 +19,8 @@ public interface KnowledgeMasteryService {
     void createRelationship(KnowledgeRelationship relationship);
     void deleteRelationship(Long id);
     Map<String, Object> getKnowledgeGraph();
+    Map<String, Object> getKnowledgeGraph(Long userId, String domain, Integer minMastery, Integer maxMastery);
+    Map<String, Object> getKnowledgePointDetail(Long userId, Long knowledgeId);
     
     // 知识点掌握度
     UserKnowledgeMastery getUserKnowledgeMastery(Long userId, Long knowledgeId);

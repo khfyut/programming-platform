@@ -18,9 +18,9 @@ public interface CommunityMapper {
     
     void insertPost(CommunityPost post);
     
-    void updatePost(CommunityPost post);
+    int updatePost(CommunityPost post);
     
-    void deletePost(@Param("id") Long id);
+    int deletePost(@Param("id") Long id, @Param("userId") Long userId);
     
     void incrementPostLikes(@Param("id") Long id);
     
@@ -28,12 +28,14 @@ public interface CommunityMapper {
     
     // 评论相关
     List<CommunityComment> selectCommentsByPostId(@Param("postId") Long postId);
+
+    CommunityComment selectCommentById(@Param("id") Long id);
     
     void insertComment(CommunityComment comment);
     
-    void updateComment(CommunityComment comment);
+    int updateComment(CommunityComment comment);
     
-    void deleteComment(@Param("id") Long id);
+    int deleteComment(@Param("id") Long id, @Param("userId") Long userId);
     
     void incrementCommentLikes(@Param("id") Long id);
     

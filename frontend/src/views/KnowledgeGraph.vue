@@ -44,7 +44,7 @@
     <div class="legend">
       <div class="legend-item">
         <span class="legend-color" style="background-color: #67c23a"></span>
-        <span>掌握度 >= 80%</span>
+        <span>掌握度 &gt;= 80%</span>
       </div>
       <div class="legend-item">
         <span class="legend-color" style="background-color: #e6a23c"></span>
@@ -57,6 +57,10 @@
       <div class="legend-item">
         <span class="legend-color" style="background-color: #909399"></span>
         <span>掌握度 &lt; 40%</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background-color: #c0c4cc"></span>
+        <span>暂无掌握度数据</span>
       </div>
     </div>
 
@@ -81,17 +85,19 @@
             {{ getDifficultyText(selectedNode.difficulty) }}
           </el-descriptions-item>
           <el-descriptions-item label="练习次数">
-            {{ selectedNode.practiceCount || 0 }}
+            {{ hasMasteryData(selectedNode) ? (selectedNode.practiceCount ?? 0) : '暂无数据' }}
           </el-descriptions-item>
-          <el-descriptions-item label="准确率">
+          <el-descriptions-item label="正确率">
             {{ formatAccuracy(selectedNode.accuracy) }}
           </el-descriptions-item>
           <el-descriptions-item label="掌握度">
             <el-progress
-              :percentage="Math.round((selectedNode.mastery || 0) * 100)"
-              :color="getMasteryColor(selectedNode.mastery || 0)"
+              v-if="hasMasteryData(selectedNode) && selectedNode.mastery !== null && selectedNode.mastery !== undefined"
+              :percentage="Math.round(selectedNode.mastery * 100)"
+              :color="getMasteryColor(selectedNode.mastery, selectedNode)"
               :stroke-width="10"
             />
+            <span v-else>暂无数据</span>
           </el-descriptions-item>
         </el-descriptions>
       </div>
@@ -128,15 +134,28 @@ const normalizeGraphData = (data = {}) => ({
   edges: Array.isArray(data.edges) ? data.edges : []
 })
 
+const hasMasteryData = (node) => Boolean(node && node.hasMasteryData)
+
 const formatAccuracy = (accuracy) => {
   if (accuracy === undefined || accuracy === null) {
-    return '0%'
+    return '暂无数据'
   }
 
   return `${(accuracy * 100).toFixed(1)}%`
 }
 
-const getMasteryColor = (mastery) => {
+const formatMasteryText = (mastery, node) => {
+  if (!hasMasteryData(node) || mastery === undefined || mastery === null) {
+    return '暂无数据'
+  }
+
+  return `${Math.round(mastery * 100)}%`
+}
+
+const getMasteryColor = (mastery, node) => {
+  if (!hasMasteryData(node) || mastery === undefined || mastery === null) {
+    return '#c0c4cc'
+  }
   if (mastery >= 0.8) return '#67c23a'
   if (mastery >= 0.6) return '#e6a23c'
   if (mastery >= 0.4) return '#f56c6c'
@@ -183,12 +202,11 @@ const renderGraph = (graphData) => {
           return ''
         }
 
-        const mastery = Math.round((params.data.mastery || 0) * 100)
         return [
           `<div style="font-weight:700;margin-bottom:4px;">${params.data.name}</div>`,
-          `<div>掌握度: ${mastery}%</div>`,
+          `<div>掌握度: ${formatMasteryText(params.data.mastery, params.data)}</div>`,
           `<div>难度: ${getDifficultyText(params.data.difficulty)}</div>`,
-          `<div>练习次数: ${params.data.practiceCount || 0}</div>`
+          `<div>练习次数: ${hasMasteryData(params.data) ? (params.data.practiceCount ?? 0) : '暂无数据'}</div>`
         ].join('')
       }
     },
@@ -204,7 +222,7 @@ const renderGraph = (graphData) => {
           symbolSize: (node.importance || 1) * 10 + 18,
           category: node.category || '其他',
           itemStyle: {
-            color: getMasteryColor(node.mastery || 0)
+            color: getMasteryColor(node.mastery, node)
           },
           label: {
             show: true,
@@ -244,7 +262,7 @@ const renderGraph = (graphData) => {
 
     try {
       const res = await getNodeDetail(params.data.id)
-      selectedNode.value = res.code === 200 ? res.data : params.data
+      selectedNode.value = res.code === 200 ? { ...params.data, ...res.data } : params.data
     } catch {
       selectedNode.value = params.data
     } finally {
@@ -268,7 +286,7 @@ const loadGraphData = async () => {
     } else {
       ElMessage.error(res.msg || '获取知识图谱失败')
     }
-  } catch (error) {
+  } catch {
     ElMessage.error('获取知识图谱失败')
   } finally {
     loading.value = false

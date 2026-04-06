@@ -78,7 +78,17 @@ public class UserProfileService {
      * 更新个人信息
      */
     public void updateProfile(Long userId, UserProfileUpdateVO vo) {
-        userMapper.updateProfile(userId, vo.getBio(), vo.getAvatarUrl(), vo.getGithubUrl(), vo.getBlogUrl());
+        String username = vo.getUsername() == null ? "" : vo.getUsername().trim();
+        if (username.isEmpty()) {
+            throw new RuntimeException("用户名不能为空");
+        }
+
+        User existingUser = userMapper.findByUsername(username);
+        if (existingUser != null && !existingUser.getId().equals(userId)) {
+            throw new RuntimeException("用户名已存在");
+        }
+
+        userMapper.updateProfile(userId, username, vo.getBio(), vo.getAvatarUrl(), vo.getGithubUrl(), vo.getBlogUrl());
     }
     
     /**
@@ -129,9 +139,10 @@ public class UserProfileService {
      */
     public List<StudyActivity> getStudyActivities(Long userId, int page, int size) {
         List<StudyActivity> activities = new ArrayList<>();
+        int fetchSize = Math.max((page + 1) * size, size);
         
         // 最近的解题记录
-        List<Submit> recentSubmits = submitMapper.findRecentByUserId(userId, page, size);
+        List<Submit> recentSubmits = submitMapper.findRecentByUserId(userId, 0, fetchSize);
         for (Submit submit : recentSubmits) {
             StudyActivity activity = new StudyActivity();
             activity.setType("SOLVE_PROBLEM");
@@ -143,7 +154,7 @@ public class UserProfileService {
         }
         
         // 最近的发帖记录
-        List<CommunityPost> recentPosts = communityMapper.findRecentPostsByUserId(userId, page, size);
+        List<CommunityPost> recentPosts = communityMapper.findRecentPostsByUserId(userId, 0, fetchSize);
         for (CommunityPost post : recentPosts) {
             StudyActivity activity = new StudyActivity();
             activity.setType("CREATE_POST");

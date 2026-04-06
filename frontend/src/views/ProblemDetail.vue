@@ -1,4 +1,4 @@
-﻿<template>
+﻿﻿<template>
   <div class="problem-detail-page">
     <!-- 椤堕儴瀵艰埅鏍?-->
     <div class="problem-header">

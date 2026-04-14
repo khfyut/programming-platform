@@ -1,9 +1,15 @@
-import { ref, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getProblemDetail, getSampleTestCases } from '@/api/problem'
-import { submitCode as submitCodeApi, getMySubmissions, getSubmitDetail } from '@/api/submit'
+import { runCode as runCodeApi } from '@/api/code'
+import { getProblemDetail, getProblemSupportedLanguages, getSampleTestCases } from '@/api/problem'
 import { getHint } from '@/api/referenceSolution'
+import { submitCode as submitCodeApi, getMySubmissions, getSubmitDetail } from '@/api/submit'
 import { getStudyStats } from '@/api/userProfile'
+import {
+  getRuntimeDefaultStarterCode,
+  getRuntimeLanguageLabel,
+  normalizeRuntimeLanguage
+} from '@/utils/runtimeLanguage'
 
 export function useProblemDetailData(route, userStore) {
   const loading = ref(false)
@@ -20,6 +26,9 @@ export function useProblemDetailData(route, userStore) {
   const detailLoading = ref(false)
   const canViewSolution = ref(false)
   const hints = ref([])
+  const supportedLanguages = ref([])
+  const codeDrafts = ref({})
+  const currentLanguageRef = ref(language.value)
   const userStats = ref({
     solved: 0,
     submissions: 0,
@@ -42,60 +51,66 @@ export function useProblemDetailData(route, userStore) {
   const testCases = ref([])
   const selectedTestCase = ref(0)
 
-  const codeTemplates = {
-    java: `class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        
+  const languageOptions = computed(() =>
+    supportedLanguages.value.map((item) => ({
+      ...item,
+      code: normalizeRuntimeLanguage(item.languageCode),
+      label: getRuntimeLanguageLabel(item.languageCode)
+    }))
+  )
+
+  const currentLanguageConfig = computed(() =>
+    supportedLanguages.value.find(
+      (item) => normalizeRuntimeLanguage(item.languageCode) === normalizeRuntimeLanguage(language.value)
+    ) || null
+  )
+
+  const currentFileName = computed(() => currentLanguageConfig.value?.starterFilename || 'main.txt')
+
+  const pickInitialLanguage = (languages) => {
+    const normalizedUserLanguage = normalizeRuntimeLanguage(userStore.userInfo?.language)
+    const enabledCodes = languages.map((item) => normalizeRuntimeLanguage(item.languageCode))
+    if (enabledCodes.includes(normalizedUserLanguage)) {
+      return normalizedUserLanguage
     }
-}`,
-    python: `class Solution:
-    def twoSum(self, nums: List[int], target: int) -> List[int]:
-        `
+    const defaultLanguage = languages.find((item) => Number(item.isDefault) === 1)
+    if (defaultLanguage) {
+      return normalizeRuntimeLanguage(defaultLanguage.languageCode)
+    }
+    return enabledCodes[0] || 'java'
   }
 
-  const initializeCode = () => {
-    const problemId = route.params.id
-    let template = codeTemplates[language.value] || ''
+  const loadCodeForLanguage = (nextLanguage) => {
+    const normalizedLanguage = normalizeRuntimeLanguage(nextLanguage)
+    const languageConfig = supportedLanguages.value.find(
+      (item) => normalizeRuntimeLanguage(item.languageCode) === normalizedLanguage
+    )
+    if (!languageConfig) {
+      return
+    }
+    code.value =
+      codeDrafts.value[normalizedLanguage] ??
+      languageConfig.starterCode ??
+      getRuntimeDefaultStarterCode(normalizedLanguage)
+  }
 
-    if (problemId == 1) {
-      if (language.value === 'java') {
-        template = `class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        
-    }
-}`
-      } else {
-        template = `class Solution:
-    def twoSum(self, nums: List[int], target: int) -> List[int]:
-        `
-      }
-    } else if (problemId == 2) {
-      if (language.value === 'java') {
-        template = `class Solution {
-    public int findMax(int[] nums) {
-        
-    }
-}`
-      } else {
-        template = `class Solution:
-    def findMax(self, nums: List[int]) -> int:
-        `
-      }
-    } else if (problemId == 3) {
-      if (language.value === 'java') {
-        template = `class Solution {
-    public int abs(int x) {
-        
-    }
-}`
-      } else {
-        template = `class Solution:
-    def abs(self, x: int) -> int:
-        `
-      }
+  const switchLanguage = async (nextLanguage, { preserveCurrent = true, reloadHints = true } = {}) => {
+    const normalizedLanguage = normalizeRuntimeLanguage(nextLanguage)
+    if (!normalizedLanguage) {
+      return
     }
 
-    code.value = template
+    if (preserveCurrent && currentLanguageRef.value) {
+      codeDrafts.value[currentLanguageRef.value] = code.value
+    }
+
+    currentLanguageRef.value = normalizedLanguage
+    language.value = normalizedLanguage
+    loadCodeForLanguage(normalizedLanguage)
+
+    if (reloadHints) {
+      await fetchHints(normalizedLanguage)
+    }
   }
 
   const fetchUserStats = async () => {
@@ -136,11 +151,11 @@ export function useProblemDetailData(route, userStore) {
     }
   }
 
-  const fetchHints = async () => {
+  const fetchHints = async (targetLanguage = language.value) => {
     try {
       const hintsArray = []
       for (let i = 1; i <= 3; i += 1) {
-        const res = await getHint(route.params.id, i)
+        const res = await getHint(route.params.id, i, targetLanguage)
         if (res.code === 200 && res.data) {
           hintsArray.push(res.data)
         }
@@ -151,14 +166,40 @@ export function useProblemDetailData(route, userStore) {
     }
   }
 
+  const fetchSupportedLanguages = async () => {
+    const res = await getProblemSupportedLanguages(route.params.id)
+    if (res.code !== 200) {
+      throw new Error(res.msg || '获取题目语言失败')
+    }
+
+    supportedLanguages.value = (res.data || []).map((item, index) => ({
+      ...item,
+      languageCode: normalizeRuntimeLanguage(item.languageCode),
+      starterCode: item.starterCode || getRuntimeDefaultStarterCode(item.languageCode),
+      starterFilename: item.starterFilename || 'main.txt',
+      sortOrder: item.sortOrder ?? index
+    }))
+
+    codeDrafts.value = supportedLanguages.value.reduce((acc, item) => {
+      acc[item.languageCode] = item.starterCode || getRuntimeDefaultStarterCode(item.languageCode)
+      return acc
+    }, {})
+  }
+
   const fetchProblemDetail = async () => {
     loading.value = true
     try {
-      const res = await getProblemDetail(route.params.id)
-      if (res.code === 200) {
-        problem.value = res.data
-        initializeCode()
-        await Promise.all([fetchTestCases(), fetchHints()])
+      const [detailRes] = await Promise.all([
+        getProblemDetail(route.params.id),
+        fetchSupportedLanguages(),
+        fetchTestCases()
+      ])
+
+      if (detailRes.code === 200) {
+        problem.value = detailRes.data
+        const initialLanguage = pickInitialLanguage(supportedLanguages.value)
+        await switchLanguage(initialLanguage, { preserveCurrent: false, reloadHints: false })
+        await fetchHints(initialLanguage)
       }
     } catch (error) {
       console.error('获取题目详情失败:', error)
@@ -190,33 +231,186 @@ export function useProblemDetailData(route, userStore) {
     }
   }
 
-  const handleLanguageChange = () => {
-    initializeCode()
+  const handleLanguageChange = async () => {
+    if (!supportedLanguages.value.some((item) => item.languageCode === normalizeRuntimeLanguage(language.value))) {
+      const fallbackLanguage = pickInitialLanguage(supportedLanguages.value)
+      await switchLanguage(fallbackLanguage, { preserveCurrent: false, reloadHints: true })
+      ElMessage.warning('当前题目未开放该语言，已切回可用语言')
+      return
+    }
+    await switchLanguage(language.value)
   }
 
   const resetCode = () => {
-    initializeCode()
+    const nextCode =
+      currentLanguageConfig.value?.starterCode || getRuntimeDefaultStarterCode(language.value)
+    codeDrafts.value[normalizeRuntimeLanguage(language.value)] = nextCode
+    code.value = nextCode
     ElMessage.success('代码已重置')
+  }
+
+  const buildRunResult = (executionResult, currentCase) => {
+    const input = currentCase?.input || ''
+    const expectedOutput = currentCase?.output || ''
+    const actualOutput = executionResult?.output || ''
+    const timeCost = executionResult?.timeCost || 0
+    const memoryCost = executionResult?.memoryCost || 0
+
+    if (executionResult?.status === 'COMPILE_ERROR') {
+      const compileError = executionResult.compileOutput || executionResult.errorMessage || '编译失败'
+      return {
+        result: 2,
+        output: '',
+        compileError,
+        runtimeError: null,
+        errorMessage: null,
+        timeCost,
+        memoryCost,
+        passedCount: 0,
+        totalCount: 1,
+        testCaseResults: [
+          {
+            result: 2,
+            input,
+            expectedOutput,
+            actualOutput: '',
+            errorMessage: compileError,
+            timeCost,
+            memoryCost
+          }
+        ]
+      }
+    }
+
+    if (executionResult?.status === 'RUNTIME_ERROR') {
+      const runtimeError = executionResult.errorMessage || '运行失败'
+      return {
+        result: 3,
+        output: '',
+        compileError: null,
+        runtimeError,
+        errorMessage: null,
+        timeCost,
+        memoryCost,
+        passedCount: 0,
+        totalCount: 1,
+        testCaseResults: [
+          {
+            result: 3,
+            input,
+            expectedOutput,
+            actualOutput: '',
+            errorMessage: runtimeError,
+            timeCost,
+            memoryCost
+          }
+        ]
+      }
+    }
+
+    if (executionResult?.status && executionResult.status !== 'SUCCESS') {
+      const errorMessage = executionResult.errorMessage || executionResult.compileOutput || '执行失败'
+      return {
+        result: 4,
+        output: '',
+        compileError: null,
+        runtimeError: null,
+        errorMessage,
+        timeCost,
+        memoryCost,
+        passedCount: 0,
+        totalCount: 1,
+        testCaseResults: [
+          {
+            result: 4,
+            input,
+            expectedOutput,
+            actualOutput: '',
+            errorMessage,
+            timeCost,
+            memoryCost
+          }
+        ]
+      }
+    }
+
+    const passed = expectedOutput ? actualOutput.trim() === expectedOutput.trim() : true
+    return {
+      result: passed ? 0 : 1,
+      output: actualOutput,
+      compileError: null,
+      runtimeError: null,
+      errorMessage: null,
+      timeCost,
+      memoryCost,
+      passedCount: passed ? 1 : 0,
+      totalCount: 1,
+      testCaseResults: [
+        {
+          result: passed ? 0 : 1,
+          input,
+          expectedOutput,
+          actualOutput,
+          errorMessage: null,
+          timeCost,
+          memoryCost
+        }
+      ]
+    }
   }
 
   const runCode = async () => {
     running.value = true
     activeTestcaseTab.value = 'result'
     try {
-      const res = await submitCodeApi({
-        problemId: route.params.id,
+      const currentCase = testCases.value[selectedTestCase.value] || testCases.value[0] || { input: '', output: '' }
+      const res = await runCodeApi({
+        problemId: Number(route.params.id),
         code: code.value,
-        language: language.value
+        language: language.value,
+        input: currentCase.input || ''
       })
 
       if (res.code === 200) {
-        result.value = res.data
+        result.value = buildRunResult(res.data || {}, currentCase)
         ElMessage.success('运行完成')
+        return {
+          ok: true,
+          failed: result.value?.result !== 0,
+          triggerType: 'run_failed',
+          result: result.value,
+          latestResultCode: result.value?.result,
+          errorMessage:
+            result.value?.compileError || result.value?.runtimeError || result.value?.errorMessage || '',
+          executionOutput: result.value?.output || '',
+          code: code.value,
+          language: language.value
+        }
       } else {
         ElMessage.error(res.msg || '运行失败')
+        return {
+          ok: false,
+          failed: true,
+          triggerType: 'run_failed',
+          latestResultCode: 4,
+          errorMessage: res.msg || '运行失败',
+          executionOutput: '',
+          code: code.value,
+          language: language.value
+        }
       }
     } catch (error) {
       ElMessage.error('运行失败，请重试')
+      return {
+        ok: false,
+        failed: true,
+        triggerType: 'run_failed',
+        latestResultCode: 4,
+        errorMessage: '运行失败，请重试',
+        executionOutput: '',
+        code: code.value,
+        language: language.value
+      }
     } finally {
       running.value = false
     }
@@ -237,11 +431,44 @@ export function useProblemDetailData(route, userStore) {
         ElMessage.success('提交成功')
         canViewSolution.value = true
         await Promise.all([fetchProblemSubmissions(), fetchUserStats()])
+        return {
+          ok: true,
+          failed: result.value?.result !== 0,
+          triggerType: 'submit_failed',
+          result: result.value,
+          submitId: result.value?.submitId,
+          latestResultCode: result.value?.result,
+          errorMessage:
+            result.value?.compileError || result.value?.runtimeError || result.value?.errorMessage || '',
+          executionOutput: result.value?.output || '',
+          code: code.value,
+          language: language.value
+        }
       } else {
         ElMessage.error(res.msg || '提交失败')
+        return {
+          ok: false,
+          failed: true,
+          triggerType: 'submit_failed',
+          latestResultCode: 4,
+          errorMessage: res.msg || '提交失败',
+          executionOutput: '',
+          code: code.value,
+          language: language.value
+        }
       }
     } catch (error) {
       ElMessage.error('提交失败，请重试')
+      return {
+        ok: false,
+        failed: true,
+        triggerType: 'submit_failed',
+        latestResultCode: 4,
+        errorMessage: '提交失败，请重试',
+        executionOutput: '',
+        code: code.value,
+        language: language.value
+      }
     } finally {
       submitting.value = false
     }
@@ -279,12 +506,15 @@ export function useProblemDetailData(route, userStore) {
   }
 
   const refreshProblemPage = async () => {
-    await Promise.all([
-      fetchProblemDetail(),
-      fetchUserStats(),
-      fetchProblemSubmissions()
-    ])
+    await Promise.all([fetchProblemDetail(), fetchUserStats(), fetchProblemSubmissions()])
   }
+
+  watch(code, (nextCode) => {
+    const currentLanguage = normalizeRuntimeLanguage(language.value)
+    if (currentLanguage) {
+      codeDrafts.value[currentLanguage] = nextCode
+    }
+  })
 
   onMounted(() => {
     refreshProblemPage()
@@ -326,6 +556,9 @@ export function useProblemDetailData(route, userStore) {
     activeTestcaseTab,
     testCases,
     selectedTestCase,
+    supportedLanguages,
+    languageOptions,
+    currentFileName,
     fetchProblemSubmissions,
     fetchUserStats,
     handleLanguageChange,

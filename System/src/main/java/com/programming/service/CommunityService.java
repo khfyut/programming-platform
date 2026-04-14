@@ -9,18 +9,18 @@ public interface CommunityService {
     // 帖子相关
     List<CommunityPost> getPosts(String type, Long pathId, Long chapterId, Long levelId, int page, int size);
     
-    CommunityPost getPostById(Long postId);
+    CommunityPost getPostById(Long postId, Long requesterUserId);
     
-    void createPost(CommunityPost post);
+    CommunityPost createPost(CommunityPost post);
     
     void updatePost(CommunityPost post, Long operatorUserId);
     
     void deletePost(Long postId, Long operatorUserId);
     
-    void likePost(Long postId);
+    void likePost(Long postId, Long requesterUserId);
     
     // 评论相关
-    List<CommunityComment> getCommentsByPostId(Long postId);
+    List<CommunityComment> getCommentsByPostId(Long postId, Long requesterUserId);
     
     void createComment(CommunityComment comment);
     
@@ -28,10 +28,10 @@ public interface CommunityService {
     
     void deleteComment(Long commentId, Long operatorUserId);
     
-    void likeComment(Long commentId);
+    void likeComment(Long commentId, Long requesterUserId);
     
     // 用户相关
-    List<CommunityPost> getUserPosts(Long userId, int page, int size);
+    List<CommunityPost> getUserPosts(Long userId, Long requesterUserId, String type, int page, int size);
     
     List<CommunityComment> getUserComments(Long userId, int page, int size);
     

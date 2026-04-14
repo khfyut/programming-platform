@@ -29,6 +29,16 @@ public class CodeSandboxServiceImpl implements CodeSandboxService {
     }
 
     @Override
+    public CodeExecutionResult executeCode(String code, String language, String input) {
+        return dockerUtil.executeCode(code, language, input);
+    }
+
+    @Override
+    public CodeExecutionResult executeCode(String code, String language, String input, Integer timeLimit, Integer memoryLimit) {
+        return dockerUtil.executeCode(code, language, input, timeLimit, memoryLimit);
+    }
+
+    @Override
     public List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs) {
         return executeBatch(code, language, inputs, null, null);
     }

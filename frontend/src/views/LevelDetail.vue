@@ -50,6 +50,29 @@
         </div>
       </div>
 
+      <div class="agent-recommendation-card">
+        <div class="agent-recommendation-head">
+          <div>
+            <div class="agent-kicker">Learning Agent</div>
+            <h2>Agent 推荐</h2>
+          </div>
+          <span v-if="agentRecommendation" class="agent-badge">
+            {{ agentRecommendation.actionType || 'RECOMMEND' }}
+          </span>
+        </div>
+        <div v-if="agentRecommendationLoading" class="agent-muted">正在生成关卡建议...</div>
+        <div v-else-if="agentRecommendation">
+          <p class="agent-main">{{ agentRecommendation.mainResponse }}</p>
+          <div v-if="agentRecommendation.weakPoints.length" class="agent-tags">
+            <span v-for="point in agentRecommendation.weakPoints" :key="point">{{ point }}</span>
+          </div>
+          <div v-if="agentRecommendation.nextSuggestion" class="agent-next">
+            下一步：{{ agentRecommendation.nextSuggestion }}
+          </div>
+        </div>
+        <div v-else class="agent-muted">暂无推荐，先完成当前资源和练习题。</div>
+      </div>
+
       <el-tabs v-model="activeTab" class="content-tabs">
         <el-tab-pane label="学习资源" name="resources">
           <div class="resources-section" v-loading="loadingResources">
@@ -151,6 +174,7 @@ import {
   getPathDetail,
   getPathProgress
 } from '@/api/learn'
+import { recommendLearningPathLevel } from '@/api/problemAgent'
 
 const route = useRoute()
 const router = useRouter()
@@ -165,6 +189,8 @@ const currentLevel = ref(null)
 const chapterName = ref('')
 const currentResource = ref(null)
 const resourceDialogVisible = ref(false)
+const agentRecommendationLoading = ref(false)
+const agentRecommendation = ref(null)
 const progress = ref({
   currentLevelId: null,
   completedLevelIds: []
@@ -262,6 +288,34 @@ const getKnowledgePoints = (knowledgePoints) => {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+const normalizeAgentDecision = (decision = {}) => ({
+  actionType: decision.action_type || decision.actionType || '',
+  contentType: decision.content_type || decision.contentType || '',
+  mainResponse: decision.main_response || decision.mainResponse || decision.content || '',
+  nextSuggestion: decision.next_suggestion || decision.nextSuggestion || decision.suggested_next_action || '',
+  weakPoints: Array.isArray(decision.weak_points || decision.weakPoints)
+    ? decision.weak_points || decision.weakPoints
+    : []
+})
+
+const fetchAgentRecommendation = async () => {
+  if (!pathId.value || !levelId.value) return
+  agentRecommendationLoading.value = true
+  try {
+    const res = await recommendLearningPathLevel(pathId.value, levelId.value)
+    if (res?.code === 200 && res.data) {
+      agentRecommendation.value = normalizeAgentDecision(res.data)
+      return
+    }
+    agentRecommendation.value = null
+  } catch (error) {
+    console.warn('Agent learning path recommendation failed:', error)
+    agentRecommendation.value = null
+  } finally {
+    agentRecommendationLoading.value = false
+  }
 }
 
 const fetchLevelData = async () => {
@@ -388,7 +442,10 @@ const goBack = () => {
 }
 
 const loadPage = async () => {
+  agentRecommendation.value = null
+  agentRecommendationLoading.value = false
   await Promise.all([fetchLevelData(), fetchResources(), fetchProblems()])
+  fetchAgentRecommendation()
 }
 
 watch(
@@ -484,6 +541,65 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
+}
+
+.agent-recommendation-card {
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--leetcode-bg, #fff);
+}
+
+.agent-recommendation-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.agent-kicker {
+  margin-bottom: 4px;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-recommendation-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--leetcode-text, #24292f);
+}
+
+.agent-badge,
+.agent-tags span {
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.agent-main {
+  margin: 0 0 12px;
+  color: var(--leetcode-text, #24292f);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.agent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.agent-next,
+.agent-muted {
+  color: var(--leetcode-text-secondary, #6b7280);
+  line-height: 1.6;
 }
 
 .content-tabs {

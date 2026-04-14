@@ -36,22 +36,25 @@ public class CommunityController {
     }
 
     @GetMapping("/post/{postId}")
-    public ResultUtil<CommunityPost> getPostById(@PathVariable Long postId) {
+    public ResultUtil<CommunityPost> getPostById(HttpServletRequest request, @PathVariable Long postId) {
         try {
-            CommunityPost post = communityService.getPostById(postId);
+            Long userId = (Long) request.getAttribute("userId");
+            CommunityPost post = communityService.getPostById(postId, userId);
             return ResultUtil.success(post);
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
     @PostMapping("/post")
-    public ResultUtil<?> createPost(HttpServletRequest request, @RequestBody CommunityPost post) {
+    public ResultUtil<CommunityPost> createPost(HttpServletRequest request, @RequestBody CommunityPost post) {
         try {
             Long userId = (Long) request.getAttribute("userId");
             post.setUserId(userId);
-            communityService.createPost(post);
-            return ResultUtil.success("帖子发布成功");
+            CommunityPost createdPost = communityService.createPost(post);
+            return ResultUtil.success("帖子发布成功", createdPost);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -85,20 +88,26 @@ public class CommunityController {
     }
 
     @PostMapping("/post/{postId}/like")
-    public ResultUtil<?> likePost(@PathVariable Long postId) {
+    public ResultUtil<?> likePost(HttpServletRequest request, @PathVariable Long postId) {
         try {
-            communityService.likePost(postId);
+            Long userId = (Long) request.getAttribute("userId");
+            communityService.likePost(postId, userId);
             return ResultUtil.success("点赞成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
     }
 
     @GetMapping("/post/{postId}/comments")
-    public ResultUtil<List<CommunityComment>> getCommentsByPostId(@PathVariable Long postId) {
+    public ResultUtil<List<CommunityComment>> getCommentsByPostId(HttpServletRequest request, @PathVariable Long postId) {
         try {
-            List<CommunityComment> comments = communityService.getCommentsByPostId(postId);
+            Long userId = (Long) request.getAttribute("userId");
+            List<CommunityComment> comments = communityService.getCommentsByPostId(postId, userId);
             return ResultUtil.success(comments);
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -112,6 +121,8 @@ public class CommunityController {
             comment.setUserId(userId);
             communityService.createComment(comment);
             return ResultUtil.success("评论发布成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -145,10 +156,13 @@ public class CommunityController {
     }
 
     @PostMapping("/comment/{commentId}/like")
-    public ResultUtil<?> likeComment(@PathVariable Long commentId) {
+    public ResultUtil<?> likeComment(HttpServletRequest request, @PathVariable Long commentId) {
         try {
-            communityService.likeComment(commentId);
+            Long userId = (Long) request.getAttribute("userId");
+            communityService.likeComment(commentId, userId);
             return ResultUtil.success("点赞成功");
+        } catch (BusinessException e) {
+            return ResultUtil.error(e.getCode(), e.getMessage());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -157,11 +171,13 @@ public class CommunityController {
     @GetMapping({"/user/posts", "/my/posts"})
     public ResultUtil<List<CommunityPost>> getUserPosts(HttpServletRequest request,
                                                         @RequestParam(required = false) Long userId,
+                                                        @RequestParam(required = false) String type,
                                                         @RequestParam(defaultValue = "0") int page,
                                                         @RequestParam(defaultValue = "10") int size) {
         try {
             Long targetUserId = userId != null ? userId : (Long) request.getAttribute("userId");
-            List<CommunityPost> posts = communityService.getUserPosts(targetUserId, page, size);
+            Long requesterUserId = (Long) request.getAttribute("userId");
+            List<CommunityPost> posts = communityService.getUserPosts(targetUserId, requesterUserId, type, page, size);
             return ResultUtil.success(posts);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());

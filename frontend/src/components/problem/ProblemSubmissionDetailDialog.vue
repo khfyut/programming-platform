@@ -24,7 +24,7 @@
             </div>
             <div class="detail-item">
               <span class="detail-label">语言</span>
-              <span class="detail-value">{{ (submission.language || '-').toUpperCase() }}</span>
+              <span class="detail-value">{{ formatLanguage(submission.language) }}</span>
             </div>
             <div class="detail-item">
               <span class="detail-label">提交时间</span>
@@ -64,6 +64,7 @@
 <script setup>
 import { computed } from 'vue'
 import { formatSubmissionDateTime, getSubmissionResultText } from '@/utils/submission'
+import { getRuntimeLanguageLabel } from '@/utils/runtimeLanguage'
 
 const props = defineProps({
   modelValue: {
@@ -90,6 +91,8 @@ const visible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
 })
+
+const formatLanguage = (language) => getRuntimeLanguageLabel(language)
 </script>
 
 <style scoped>

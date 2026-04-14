@@ -10,6 +10,11 @@ public class CommunityPost {
     private String title;
     private String content;
     private String type; // discussion, note, share
+    private String visibility; // public, private
+    private String tags;
+    private Long relatedProblemId;
+    private Long relatedPathId;
+    private Long relatedLevelId;
     private Long pathId;
     private Long chapterId;
     private Long levelId;

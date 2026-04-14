@@ -40,7 +40,11 @@ public interface CommunityMapper {
     void incrementCommentLikes(@Param("id") Long id);
     
     // 用户相关
-    List<CommunityPost> selectPostsByUserId(@Param("userId") Long userId, @Param("page") int page, @Param("size") int size);
+    List<CommunityPost> selectPostsByUserId(@Param("userId") Long userId,
+                                            @Param("includePrivate") boolean includePrivate,
+                                            @Param("type") String type,
+                                            @Param("page") int page,
+                                            @Param("size") int size);
     
     List<CommunityComment> selectCommentsByUserId(@Param("userId") Long userId, @Param("page") int page, @Param("size") int size);
     

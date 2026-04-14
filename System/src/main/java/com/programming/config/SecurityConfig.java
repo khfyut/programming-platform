@@ -56,6 +56,12 @@ public class SecurityConfig {
                                 writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "无权限访问")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/community/posts",
+                                "/api/community/post/*",
+                                "/api/community/post/*/comments",
+                                "/api/community/statistics",
+                                "/api/community/hot-topics").permitAll()
                         .requestMatchers(PUBLIC_API_PATTERNS).permitAll()
                         .requestMatchers(ADMIN_API_PATTERNS).hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()

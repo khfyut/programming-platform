@@ -10,6 +10,7 @@
         <result column="output" property="output"/>
         <result column="difficulty" property="difficulty"/>
         <result column="language" property="language"/>
+        <result column="status" property="status"/>
         <result column="time_limit" property="timeLimit"/>
         <result column="memory_limit" property="memoryLimit"/>
         <result column="tags" property="tags"/>
@@ -23,11 +24,28 @@
     <select id="findByPage" resultMap="BaseResultMap">
         SELECT * FROM problem
         <where>
+            AND COALESCE(status, 'PUBLISHED') = 'PUBLISHED'
             <if test="difficulty != null">
                 AND difficulty = #{difficulty}
             </if>
             <if test="language != null and language != ''">
-                AND language = #{language}
+                AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM problem_supported_language psl
+                        WHERE psl.problem_id = problem.id
+                          AND psl.status = 'ACTIVE'
+                          AND LOWER(psl.language_code) = LOWER(#{language})
+                    )
+                    OR (
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM problem_supported_language legacy
+                            WHERE legacy.problem_id = problem.id
+                        )
+                        AND LOWER(language) = LOWER(#{language})
+                    )
+                )
             </if>
             <if test="knowledge != null and knowledge != ''">
                 AND FIND_IN_SET(#{knowledge}, knowledge_points) > 0
@@ -48,11 +66,28 @@
     <select id="count" resultType="int">
         SELECT COUNT(*) FROM problem
         <where>
+            AND COALESCE(status, 'PUBLISHED') = 'PUBLISHED'
             <if test="difficulty != null">
                 AND difficulty = #{difficulty}
             </if>
             <if test="language != null and language != ''">
-                AND language = #{language}
+                AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM problem_supported_language psl
+                        WHERE psl.problem_id = problem.id
+                          AND psl.status = 'ACTIVE'
+                          AND LOWER(psl.language_code) = LOWER(#{language})
+                    )
+                    OR (
+                        NOT EXISTS (
+                            SELECT 1
+                            FROM problem_supported_language legacy
+                            WHERE legacy.problem_id = problem.id
+                        )
+                        AND LOWER(language) = LOWER(#{language})
+                    )
+                )
             </if>
             <if test="knowledge != null and knowledge != ''">
                 AND FIND_IN_SET(#{knowledge}, knowledge_points) > 0
@@ -83,32 +118,65 @@
         WHERE id = #{id}
     </update>
 
+    <update id="updateLanguageById">
+        UPDATE problem
+        SET language = #{language},
+            update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
     <delete id="deleteById">
         DELETE FROM problem WHERE id = #{id}
     </delete>
 
     <select id="findByTags" resultMap="BaseResultMap">
         SELECT * FROM problem
-        WHERE FIND_IN_SET(#{tag}, tags) > 0
+        WHERE COALESCE(status, 'PUBLISHED') = 'PUBLISHED'
+          AND FIND_IN_SET(#{tag}, tags) > 0
         ORDER BY id DESC
     </select>
 
     <select id="findByDifficulty" resultMap="BaseResultMap">
         SELECT * FROM problem
-        WHERE difficulty = #{difficulty}
+        WHERE COALESCE(status, 'PUBLISHED') = 'PUBLISHED'
+          AND difficulty = #{difficulty}
         ORDER BY id DESC
     </select>
 
     <select id="findByKnowledgePoint" resultMap="BaseResultMap">
         SELECT * FROM problem
-        WHERE FIND_IN_SET(#{knowledgePoint}, knowledge_points) > 0
+        WHERE COALESCE(status, 'PUBLISHED') = 'PUBLISHED'
+          AND FIND_IN_SET(#{knowledgePoint}, knowledge_points) > 0
         ORDER BY id DESC
         LIMIT #{limit}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM problem
+        ORDER BY id DESC
     </select>
     
     <select id="getLanguageStats" resultType="java.util.Map">
         SELECT language, COUNT(*) as problemCount
-        FROM problem
+        FROM (
+            SELECT LOWER(psl.language_code) AS language, psl.problem_id
+            FROM problem_supported_language psl
+            INNER JOIN problem p ON p.id = psl.problem_id
+            WHERE psl.status = 'ACTIVE'
+              AND COALESCE(p.status, 'PUBLISHED') = 'PUBLISHED'
+
+            UNION ALL
+
+            SELECT LOWER(problem.language) AS language, problem.id AS problem_id
+            FROM problem
+            WHERE problem.language IS NOT NULL
+              AND COALESCE(problem.status, 'PUBLISHED') = 'PUBLISHED'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM problem_supported_language legacy
+                  WHERE legacy.problem_id = problem.id
+              )
+        ) language_union
         GROUP BY language
         ORDER BY problemCount DESC
     </select>

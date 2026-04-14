@@ -215,6 +215,24 @@
           </div>
         </div>
         <div class="detail-section">
+          <h4>Agent 复盘</h4>
+          <div v-if="agentReflectionLoading" class="agent-card muted">正在生成复盘建议...</div>
+          <div v-else-if="agentReflection" class="agent-card">
+            <div class="agent-meta">
+              <span>{{ agentReflection.actionType || 'REFLECT' }}</span>
+              <span>{{ agentReflection.contentType || 'reflection' }}</span>
+            </div>
+            <p class="agent-main">{{ agentReflection.mainResponse }}</p>
+            <div v-if="agentReflection.weakPoints.length" class="agent-tags">
+              <span v-for="point in agentReflection.weakPoints" :key="point">{{ point }}</span>
+            </div>
+            <div v-if="agentReflection.nextSuggestion" class="agent-next">
+              下一步：{{ agentReflection.nextSuggestion }}
+            </div>
+          </div>
+          <div v-else class="agent-card muted">暂无复盘建议。</div>
+        </div>
+        <div class="detail-section">
           <h4>提交代码</h4>
           <pre class="code-block">{{ currentWrong.code || '暂无代码记录' }}</pre>
         </div>
@@ -277,6 +295,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Calendar, CircleCheck, Clock, Delete, Document } from '@element-plus/icons-vue'
+import { reflectWrongBookItem } from '@/api/problemAgent'
 import { getProblemDetail } from '@/api/problem'
 import {
   deleteWrongBookItem,
@@ -316,6 +335,8 @@ const pagination = reactive({
 const detailVisible = ref(false)
 const planVisible = ref(false)
 const currentWrong = ref(null)
+const agentReflectionLoading = ref(false)
+const agentReflection = ref(null)
 
 const difficultyDistribution = computed(() => {
   const result = { easy: 0, medium: 0, hard: 0 }
@@ -550,22 +571,55 @@ const hydrateProblemDetail = async (item) => {
   return item
 }
 
+const normalizeAgentDecision = (decision = {}) => ({
+  actionType: decision.action_type || decision.actionType || '',
+  contentType: decision.content_type || decision.contentType || '',
+  mainResponse: decision.main_response || decision.mainResponse || decision.content || '',
+  nextSuggestion: decision.next_suggestion || decision.nextSuggestion || decision.suggested_next_action || '',
+  weakPoints: Array.isArray(decision.weak_points || decision.weakPoints)
+    ? decision.weak_points || decision.weakPoints
+    : []
+})
+
+const fetchWrongBookReflection = async (wrongItemId) => {
+  if (!wrongItemId) return
+  agentReflectionLoading.value = true
+  try {
+    const res = await reflectWrongBookItem(wrongItemId)
+    if (res?.code === 200 && res.data) {
+      agentReflection.value = normalizeAgentDecision(res.data)
+      return
+    }
+    agentReflection.value = null
+  } catch (error) {
+    console.warn('Agent wrong book reflection failed:', error)
+    agentReflection.value = null
+  } finally {
+    agentReflectionLoading.value = false
+  }
+}
+
 const showWrongDetail = async (item) => {
   detailVisible.value = true
   detailLoading.value = true
+  agentReflection.value = null
+  agentReflectionLoading.value = false
+  let resolvedItem = item
 
   try {
     const res = await getWrongBookDetail(item.id)
     if (res?.code === 200) {
-      currentWrong.value = await hydrateProblemDetail(normalizeWrongItem(res.data))
-      return
+      resolvedItem = await hydrateProblemDetail(normalizeWrongItem(res.data))
+    } else {
+      throw new Error('获取详情失败')
     }
-    throw new Error('获取详情失败')
   } catch (error) {
     ElMessage.error(error.message || '获取详情失败')
-    currentWrong.value = await hydrateProblemDetail(item)
+    resolvedItem = await hydrateProblemDetail(item)
   } finally {
+    currentWrong.value = resolvedItem
     detailLoading.value = false
+    fetchWrongBookReflection(resolvedItem?.id)
   }
 }
 
@@ -1064,6 +1118,48 @@ onMounted(() => {
 
 .analysis-item .value {
   color: var(--leetcode-text-secondary, #6b7280);
+}
+
+.agent-card {
+  padding: 16px;
+  border: 1px solid var(--leetcode-border, #e5e7eb);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.agent-card.muted {
+  color: var(--leetcode-text-secondary, #6b7280);
+  background: var(--leetcode-bg-secondary, #f7f8fa);
+}
+
+.agent-meta,
+.agent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-meta span,
+.agent-tags span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agent-main {
+  margin: 12px 0;
+  color: var(--leetcode-text, #24292f);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.agent-next {
+  margin-top: 12px;
+  color: var(--leetcode-text-secondary, #6b7280);
+  line-height: 1.6;
 }
 
 .code-block {

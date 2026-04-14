@@ -33,4 +33,17 @@ public interface SubmitMapper {
     Map<String, Object> countByProblemId(@Param("problemId") Long problemId);
 
     List<Map<String, Object>> countByProblemIds(@Param("problemIds") List<Long> problemIds);
+
+    /**
+     * 查询用户对该题目的最近N次提交（按时间倒序）
+     * 用于计算连续失败次数
+     *
+     * @param userId 用户ID
+     * @param problemId 题目ID
+     * @param limit 查询条数
+     * @return 提交记录列表（按createTime DESC）
+     */
+    List<Submit> findRecentByUserAndProblem(@Param("userId") Long userId,
+                                            @Param("problemId") Long problemId,
+                                            @Param("limit") int limit);
 }

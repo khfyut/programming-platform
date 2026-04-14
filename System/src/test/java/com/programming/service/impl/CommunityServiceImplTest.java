@@ -65,6 +65,26 @@ class CommunityServiceImplTest {
     }
 
     @Test
+    void createPostReturnsPostWithGeneratedId() {
+        CommunityPost createRequest = new CommunityPost();
+        createRequest.setUserId(1L);
+        createRequest.setTitle("Markdown note");
+        createRequest.setContent("# Markdown note");
+
+        org.mockito.Mockito.doAnswer(invocation -> {
+            CommunityPost insertedPost = invocation.getArgument(0);
+            insertedPost.setId(99L);
+            return null;
+        }).when(communityMapper).insertPost(any(CommunityPost.class));
+
+        CommunityPost createdPost = communityService.createPost(createRequest);
+
+        assertEquals(99L, createdPost.getId());
+        assertEquals("note", createdPost.getType());
+        assertEquals("public", createdPost.getVisibility());
+    }
+
+    @Test
     void deleteCommentRejectsOtherUsersComment() {
         CommunityComment existingComment = new CommunityComment();
         existingComment.setId(3L);

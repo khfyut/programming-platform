@@ -97,4 +97,12 @@
         GROUP BY problem_id
     </select>
 
+    <select id="findRecentByUserAndProblem" resultMap="BaseResultMap">
+        SELECT * FROM submit
+        WHERE user_id = #{userId}
+          AND problem_id = #{problemId}
+        ORDER BY create_time DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

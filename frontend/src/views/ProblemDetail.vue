@@ -1,4 +1,4 @@
-﻿﻿<template>
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<template>
   <div class="problem-detail-page">
     <!-- 椤堕儴瀵艰埅鏍?-->
     <div class="problem-header">
@@ -131,6 +131,7 @@
             <ReferenceSolution 
               :problem-id="parseInt(route.params.id)" 
               :can-view="canViewSolution"
+              :preferred-language="language"
               @view-solution="handleViewSolution"
             />
           </div>
@@ -151,55 +152,69 @@
 
       <!-- 鍙充晶浠ｇ爜缂栬緫鍖?-->
       <div class="right-panel" :style="{ width: (100 - leftPanelWidth) + '%' }">
-        <!-- 浠ｇ爜缂栬緫鍣ㄥご閮?-->
-        <div class="editor-header">
-          <div class="editor-tabs">
-            <div class="editor-tab active">
-              <el-icon><Document /></el-icon>
-              <span>Solution.{{ language === 'java' ? 'java' : 'py' }}</span>
+        <div class="workspace-main">
+          <!-- 浠ｇ爜缂栬緫鍣ㄥご閮?-->
+          <div class="editor-header">
+            <div class="editor-tabs">
+              <div class="editor-tab active">
+                <el-icon><Document /></el-icon>
+                <span>{{ currentFileName }}</span>
+              </div>
+            </div>
+            <div class="editor-actions">
+              <el-select v-model="language" size="small" @change="handleLanguageChange" class="language-select">
+                <el-option
+                  v-for="item in languageOptions"
+                  :key="item.code"
+                  :label="item.label"
+                  :value="item.code"
+                >
+                  <span class="lang-option">
+                    <span class="lang-icon" :class="item.code">{{ item.label.slice(0, 1) }}</span>
+                    {{ item.label }}
+                  </span>
+                </el-option>
+              </el-select>
+              <el-button text size="small" @click="coachVisible = !coachVisible" class="coach-btn">
+                陪练
+              </el-button>
+              <el-button text size="small" @click="resetCode" class="reset-btn">
+                <el-icon><Refresh /></el-icon>
+              </el-button>
             </div>
           </div>
-          <div class="editor-actions">
-            <el-select v-model="language" size="small" @change="handleLanguageChange" class="language-select">
-              <el-option label="Java" value="java">
-                <span class="lang-option">
-                  <span class="lang-icon java">J</span>
-                  Java
-                </span>
-              </el-option>
-              <el-option label="Python" value="python">
-                <span class="lang-option">
-                  <span class="lang-icon python">P</span>
-                  Python
-                </span>
-              </el-option>
-            </el-select>
-            <el-button text size="small" @click="resetCode" class="reset-btn">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-          </div>
-        </div>
 
-        <!-- 浠ｇ爜缂栬緫鍣?-->
-        <div class="editor-container">
-          <MonacoEditor 
-            v-model="code" 
-            :language="language" 
-            height="100%"
-            @change="handleCodeChange"
-            @ai-action="handleAIAction"
+          <!-- 浠ｇ爜缂栬緫鍣?-->
+          <div class="editor-container">
+            <MonacoEditor
+              v-model="code"
+              :language="language"
+              height="100%"
+              @change="handleCodeChange"
+              @ai-action="handleAIAction"
+            />
+          </div>
+
+          <!-- 娴嬭瘯鐢ㄤ緥鍖哄煙 -->
+          <ProblemExecutionPanel
+            v-model:active-tab="activeTestcaseTab"
+            v-model:selected-test-case="selectedTestCase"
+            v-model:test-cases="testCases"
+            :tabs="testcaseTabs"
+            :running="running"
+            :result="result"
+            @run="runCode"
           />
         </div>
 
-        <!-- 娴嬭瘯鐢ㄤ緥鍖哄煙 -->
-        <ProblemExecutionPanel
-          v-model:active-tab="activeTestcaseTab"
-          v-model:selected-test-case="selectedTestCase"
-          v-model:test-cases="testCases"
-          :tabs="testcaseTabs"
-          :running="running"
-          :result="result"
-          @run="runCode"
+        <ProblemCoachSidebar
+          ref="coachSidebarRef"
+          v-model:visible="coachVisible"
+          :problem-id="route.params.id"
+          :problem-title="problem?.title"
+          :code="code"
+          :language="language"
+          @apply-draft="handleApplyDraft"
         />
       </div>
     </div>
@@ -211,17 +226,15 @@
       :problem-title="problem?.title"
     />
 
-    <AIDialog 
-      v-model="aiDialogVisible"
-      :initial-prompt="aiInitialPrompt"
-      :initial-code="aiInitialCode"
-    />
-
     <!-- 璇█璁剧疆瀵硅瘽妗?-->
     <el-dialog v-model="languageDialogVisible" title="设置常用编程语言" width="400px">
       <el-select v-model="selectedLanguage" placeholder="请选择语言" style="width: 100%">
-        <el-option label="Java" value="java" />
-        <el-option label="Python" value="python" />
+        <el-option
+          v-for="item in runtimeLanguageCatalog"
+          :key="item.code"
+          :label="item.label"
+          :value="item.code"
+        />
       </el-select>
       <template #footer>
         <el-button @click="languageDialogVisible = false">取消</el-button>
@@ -232,16 +245,17 @@
 </template>
 
 <script setup>
-import { defineAsyncComponent, ref, onBeforeUnmount } from 'vue'
+import { defineAsyncComponent, nextTick, ref, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import AIDialog from '@/components/AIDialog.vue'
 import ProblemDescriptionPanel from '@/components/problem/ProblemDescriptionPanel.vue'
+import ProblemCoachSidebar from '@/components/problem/ProblemCoachSidebar.vue'
 import ProblemExecutionPanel from '@/components/problem/ProblemExecutionPanel.vue'
 import ProblemSubmissionHistory from '@/components/problem/ProblemSubmissionHistory.vue'
 import ProblemSubmissionDetailDialog from '@/components/problem/ProblemSubmissionDetailDialog.vue'
 import { useProblemDetailData } from '@/composables/useProblemDetailData'
+import { runtimeLanguageCatalog } from '@/utils/runtimeLanguage'
 import {
   ArrowLeft,
   ArrowRight,
@@ -294,11 +308,13 @@ const {
   activeTestcaseTab,
   testCases,
   selectedTestCase,
+  languageOptions,
+  currentFileName,
   fetchProblemSubmissions,
   handleLanguageChange,
   resetCode,
-  runCode,
-  submitCode,
+  runCode: baseRunCode,
+  submitCode: baseSubmitCode,
   openSubmissionDetail
 } = useProblemDetailData(route, userStore)
 
@@ -353,9 +369,8 @@ const handleUpdateLanguage = async () => {
 // 鐘舵€?
 const leftPanelWidth = ref(45)
 const isResizing = ref(false)
-const aiDialogVisible = ref(false)
-const aiInitialPrompt = ref('')
-const aiInitialCode = ref('')
+const coachVisible = ref(false)
+const coachSidebarRef = ref(null)
 
 const startResize = (e) => {
   isResizing.value = true
@@ -381,15 +396,46 @@ const stopResize = () => {
 }
 
 // AI鍔╂墜
-const handleAIAction = (data) => {
-  aiInitialPrompt.value = data.prompt
-  aiInitialCode.value = data.code
-  aiDialogVisible.value = true
+const runCode = async () => {
+  const runState = await baseRunCode()
+  if (runState?.failed) {
+    coachVisible.value = true
+    await nextTick()
+    await coachSidebarRef.value?.triggerFailure(runState)
+  }
+  return runState
+}
+
+const submitCode = async () => {
+  const submitState = await baseSubmitCode()
+  if (submitState?.failed) {
+    coachVisible.value = true
+    await nextTick()
+    await coachSidebarRef.value?.triggerFailure(submitState)
+  }
+  return submitState
+}
+
+const handleAIAction = async (data) => {
+  coachVisible.value = true
+  await nextTick()
+  await coachSidebarRef.value?.openWithPrompt({
+    prompt: data.prompt,
+    selectedCode: data.code
+  })
 }
 
 const handleCodeChange = () => {}
 
 const handleViewSolution = () => {}
+
+const handleApplyDraft = (draftCode) => {
+  if (!draftCode) {
+    return
+  }
+  code.value = draftCode
+  ElMessage.success('已用参考修正版覆盖当前代码')
+}
 
 onBeforeUnmount(() => {
   document.removeEventListener('mousemove', resize)
@@ -761,6 +807,14 @@ onBeforeUnmount(() => {
 .right-panel {
   background: var(--problem-surface);
   display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workspace-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
   overflow: hidden;
 }
@@ -805,6 +859,11 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.coach-btn {
+  font-weight: 600;
+  color: var(--problem-primary);
+}
+
 .language-select {
   width: 120px;
 }
@@ -833,6 +892,23 @@ onBeforeUnmount(() => {
 
 .lang-icon.python {
   background: #3776ab;
+}
+
+.lang-icon.cpp {
+  background: #00599c;
+}
+
+.lang-icon.javascript {
+  background: #f7df1e;
+  color: #111827;
+}
+
+.lang-icon.typescript {
+  background: #3178c6;
+}
+
+.lang-icon.go {
+  background: #00add8;
 }
 
 /* 缂栬緫鍣ㄥ鍣?*/
@@ -900,6 +976,7 @@ onBeforeUnmount(() => {
   }
 
   .right-panel {
+    flex-direction: column;
     min-height: 56vh;
   }
 

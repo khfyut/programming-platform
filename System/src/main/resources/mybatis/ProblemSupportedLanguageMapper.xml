@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.ProblemSupportedLanguageMapper">
+
+    <resultMap id="BaseResultMap" type="com.programming.entity.ProblemSupportedLanguage">
+        <id column="id" property="id"/>
+        <result column="problem_id" property="problemId"/>
+        <result column="language_code" property="languageCode"/>
+        <result column="is_default" property="isDefault"/>
+        <result column="starter_code" property="starterCode"/>
+        <result column="starter_filename" property="starterFilename"/>
+        <result column="status" property="status"/>
+        <result column="sort_order" property="sortOrder"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="findByProblemId" resultMap="BaseResultMap">
+        SELECT *
+        FROM problem_supported_language
+        WHERE problem_id = #{problemId}
+        ORDER BY is_default DESC, sort_order ASC, id ASC
+    </select>
+
+    <select id="findByProblemIdAndLanguage" resultMap="BaseResultMap">
+        SELECT *
+        FROM problem_supported_language
+        WHERE problem_id = #{problemId}
+          AND LOWER(language_code) = LOWER(#{languageCode})
+        LIMIT 1
+    </select>
+
+    <select id="findActiveLanguageCodesByProblemId" resultType="java.lang.String">
+        SELECT LOWER(language_code)
+        FROM problem_supported_language
+        WHERE problem_id = #{problemId}
+          AND status = 'ACTIVE'
+        ORDER BY is_default DESC, sort_order ASC, id ASC
+    </select>
+
+    <select id="countByProblemId" resultType="int">
+        SELECT COUNT(*)
+        FROM problem_supported_language
+        WHERE problem_id = #{problemId}
+    </select>
+
+    <delete id="deleteByProblemId">
+        DELETE FROM problem_supported_language
+        WHERE problem_id = #{problemId}
+    </delete>
+
+    <insert id="batchInsert">
+        INSERT INTO problem_supported_language (
+            problem_id,
+            language_code,
+            is_default,
+            starter_code,
+            starter_filename,
+            status,
+            sort_order,
+            create_time,
+            update_time
+        )
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (
+                #{item.problemId},
+                #{item.languageCode},
+                #{item.isDefault},
+                #{item.starterCode},
+                #{item.starterFilename},
+                #{item.status},
+                #{item.sortOrder},
+                NOW(),
+                NOW()
+            )
+        </foreach>
+    </insert>
+
+    <select id="getLanguageStats" resultType="java.util.Map">
+        SELECT language, COUNT(*) AS problemCount
+        FROM (
+            SELECT LOWER(psl.language_code) AS language, psl.problem_id
+            FROM problem_supported_language psl
+            WHERE psl.status = 'ACTIVE'
+
+            UNION ALL
+
+            SELECT LOWER(p.language) AS language, p.id AS problem_id
+            FROM problem p
+            WHERE p.language IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM problem_supported_language legacy
+                  WHERE legacy.problem_id = p.id
+              )
+        ) language_union
+        GROUP BY language
+        ORDER BY problemCount DESC
+    </select>
+
+</mapper>

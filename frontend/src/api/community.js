@@ -70,8 +70,9 @@ export const getUserPosts = (params) => {
   return request(`/api/community/user/posts${query ? '?' + query : ''}`)
 }
 
-export const getMyPosts = () => {
-  return request('/api/community/user/posts')
+export const getMyPosts = (params) => {
+  const query = params ? new URLSearchParams(params).toString() : ''
+  return request(`/api/community/user/posts${query ? '?' + query : ''}`)
 }
 
 export const getUserComments = (params) => {

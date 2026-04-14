@@ -60,6 +60,7 @@
 
 <script setup>
 import { Refresh } from '@element-plus/icons-vue'
+import { getRuntimeLanguageLabel } from '@/utils/runtimeLanguage'
 
 defineProps({
   submissions: {
@@ -85,8 +86,7 @@ const getResultText = (result) => {
 }
 
 const formatLanguage = (language) => {
-  if (!language) return '--'
-  return String(language).toUpperCase()
+  return getRuntimeLanguageLabel(language)
 }
 
 const formatMetric = (value, unit) => {

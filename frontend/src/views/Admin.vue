@@ -1,4 +1,4 @@
-﻿<template>
+﻿﻿<template>
   <div class="admin-page">
     <AdminDashboardOverview
       :loading="statsLoading"
@@ -67,6 +67,17 @@
           @delete-path="deletePathItem"
         />
       </el-tab-pane>
+
+      <el-tab-pane label="内容质量" name="content-quality">
+        <ContentQualityManagement
+          :summary="contentQualitySummary"
+          :problem-rows="contentQualityProblems"
+          :path-binding-rows="contentQualityBindings"
+          :tag-rows="contentQualityTags"
+          :loading="contentQualityLoading"
+          @refresh="fetchContentQuality"
+        />
+      </el-tab-pane>
     </el-tabs>
 
   </div>
@@ -77,6 +88,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AdminDashboardOverview from '@/components/admin/AdminDashboardOverview.vue'
+import ContentQualityManagement from '@/components/admin/ContentQualityManagement.vue'
 import KnowledgeManagement from '@/components/admin/KnowledgeManagement.vue'
 import LearningPathManagement from '@/components/admin/LearningPathManagement.vue'
 import ProblemManagement from '@/components/admin/ProblemManagement.vue'
@@ -108,7 +120,11 @@ import {
   getPathList,
   addPath,
   updatePath,
-  deletePath
+  deletePath,
+  getContentQualitySummary,
+  getContentQualityProblems,
+  getContentQualityPathBindings,
+  getContentQualityTags
 } from '@/api/admin'
 import { getProblemList } from '@/api/problem'
 
@@ -122,6 +138,7 @@ const submissionsLoading = ref(false)
 const rolesLoading = ref(false)
 const knowledgeLoading = ref(false)
 const pathsLoading = ref(false)
+const contentQualityLoading = ref(false)
 
 const statistics = ref({})
 const userList = ref([])
@@ -132,6 +149,10 @@ const knowledgeList = ref([])
 const pathList = ref([])
 const permissionList = ref([])
 const selectedPermissionIds = ref([])
+const contentQualitySummary = ref({})
+const contentQualityProblems = ref([])
+const contentQualityBindings = ref([])
+const contentQualityTags = ref([])
 
 const importLoading = ref(false)
 
@@ -191,17 +212,17 @@ const fetchAllSubmissions = async () => {
   }
 }
 
-const saveProblem = async ({ form, done } = {}) => {
+const saveProblem = async ({ payload, done } = {}) => {
   try {
     let res
-    if (form?.id) {
-      res = await updateProblem(form)
+    if (payload?.id) {
+      res = await updateProblem(payload)
     } else {
-      res = await addProblem(form)
+      res = await addProblem(payload)
     }
 
     if (res.code === 200) {
-      ElMessage.success(form?.id ? '更新成功' : '添加成功')
+      ElMessage.success(payload?.id ? '更新成功' : '添加成功')
       done?.()
       fetchProblems()
       fetchStatistics()
@@ -508,6 +529,36 @@ const deletePathItem = async (id) => {
   }
 }
 
+const fetchContentQuality = async () => {
+  contentQualityLoading.value = true
+  try {
+    const [summaryRes, problemsRes, bindingsRes, tagsRes] = await Promise.all([
+      getContentQualitySummary(),
+      getContentQualityProblems(),
+      getContentQualityPathBindings(),
+      getContentQualityTags()
+    ])
+
+    if (summaryRes?.code === 200) {
+      contentQualitySummary.value = summaryRes.data || {}
+    }
+    if (problemsRes?.code === 200) {
+      contentQualityProblems.value = problemsRes.data || []
+    }
+    if (bindingsRes?.code === 200) {
+      contentQualityBindings.value = bindingsRes.data || []
+    }
+    if (tagsRes?.code === 200) {
+      contentQualityTags.value = tagsRes.data || []
+    }
+  } catch (error) {
+    console.error('获取内容质量数据失败:', error)
+    ElMessage.error('获取内容质量数据失败')
+  } finally {
+    contentQualityLoading.value = false
+  }
+}
+
 onMounted(() => {
   fetchStatistics()
   fetchUsers()
@@ -516,6 +567,7 @@ onMounted(() => {
   fetchRoles()
   fetchKnowledge()
   fetchPaths()
+  fetchContentQuality()
 })
 </script>
 

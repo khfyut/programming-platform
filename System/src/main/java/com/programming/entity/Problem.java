@@ -11,6 +11,7 @@ public class Problem {
     private String content;
     private Integer difficulty;
     private String language;
+    private String status;
     private String input;
     private String output;
     

@@ -1,40 +1,39 @@
 package com.programming.util.sandbox;
 
+import com.programming.service.runtime.RuntimeCatalogService;
+import com.programming.service.runtime.RuntimeLanguageDefinition;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Locale;
 
 @Component
 public class SandboxCommandBuilder {
     private static final int COMPILE_ERROR_EXIT_CODE = 21;
     private static final int RUNTIME_ERROR_EXIT_CODE = 22;
 
-    public String resolveImageName(String language) {
-        if (language == null) {
-            return null;
-        }
+    private final RuntimeCatalogService runtimeCatalogService;
 
-        String normalizedLanguage = normalizeLanguage(language);
-        if ("java".equals(normalizedLanguage)) {
-            return "openjdk:11-jdk-slim";
-        }
-        if ("python".equals(normalizedLanguage)) {
-            return "python:3.9-slim";
-        }
-        return null;
+    public SandboxCommandBuilder(RuntimeCatalogService runtimeCatalogService) {
+        this.runtimeCatalogService = runtimeCatalogService;
+    }
+
+    public String resolveImageName(String language) {
+        RuntimeLanguageDefinition definition = runtimeCatalogService.getJudgeLanguage(language);
+        return definition == null ? null : definition.getImageName();
     }
 
     public String buildRunCommand(String code, String language, String input) {
-        String normalizedLanguage = normalizeLanguage(language);
-        if ("java".equals(normalizedLanguage)) {
-            return buildJavaRunCommand(code, input);
-        }
-        if ("python".equals(normalizedLanguage)) {
-            return buildPythonRunCommand(code, input);
-        }
-        throw new IllegalArgumentException("Unsupported language: " + language);
+        String normalizedLanguage = runtimeCatalogService.normalizeLanguageCode(language);
+        return switch (normalizedLanguage) {
+            case "java" -> buildJavaRunCommand(code, input);
+            case "python" -> buildPythonRunCommand(code, input);
+            case "cpp" -> buildCppRunCommand(code, input);
+            case "javascript" -> buildJavaScriptRunCommand(code, input);
+            case "typescript" -> buildTypeScriptRunCommand(code, input);
+            case "go" -> buildGoRunCommand(code, input);
+            default -> throw new IllegalArgumentException("Unsupported language: " + language);
+        };
     }
 
     public int getCompileErrorExitCode() {
@@ -51,7 +50,7 @@ public class SandboxCommandBuilder {
                 "printf '%%s' '%s' | base64 -d > Main.java && javac Main.java 2> compile.err || { cat compile.err >&2; exit %d; }; %s",
                 encodedCode,
                 COMPILE_ERROR_EXIT_CODE,
-                buildJavaExecuteCommand(input)
+                buildExecuteCommand("java Main", input)
         );
     }
 
@@ -60,28 +59,58 @@ public class SandboxCommandBuilder {
         return String.format(
                 "printf '%%s' '%s' | base64 -d > main.py && %s",
                 encodedCode,
-                buildPythonExecuteCommand(input)
+                buildExecuteCommand("python3 main.py", input)
         );
     }
 
-    private String buildJavaExecuteCommand(String input) {
-        if (input == null || input.isEmpty()) {
-            return String.format("java Main 2> runtime.err || { cat runtime.err >&2; exit %d; }", RUNTIME_ERROR_EXIT_CODE);
-        }
+    private String buildCppRunCommand(String code, String input) {
+        String encodedCode = encodeBase64(code);
         return String.format(
-                "printf '%%s' '%s' | base64 -d | java Main 2> runtime.err || { cat runtime.err >&2; exit %d; }",
-                encodeBase64(input),
-                RUNTIME_ERROR_EXIT_CODE
+                "printf '%%s' '%s' | base64 -d > main.cpp && g++ -std=c++17 -O2 -o main main.cpp 2> compile.err || { cat compile.err >&2; exit %d; }; %s",
+                encodedCode,
+                COMPILE_ERROR_EXIT_CODE,
+                buildExecuteCommand("./main", input)
         );
     }
 
-    private String buildPythonExecuteCommand(String input) {
-        if (input == null || input.isEmpty()) {
-            return String.format("python3 main.py 2> runtime.err || { cat runtime.err >&2; exit %d; }", RUNTIME_ERROR_EXIT_CODE);
-        }
+    private String buildJavaScriptRunCommand(String code, String input) {
+        String encodedCode = encodeBase64(code);
         return String.format(
-                "printf '%%s' '%s' | base64 -d | python3 main.py 2> runtime.err || { cat runtime.err >&2; exit %d; }",
+                "printf '%%s' '%s' | base64 -d > main.js && %s",
+                encodedCode,
+                buildExecuteCommand("node main.js", input)
+        );
+    }
+
+    private String buildTypeScriptRunCommand(String code, String input) {
+        String encodedCode = encodeBase64(code);
+        return String.format(
+                "printf '%%s' '%s' | base64 -d > main.ts && deno check main.ts 2> compile.err || { cat compile.err >&2; exit %d; }; %s",
+                encodedCode,
+                COMPILE_ERROR_EXIT_CODE,
+                buildExecuteCommand("deno run --quiet main.ts", input)
+        );
+    }
+
+    private String buildGoRunCommand(String code, String input) {
+        String encodedCode = encodeBase64(code);
+        return String.format(
+                "printf '%%s' '%s' | base64 -d > main.go && go build -o main main.go 2> compile.err || { cat compile.err >&2; exit %d; }; %s",
+                encodedCode,
+                COMPILE_ERROR_EXIT_CODE,
+                buildExecuteCommand("./main", input)
+        );
+    }
+
+    private String buildExecuteCommand(String command, String input) {
+        if (input == null || input.isEmpty()) {
+            return String.format("%s 2> runtime.err || { cat runtime.err >&2; exit %d; }", command, RUNTIME_ERROR_EXIT_CODE);
+        }
+
+        return String.format(
+                "printf '%%s' '%s' | base64 -d | %s 2> runtime.err || { cat runtime.err >&2; exit %d; }",
                 encodeBase64(input),
+                command,
                 RUNTIME_ERROR_EXIT_CODE
         );
     }
@@ -89,9 +118,5 @@ public class SandboxCommandBuilder {
     private String encodeBase64(String content) {
         String actualContent = content == null ? "" : content;
         return Base64.getEncoder().encodeToString(actualContent.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String normalizeLanguage(String language) {
-        return language == null ? "" : language.trim().toLowerCase(Locale.ROOT);
     }
 }

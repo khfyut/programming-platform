@@ -40,6 +40,28 @@ export const updateProblem = (data) => {
   })
 }
 
+export const getProblemLanguages = (id) => {
+  return request(`/api/admin/problem/${id}/languages`)
+}
+
+export const saveProblemLanguages = (id, data) => {
+  return request(`/api/admin/problem/${id}/languages`, {
+    method: 'POST',
+    data: data
+  })
+}
+
+export const getProblemReferenceSolutions = (id) => {
+  return request(`/api/admin/problem/${id}/reference-solutions`)
+}
+
+export const saveProblemReferenceSolutions = (id, data) => {
+  return request(`/api/admin/problem/${id}/reference-solutions`, {
+    method: 'POST',
+    data: data
+  })
+}
+
 export const deleteProblem = (id) => {
   return request(`/api/admin/problem/delete/${id}`, {
     method: 'POST'
@@ -173,4 +195,20 @@ export const getDashboard = () => {
 
 export const getHomeStatistics = () => {
   return request('/api/admin/home/statistics')
+}
+
+export const getContentQualitySummary = () => {
+  return request('/api/admin/content-quality/summary')
+}
+
+export const getContentQualityProblems = () => {
+  return request('/api/admin/content-quality/problems')
+}
+
+export const getContentQualityPathBindings = () => {
+  return request('/api/admin/content-quality/path-bindings')
+}
+
+export const getContentQualityTags = () => {
+  return request('/api/admin/content-quality/tags')
 }

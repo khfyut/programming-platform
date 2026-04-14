@@ -25,14 +25,31 @@
                 </div>
               </div>
             </div>
-            <el-tag :type="getPostTypeTag(post.type)" size="small">
-              {{ getPostTypeText(post.type) }}
-            </el-tag>
+            <div class="post-badges">
+              <el-tag :type="getPostTypeTag(post.type)" size="small">
+                {{ getPostTypeText(post.type) }}
+              </el-tag>
+              <el-tag :type="getVisibilityTag(post.visibility)" size="small" effect="plain">
+                {{ getVisibilityText(post.visibility) }}
+              </el-tag>
+            </div>
           </div>
 
           <h1 class="post-title">{{ post.title || '未命名帖子' }}</h1>
 
-          <div class="post-body">{{ post.content || '帖子暂时还没有正文内容。' }}</div>
+          <div v-if="post.content" class="post-body markdown-body" v-html="renderMarkdown(post.content)"></div>
+          <div v-else class="post-body">帖子暂时还没有正文内容。</div>
+
+          <div v-if="normalizeTags(post.tags).length" class="post-tags">
+            <el-tag
+              v-for="tag in normalizeTags(post.tags)"
+              :key="`${post.id}-${tag}`"
+              size="small"
+              effect="plain"
+            >
+              {{ tag }}
+            </el-tag>
+          </div>
 
           <div class="post-footer">
             <div class="post-stats">
@@ -50,6 +67,9 @@
               </span>
             </div>
             <div class="post-actions">
+              <el-button v-if="isOwner" plain @click="goToEdit">
+                编辑
+              </el-button>
               <el-button
                 :icon="Star"
                 @click="handleLike"
@@ -133,6 +153,8 @@
 import { computed, nextTick, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
+import { renderMarkdown } from '@/utils/markdown'
 import {
   ArrowLeft,
   UserFilled,
@@ -151,6 +173,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const post = ref(null)
 const comments = ref([])
@@ -168,17 +191,21 @@ const commentCount = computed(() => {
   return comments.value.length
 })
 
+const isOwner = computed(() => String(post.value?.userId || '') === String(userStore.userInfo?.id || ''))
+
 const normalizePost = (data = {}) => ({
   ...data,
   id: data.id ?? route.params.id,
   title: data.title || '',
   content: data.content || '',
   username: data.username || data.authorName || '',
-  type: data.type || 'discussion',
+  type: data.type || 'note',
+  visibility: data.visibility || 'public',
+  tags: data.tags || '',
   createTime: data.createTime || data.updateTime || '',
-  viewCount: Number(data.viewCount || 0),
-  commentCount: Number(data.commentCount || 0),
-  likeCount: Number(data.likeCount || 0)
+  viewCount: Number(data.viewCount ?? data.views ?? 0),
+  commentCount: Number(data.commentCount ?? data.comments ?? 0),
+  likeCount: Number(data.likeCount ?? data.likes ?? 0)
 })
 
 const normalizeComments = (data) => {
@@ -195,6 +222,7 @@ const normalizeComments = (data) => {
 
 const getPostTypeTag = (type) => {
   const types = {
+    note: 'info',
     discussion: 'primary',
     question: 'warning',
     share: 'success'
@@ -204,11 +232,26 @@ const getPostTypeTag = (type) => {
 
 const getPostTypeText = (type) => {
   const texts = {
+    note: '学习笔记',
     discussion: '讨论',
     question: '问答',
     share: '分享'
   }
   return texts[type] || '其他'
+}
+
+const getVisibilityText = (visibility) => (visibility === 'private' ? '仅自己可见' : '公开')
+
+const getVisibilityTag = (visibility) => (visibility === 'private' ? 'warning' : 'success')
+
+const normalizeTags = (tags) => {
+  if (Array.isArray(tags)) {
+    return tags.map((tag) => String(tag).trim()).filter(Boolean)
+  }
+  return String(tags || '')
+    .split(/[,，]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
 }
 
 const formatTime = (time) => {
@@ -338,6 +381,11 @@ const goBack = () => {
   router.push('/community')
 }
 
+const goToEdit = () => {
+  if (!post.value?.id) return
+  router.push(`/community/write/${post.value.id}`)
+}
+
 onMounted(() => {
   refreshPage()
 })
@@ -391,6 +439,13 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.post-badges {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .post-author {
   display: flex;
   align-items: center;
@@ -432,6 +487,64 @@ onMounted(() => {
   line-height: 1.9;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  margin: 1.1em 0 0.55em;
+  line-height: 1.35;
+}
+
+.markdown-body {
+  white-space: normal;
+}
+
+.markdown-body :deep(p),
+.markdown-body :deep(ul),
+.markdown-body :deep(ol),
+.markdown-body :deep(blockquote),
+.markdown-body :deep(pre) {
+  margin: 0 0 1em;
+}
+
+.markdown-body :deep(pre) {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 14px;
+  background: #0f172a;
+  color: #e5e7eb;
+  white-space: pre;
+}
+
+.markdown-body :deep(code) {
+  font-family: var(--font-code, 'Fira Code', Consolas, monospace);
+}
+
+.markdown-body :deep(:not(pre) > code) {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(22, 104, 220, 0.08);
+  color: #1668dc;
+}
+
+.markdown-body :deep(blockquote) {
+  padding: 10px 14px;
+  border-left: 4px solid #1668dc;
+  border-radius: 10px;
+  background: rgba(22, 104, 220, 0.05);
+  color: var(--leetcode-text-secondary, #6b7280);
+}
+
+.markdown-body :deep(a) {
+  color: #1668dc;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -8px 0 22px;
 }
 
 .post-footer {

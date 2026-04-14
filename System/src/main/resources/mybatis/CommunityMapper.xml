@@ -7,17 +7,18 @@
     <select id="selectPosts" resultType="com.programming.entity.CommunityPost">
         SELECT * FROM community_post
         <where>
+            AND COALESCE(visibility, 'public') = 'public'
             <if test="type != null and type != ''">
                 AND type = #{type}
             </if>
             <if test="pathId != null">
-                AND path_id = #{pathId}
+                AND COALESCE(related_path_id, path_id) = #{pathId}
             </if>
             <if test="chapterId != null">
                 AND chapter_id = #{chapterId}
             </if>
             <if test="levelId != null">
-                AND level_id = #{levelId}
+                AND COALESCE(related_level_id, level_id) = #{levelId}
             </if>
         </where>
         ORDER BY create_time DESC
@@ -28,14 +29,33 @@
         SELECT * FROM community_post WHERE id = #{id}
     </select>
 
-    <insert id="insertPost" parameterType="com.programming.entity.CommunityPost">
-        INSERT INTO community_post (user_id, title, content, type, path_id, chapter_id, level_id, likes, comments, views, create_time, update_time)
-        VALUES (#{userId}, #{title}, #{content}, #{type}, #{pathId}, #{chapterId}, #{levelId}, 0, 0, 0, NOW(), NOW())
+    <insert id="insertPost" parameterType="com.programming.entity.CommunityPost" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO community_post (
+            user_id, title, content, type, visibility, tags,
+            related_problem_id, related_path_id, related_level_id,
+            path_id, chapter_id, level_id, likes, comments, views, create_time, update_time
+        )
+        VALUES (
+            #{userId}, #{title}, #{content}, #{type}, #{visibility}, #{tags},
+            #{relatedProblemId}, #{relatedPathId}, #{relatedLevelId},
+            #{pathId}, #{chapterId}, #{levelId}, 0, 0, 0, NOW(), NOW()
+        )
     </insert>
 
     <update id="updatePost" parameterType="com.programming.entity.CommunityPost">
         UPDATE community_post
-        SET title = #{title}, content = #{content}, update_time = NOW()
+        SET title = #{title},
+            content = #{content},
+            type = #{type},
+            visibility = #{visibility},
+            tags = #{tags},
+            related_problem_id = #{relatedProblemId},
+            related_path_id = #{relatedPathId},
+            related_level_id = #{relatedLevelId},
+            path_id = #{pathId},
+            chapter_id = #{chapterId},
+            level_id = #{levelId},
+            update_time = NOW()
         WHERE id = #{id} AND user_id = #{userId}
     </update>
 
@@ -82,61 +102,92 @@
 
     <select id="selectPostsByUserId" resultType="com.programming.entity.CommunityPost">
         SELECT * FROM community_post
-        WHERE user_id = #{userId}
+        <where>
+            AND user_id = #{userId}
+            <if test="!includePrivate">
+                AND COALESCE(visibility, 'public') = 'public'
+            </if>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+        </where>
         ORDER BY create_time DESC
         LIMIT #{size} OFFSET #{page}
     </select>
 
     <select id="selectCommentsByUserId" resultType="com.programming.entity.CommunityComment">
-        SELECT * FROM community_comment
-        WHERE user_id = #{userId}
-        ORDER BY create_time DESC
+        SELECT c.* FROM community_comment c
+        INNER JOIN community_post p ON p.id = c.post_id
+        WHERE c.user_id = #{userId}
+          AND COALESCE(p.visibility, 'public') = 'public'
+        ORDER BY c.create_time DESC
         LIMIT #{size} OFFSET #{page}
     </select>
 
     <select id="countPostsByUserId" resultType="java.lang.Integer">
-        SELECT COUNT(*) FROM community_post WHERE user_id = #{userId}
+        SELECT COUNT(*) FROM community_post
+        WHERE user_id = #{userId}
+          AND COALESCE(visibility, 'public') = 'public'
     </select>
 
     <select id="countCommentsByUserId" resultType="java.lang.Integer">
-        SELECT COUNT(*) FROM community_comment WHERE user_id = #{userId}
+        SELECT COUNT(*)
+        FROM community_comment c
+        INNER JOIN community_post p ON p.id = c.post_id
+        WHERE c.user_id = #{userId}
+          AND COALESCE(p.visibility, 'public') = 'public'
     </select>
 
     <select id="findRecentPostsByUserId" resultType="com.programming.entity.CommunityPost">
         SELECT * FROM community_post
         WHERE user_id = #{userId}
+          AND COALESCE(visibility, 'public') = 'public'
         ORDER BY create_time DESC, id DESC
         LIMIT #{size} OFFSET #{page}
     </select>
 
     <select id="findPostById" resultType="com.programming.entity.CommunityPost">
-        SELECT * FROM community_post WHERE id = #{id}
+        SELECT * FROM community_post
+        WHERE id = #{id}
+          AND COALESCE(visibility, 'public') = 'public'
     </select>
 
     <select id="countTotalPosts" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM community_post
+        WHERE COALESCE(visibility, 'public') = 'public'
     </select>
 
     <select id="countTotalComments" resultType="java.lang.Integer">
-        SELECT COUNT(*) FROM community_comment
+        SELECT COUNT(*)
+        FROM community_comment c
+        INNER JOIN community_post p ON p.id = c.post_id
+        WHERE COALESCE(p.visibility, 'public') = 'public'
     </select>
 
     <select id="countActiveUsers" resultType="java.lang.Integer">
         SELECT COUNT(DISTINCT user_id) FROM (
-            SELECT user_id FROM community_post WHERE create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            SELECT user_id FROM community_post
+            WHERE create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              AND COALESCE(visibility, 'public') = 'public'
             UNION
-            SELECT user_id FROM community_comment WHERE create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            SELECT c.user_id
+            FROM community_comment c
+            INNER JOIN community_post p ON p.id = c.post_id
+            WHERE c.create_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+              AND COALESCE(p.visibility, 'public') = 'public'
         ) AS active_users
     </select>
 
     <select id="countTodayPosts" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM community_post
         WHERE DATE(create_time) = DATE(NOW())
+          AND COALESCE(visibility, 'public') = 'public'
     </select>
 
     <select id="selectHotTopics" resultType="java.util.Map">
         SELECT
             CASE type
+                WHEN 'note' THEN '学习笔记'
                 WHEN 'discussion' THEN 'Discussion'
                 WHEN 'question' THEN 'Question'
                 WHEN 'share' THEN 'Share'
@@ -144,6 +195,7 @@
             END AS name,
             COUNT(*) AS count
         FROM community_post
+        WHERE COALESCE(visibility, 'public') = 'public'
         GROUP BY type
         ORDER BY count DESC
         LIMIT #{limit}

@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -54,10 +55,12 @@ public class AdminController {
     }
 
     @PostMapping("/problem/add")
-    public ResultUtil<Void> addProblem(@RequestBody Map<String, Object> params) {
+    public ResultUtil<Map<String, Object>> addProblem(@RequestBody Map<String, Object> params) {
         try {
-            adminService.addProblem(params);
-            return ResultUtil.success(null);
+            Long problemId = adminService.addProblem(params);
+            Map<String, Object> data = new HashMap<>();
+            data.put("problemId", problemId);
+            return ResultUtil.success(data);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }
@@ -74,9 +77,50 @@ public class AdminController {
     }
 
     @PostMapping("/problem/update")
-    public ResultUtil<Void> updateProblem(@RequestBody Map<String, Object> params) {
+    public ResultUtil<Map<String, Object>> updateProblem(@RequestBody Map<String, Object> params) {
         try {
-            adminService.updateProblem(params);
+            Long problemId = adminService.updateProblem(params);
+            Map<String, Object> data = new HashMap<>();
+            data.put("problemId", problemId);
+            return ResultUtil.success(data);
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/problem/{id}/languages")
+    public ResultUtil<List<ProblemSupportedLanguage>> getProblemLanguages(@PathVariable Long id) {
+        try {
+            return ResultUtil.success(adminService.getProblemLanguages(id));
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/problem/{id}/languages")
+    public ResultUtil<Void> saveProblemLanguages(@PathVariable Long id, @RequestBody List<Map<String, Object>> params) {
+        try {
+            adminService.saveProblemLanguages(id, params);
+            return ResultUtil.success(null);
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/problem/{id}/reference-solutions")
+    public ResultUtil<List<ReferenceSolution>> getProblemReferenceSolutions(@PathVariable Long id) {
+        try {
+            return ResultUtil.success(adminService.getProblemReferenceSolutions(id));
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/problem/{id}/reference-solutions")
+    public ResultUtil<Void> saveProblemReferenceSolutions(@PathVariable Long id,
+                                                          @RequestBody List<Map<String, Object>> params) {
+        try {
+            adminService.saveProblemReferenceSolutions(id, params);
             return ResultUtil.success(null);
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());

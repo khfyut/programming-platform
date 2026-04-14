@@ -25,23 +25,27 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public CommunityPost getPostById(Long postId) {
+    public CommunityPost getPostById(Long postId, Long requesterUserId) {
         CommunityPost post = communityMapper.selectPostById(postId);
         if (post != null) {
+            ensurePostReadable(post, requesterUserId);
             communityMapper.incrementPostViews(postId);
         }
         return post;
     }
 
     @Override
-    public void createPost(CommunityPost post) {
+    public CommunityPost createPost(CommunityPost post) {
+        normalizePostForWrite(post);
         communityMapper.insertPost(post);
+        return post;
     }
 
     @Override
     public void updatePost(CommunityPost post, Long operatorUserId) {
         CommunityPost existingPost = requireOwnedPost(post.getId(), operatorUserId);
         post.setUserId(existingPost.getUserId());
+        normalizePostForWrite(post);
 
         if (communityMapper.updatePost(post) == 0) {
             throw new BusinessException(500, "帖子更新失败");
@@ -58,17 +62,20 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public void likePost(Long postId) {
+    public void likePost(Long postId, Long requesterUserId) {
+        ensurePostReadable(requirePost(postId), requesterUserId);
         communityMapper.incrementPostLikes(postId);
     }
 
     @Override
-    public List<CommunityComment> getCommentsByPostId(Long postId) {
+    public List<CommunityComment> getCommentsByPostId(Long postId, Long requesterUserId) {
+        ensurePostReadable(requirePost(postId), requesterUserId);
         return communityMapper.selectCommentsByPostId(postId);
     }
 
     @Override
     public void createComment(CommunityComment comment) {
+        ensurePostReadable(requirePost(comment.getPostId()), comment.getUserId());
         communityMapper.insertComment(comment);
     }
 
@@ -92,13 +99,19 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public void likeComment(Long commentId) {
+    public void likeComment(Long commentId, Long requesterUserId) {
+        CommunityComment comment = communityMapper.selectCommentById(commentId);
+        if (comment == null) {
+            throw new BusinessException(404, "评论不存在");
+        }
+        ensurePostReadable(requirePost(comment.getPostId()), requesterUserId);
         communityMapper.incrementCommentLikes(commentId);
     }
 
     @Override
-    public List<CommunityPost> getUserPosts(Long userId, int page, int size) {
-        return communityMapper.selectPostsByUserId(userId, page, size);
+    public List<CommunityPost> getUserPosts(Long userId, Long requesterUserId, String type, int page, int size) {
+        boolean includePrivate = Objects.equals(userId, requesterUserId);
+        return communityMapper.selectPostsByUserId(userId, includePrivate, type, page, size);
     }
 
     @Override
@@ -135,6 +148,38 @@ public class CommunityServiceImpl implements CommunityService {
             throw new BusinessException(403, "无权操作他人的帖子");
         }
         return existingPost;
+    }
+
+    private CommunityPost requirePost(Long postId) {
+        CommunityPost post = communityMapper.selectPostById(postId);
+        if (post == null) {
+            throw new BusinessException(404, "帖子不存在");
+        }
+        return post;
+    }
+
+    private void ensurePostReadable(CommunityPost post, Long requesterUserId) {
+        if (isPrivate(post) && !Objects.equals(post.getUserId(), requesterUserId)) {
+            throw new BusinessException(403, "无权访问私密动态");
+        }
+    }
+
+    private boolean isPrivate(CommunityPost post) {
+        return "private".equalsIgnoreCase(post.getVisibility());
+    }
+
+    private void normalizePostForWrite(CommunityPost post) {
+        if (post.getType() == null || post.getType().isBlank()) {
+            post.setType("note");
+        }
+        if ("private".equalsIgnoreCase(post.getVisibility())) {
+            post.setVisibility("private");
+        } else {
+            post.setVisibility("public");
+        }
+        if (post.getTags() != null) {
+            post.setTags(post.getTags().trim());
+        }
     }
 
     private CommunityComment requireOwnedComment(Long commentId, Long operatorUserId) {

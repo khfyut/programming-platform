@@ -3,6 +3,7 @@ package com.programming.service.impl;
 import com.programming.entity.User;
 import com.programming.mapper.UserMapper;
 import com.programming.service.UserService;
+import com.programming.service.runtime.RuntimeCatalogService;
 import com.programming.util.JwtUtil;
 import com.programming.util.PasswordUtil;
 import com.programming.vo.ChangePasswordVO;
@@ -27,6 +28,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private PasswordUtil passwordUtil;
+
+    @Autowired
+    private RuntimeCatalogService runtimeCatalogService;
 
     private boolean isEncodedPassword(String password) {
         return password != null
@@ -93,7 +97,11 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void updateLanguage(Long userId, String language) {
-        userMapper.updateLanguage(userId, language);
+        String normalizedLanguage = runtimeCatalogService.normalizeLanguageCode(language);
+        if (!runtimeCatalogService.isJudgeLanguageSupported(normalizedLanguage)) {
+            throw new RuntimeException("不支持的编程语言: " + language);
+        }
+        userMapper.updateLanguage(userId, normalizedLanguage);
     }
 
     @Override

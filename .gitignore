@@ -36,6 +36,7 @@ coverage/
 # Dependencies
 node_modules/
 jspm_packages/
+AgentService/venv/
 
 # Logs / temp
 logs/
@@ -75,6 +76,15 @@ application-*.yml
 # Local backup / dump outputs
 /backups/
 
+# Python caches / local test artifacts
+**/__pycache__/
+*.py[cod]
+
+# Local QA evidence
+/gstack-evidence-*.png
+/gstack-*-chain.json
+/gstack-test-account.txt
+
 # JMeter raw artifacts
 /System/loadtest-run-output/report-*/
 /System/loadtest-run-output/results-*.jtl
@@ -85,3 +95,6 @@ application-*.yml
 
 # Skills sub-repo kept as external asset
 /skills/
+.gstack/
+.gstack/
+.gstack/

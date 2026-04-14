@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.LearningEventLogMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO learning_event_log
+        (user_id, problem_id, submit_id, trigger_source, user_intent, action_type, action_id,
+         pedagogical_goal, content_type, strategy, decision_reason, content, request_id,
+         executed, blocked_reason, entry_ref_type, entry_ref_id, path_id, level_id, wrong_item_id, create_time)
+        VALUES
+        (#{userId}, #{problemId}, #{submitId}, #{triggerSource}, #{userIntent}, #{actionType}, #{actionId},
+         #{pedagogicalGoal}, #{contentType}, #{strategy}, #{decisionReason}, #{content}, #{requestId},
+         #{executed}, #{blockedReason}, #{entryRefType}, #{entryRefId}, #{pathId}, #{levelId}, #{wrongItemId}, #{createTime})
+    </insert>
+
+    <select id="findByUserAndProblem" resultType="com.programming.entity.LearningEventLog">
+        SELECT * FROM learning_event_log
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="findBySubmitId" resultType="com.programming.entity.LearningEventLog">
+        SELECT * FROM learning_event_log
+        WHERE submit_id = #{submitId}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="findByRequestIdAndUser" resultType="com.programming.entity.LearningEventLog">
+        SELECT * FROM learning_event_log
+        WHERE request_id = #{requestId}
+          AND user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <select id="findRecentByUser" resultType="com.programming.entity.LearningEventLog">
+        SELECT * FROM learning_event_log
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

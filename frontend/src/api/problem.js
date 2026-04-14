@@ -17,6 +17,10 @@ export const getSampleTestCases = (id) => {
   return request(`/api/problem/${id}/test-cases/sample`)
 }
 
+export const getProblemSupportedLanguages = (id) => {
+  return request(`/api/problem/${id}/supported-languages`)
+}
+
 export const getAllTestCases = (id) => {
   return request(`/api/problem/${id}/test-cases/all`)
 }

@@ -1,6 +1,7 @@
 package com.programming.controller;
 
 import com.programming.entity.Problem;
+import com.programming.entity.ProblemSupportedLanguage;
 import com.programming.entity.TestCase;
 import com.programming.service.ProblemService;
 import com.programming.service.TestCaseService;
@@ -74,6 +75,15 @@ public class ProblemController {
     public ResultUtil<List<TestCase>> getSampleTestCases(@PathVariable Long id) {
         try {
             return ResultUtil.success(testCaseService.getSampleTestCasesByProblemId(id));
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/supported-languages")
+    public ResultUtil<List<ProblemSupportedLanguage>> getSupportedLanguages(@PathVariable Long id) {
+        try {
+            return ResultUtil.success(problemService.getSupportedLanguages(id));
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }

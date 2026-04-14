@@ -30,6 +30,10 @@
           >
             <el-option label="Java" value="java" />
             <el-option label="Python" value="python" />
+            <el-option label="C++" value="cpp" />
+            <el-option label="JavaScript" value="javascript" />
+            <el-option label="TypeScript" value="typescript" />
+            <el-option label="Go" value="go" />
           </el-select>
         </div>
         <div class="filter-right">
@@ -186,6 +190,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useSubmissionStore } from '@/stores/submission'
 import { RefreshLeft, ArrowRight } from '@element-plus/icons-vue'
+import { getRuntimeLanguageLabel } from '@/utils/runtimeLanguage'
 
 const route = useRoute()
 const submissionStore = useSubmissionStore()
@@ -230,8 +235,7 @@ const getDifficultyText = (difficulty) => {
 }
 
 const formatLanguage = (language) => {
-  if (!language) return '--'
-  return String(language).toUpperCase()
+  return getRuntimeLanguageLabel(language)
 }
 
 const formatMetric = (value, unit) => {

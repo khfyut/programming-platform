@@ -12,6 +12,7 @@ import com.programming.mapper.SubmitMapper;
 import com.programming.mapper.SubmitTestCaseResultMapper;
 import com.programming.mapper.TestCaseMapper;
 import com.programming.service.CodeSandboxService;
+import com.programming.service.ProblemService;
 import com.programming.service.SubmitService;
 import com.programming.service.WrongBookService;
 import com.programming.vo.CodeExecutionResult;
@@ -36,6 +37,8 @@ public class SubmitServiceImpl implements SubmitService {
     private static final int RESULT_COMPILE_ERROR = 2;
     private static final int RESULT_RUNTIME_ERROR = 3;
     private static final int RESULT_EXECUTION_FAILED = 4;
+    private static final int MAX_PERSISTED_OUTPUT_LENGTH = 8000;
+    private static final int MAX_PERSISTED_ERROR_LENGTH = 8000;
 
     @Autowired
     private SubmitMapper submitMapper;
@@ -61,9 +64,13 @@ public class SubmitServiceImpl implements SubmitService {
     @Autowired
     private JudgeProgressHandler judgeProgressHandler;
 
+    @Autowired
+    private ProblemService problemService;
+
     @Override
     @Transactional
     public SubmitResultVO commit(Long userId, Long problemId, String code, String language) {
+        validateLanguage(problemId, language);
         Problem problem = requireProblem(problemId);
         List<TestCase> testCases = requireTestCases(problemId);
 
@@ -75,11 +82,17 @@ public class SubmitServiceImpl implements SubmitService {
         Submit submit = persistSubmit(userId, problemId, code, language, summary);
         updateLearnRecord(userId, problemId, summary.finalResult());
 
-        SubmitResultVO resultVO = buildSubmitResult(summary, testCases);
+        SubmitResultVO resultVO = buildSubmitResult(summary, testCases, submit, language);
         autoAddWrongBook(userId, submit, problem, summary.finalResult());
         sendJudgeComplete(userId, resultVO);
 
         return resultVO;
+    }
+
+    private void validateLanguage(Long problemId, String language) {
+        if (!problemService.isLanguageEnabledForProblem(problemId, language)) {
+            throw new RuntimeException("Language is not enabled for this problem");
+        }
     }
 
     private Problem requireProblem(Long problemId) {
@@ -165,11 +178,11 @@ public class SubmitServiceImpl implements SubmitService {
         result.setTestCaseId(testCase.getId());
         result.setTimeCost((int) execResult.getTimeCost());
         result.setMemoryCost((int) execResult.getMemoryCost());
-        result.setActualOutput(actualOutputText);
+        result.setActualOutput(truncateForPersistence(actualOutputText, MAX_PERSISTED_OUTPUT_LENGTH));
 
         if (execResult.getExitCode() == RESULT_COMPILE_ERROR) {
             result.setResult(RESULT_COMPILE_ERROR);
-            result.setErrorMessage(execResult.getErrorMessage());
+            result.setErrorMessage(truncateForPersistence(execResult.getErrorMessage(), MAX_PERSISTED_ERROR_LENGTH));
             log.error("Compile error - problemId: {}, testCaseId: {}, error: {}",
                     problemId, testCase.getId(), execResult.getErrorMessage());
             return new EvaluatedCase(result, RESULT_COMPILE_ERROR, "编译错误", false);
@@ -177,7 +190,7 @@ public class SubmitServiceImpl implements SubmitService {
 
         if (execResult.getExitCode() == RESULT_RUNTIME_ERROR) {
             result.setResult(RESULT_RUNTIME_ERROR);
-            result.setErrorMessage(execResult.getErrorMessage());
+            result.setErrorMessage(truncateForPersistence(execResult.getErrorMessage(), MAX_PERSISTED_ERROR_LENGTH));
             log.error("Runtime error - problemId: {}, testCaseId: {}, error: {}",
                     problemId, testCase.getId(), execResult.getErrorMessage());
             return new EvaluatedCase(result, RESULT_RUNTIME_ERROR, "运行错误", false);
@@ -185,10 +198,22 @@ public class SubmitServiceImpl implements SubmitService {
 
         if (execResult.getExitCode() == RESULT_EXECUTION_FAILED) {
             result.setResult(RESULT_EXECUTION_FAILED);
-            result.setErrorMessage(execResult.getErrorMessage());
+            result.setErrorMessage(truncateForPersistence(execResult.getErrorMessage(), MAX_PERSISTED_ERROR_LENGTH));
             log.error("Execution failed - problemId: {}, testCaseId: {}, error: {}",
                     problemId, testCase.getId(), execResult.getErrorMessage());
             return new EvaluatedCase(result, RESULT_EXECUTION_FAILED, "运行失败", false);
+        }
+
+        if (execResult.getExitCode() != RESULT_ACCEPTED) {
+            String errorMessage = execResult.getErrorMessage();
+            if (errorMessage == null || errorMessage.isBlank()) {
+                errorMessage = "Execution failed with exit code " + execResult.getExitCode();
+            }
+            result.setResult(RESULT_EXECUTION_FAILED);
+            result.setErrorMessage(truncateForPersistence(errorMessage, MAX_PERSISTED_ERROR_LENGTH));
+            log.error("Unexpected execution status - problemId: {}, testCaseId: {}, exitCode: {}, error: {}",
+                    problemId, testCase.getId(), execResult.getExitCode(), errorMessage);
+            return new EvaluatedCase(result, RESULT_EXECUTION_FAILED, "执行失败", false);
         }
 
         String expectedOutput = testCase.getOutput() == null ? "" : testCase.getOutput().trim();
@@ -268,8 +293,10 @@ public class SubmitServiceImpl implements SubmitService {
         learnRecordMapper.update(learnRecord);
     }
 
-    private SubmitResultVO buildSubmitResult(JudgingSummary summary, List<TestCase> testCases) {
+    private SubmitResultVO buildSubmitResult(JudgingSummary summary, List<TestCase> testCases, Submit submit, String language) {
         SubmitResultVO resultVO = new SubmitResultVO();
+        resultVO.setSubmitId(submit == null ? null : submit.getId());
+        resultVO.setLanguage(language);
         resultVO.setResult(summary.finalResult());
         resultVO.setTimeCost(summary.maxTimeCost());
         resultVO.setMemoryCost(summary.maxMemoryCost());
@@ -402,6 +429,14 @@ public class SubmitServiceImpl implements SubmitService {
             throw new RuntimeException("Submission not found");
         }
         return submit;
+    }
+
+    private String truncateForPersistence(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text;
+        }
+
+        return text.substring(0, maxLength) + "\n...truncated...";
     }
 
     private record EvaluatedCase(SubmitTestCaseResult result, int resultCode, String statusText, boolean passed) {

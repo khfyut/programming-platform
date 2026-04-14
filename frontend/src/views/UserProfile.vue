@@ -177,15 +177,16 @@
               <el-empty v-else description="还没有解锁成就" />
             </el-tab-pane>
 
-            <el-tab-pane label="发布的帖子" name="posts">
+            <el-tab-pane label="学习动态" name="posts">
               <div v-if="posts.length" class="stack">
                 <button v-for="post in posts" :key="post.id" type="button" class="block submission-btn" @click="goToPost(post.id)">
                   <strong>{{ post.title }}</strong>
+                  <el-tag v-if="isOwner && post.visibility === 'private'" size="small" type="warning" effect="plain">仅自己可见</el-tag>
                   <div class="minor-text">{{ formatTime(post.createTime) }} · {{ post.viewCount }} 浏览 · {{ post.commentCount }} 评论</div>
                 </button>
               </div>
-              <el-empty v-else description="还没有发布帖子">
-                <el-button type="primary" @click="goToPostCreate">去社区发帖</el-button>
+              <el-empty v-else description="还没有发布学习动态">
+                <el-button type="primary" @click="goToPostCreate">去社区记录</el-button>
               </el-empty>
             </el-tab-pane>
 
@@ -512,8 +513,9 @@ const loadPosts = async () => {
     if (res?.code === 200) {
       posts.value = normalizeList(res.data).map((item) => ({
         ...item,
-        title: item.title || '未命名帖子',
+        title: item.title || '未命名动态',
         createTime: item.createTime || item.updateTime || '',
+        visibility: item.visibility || 'public',
         viewCount: Number(item.viewCount || item.views || 0),
         commentCount: Number(item.commentCount || item.comments || 0)
       }))
@@ -573,7 +575,7 @@ const goToProblem = (problemId) => router.push(`/problem/${problemId}`)
 const startProblem = (problemId) => router.push({ name: 'ProblemDetail', params: { id: problemId } })
 const goToSubmission = (submissionId) => router.push({ name: 'Submissions', query: { submitId: submissionId } })
 const goToPost = (postId) => router.push(`/community/post/${postId}`)
-const goToPostCreate = () => router.push('/community')
+const goToPostCreate = () => router.push('/community/write')
 const goToTarget = (favorite) => router.push(favorite.targetType === 'POST' ? `/community/post/${favorite.targetId}` : `/problem/${favorite.targetId}`)
 const changeAvatar = () => ElMessage.info('头像修改功能开发中')
 

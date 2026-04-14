@@ -8,6 +8,10 @@
         <result column="user_id" property="userId"/>
         <result column="topic" property="topic"/>
         <result column="status" property="status"/>
+        <result column="session_type" property="sessionType"/>
+        <result column="related_problem_id" property="relatedProblemId"/>
+        <result column="last_submit_id" property="lastSubmitId"/>
+        <result column="metadata_json" property="metadataJson"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
@@ -17,6 +21,9 @@
         <result column="session_id" property="sessionId"/>
         <result column="role" property="role"/>
         <result column="content" property="content"/>
+        <result column="related_problem_id" property="relatedProblemId"/>
+        <result column="related_submit_id" property="relatedSubmitId"/>
+        <result column="message_kind" property="messageKind"/>
         <result column="create_time" property="createTime"/>
     </resultMap>
 
@@ -40,17 +47,55 @@
     <select id="selectSessionsByUserId" resultMap="SessionResultMap">
         SELECT * FROM ai_session 
         WHERE user_id = #{userId} 
+          AND (session_type IS NULL OR session_type = 'general')
         ORDER BY update_time DESC
     </select>
 
+    <select id="selectLatestProblemCoachSession" resultMap="SessionResultMap">
+        SELECT * FROM ai_session
+        WHERE user_id = #{userId}
+          AND session_type = 'problem_coach'
+          AND related_problem_id = #{problemId}
+        ORDER BY update_time DESC, id DESC
+        LIMIT 1
+    </select>
+
     <insert id="insertSession" parameterType="com.programming.entity.AiSession" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO ai_session (session_id, user_id, topic, status, create_time, update_time)
-        VALUES (#{sessionId}, #{userId}, #{topic}, #{status}, NOW(), NOW())
+        INSERT INTO ai_session (
+            session_id,
+            user_id,
+            topic,
+            status,
+            session_type,
+            related_problem_id,
+            last_submit_id,
+            metadata_json,
+            create_time,
+            update_time
+        )
+        VALUES (
+            #{sessionId},
+            #{userId},
+            #{topic},
+            #{status},
+            #{sessionType},
+            #{relatedProblemId},
+            #{lastSubmitId},
+            #{metadataJson},
+            NOW(),
+            NOW()
+        )
     </insert>
 
     <update id="updateSession" parameterType="com.programming.entity.AiSession">
         UPDATE ai_session 
-        SET topic = #{topic}, status = #{status}, update_time = NOW()
+        SET topic = #{topic},
+            status = #{status},
+            session_type = #{sessionType},
+            related_problem_id = #{relatedProblemId},
+            last_submit_id = #{lastSubmitId},
+            metadata_json = #{metadataJson},
+            update_time = NOW()
         WHERE id = #{id}
     </update>
 
@@ -65,8 +110,24 @@
     </select>
 
     <insert id="insertMessage" parameterType="com.programming.entity.AiMessage" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO ai_message (session_id, role, content, create_time)
-        VALUES (#{sessionId}, #{role}, #{content}, NOW())
+        INSERT INTO ai_message (
+            session_id,
+            role,
+            content,
+            related_problem_id,
+            related_submit_id,
+            message_kind,
+            create_time
+        )
+        VALUES (
+            #{sessionId},
+            #{role},
+            #{content},
+            #{relatedProblemId},
+            #{relatedSubmitId},
+            #{messageKind},
+            NOW()
+        )
     </insert>
 
     <delete id="deleteMessagesBySessionId" parameterType="java.lang.String">

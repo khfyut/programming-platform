@@ -113,6 +113,9 @@ public class LearnServiceImpl implements LearnService {
         List<KnowledgePoint> weakPoints = getWeakKnowledgePoints(userId);
         List<Submit> recentSubmits = submitMapper.findByUserId(userId, null, 0, 20);
         String preferredLanguage = detectPreferredLanguage(recentSubmits);
+        if (!"java".equalsIgnoreCase(preferredLanguage)) {
+            preferredLanguage = "java";
+        }
         Set<Long> passedProblemIds = new LinkedHashSet<>(submitMapper.findPassedProblemIdsByUserId(userId));
 
         LinkedHashMap<Long, Problem> recommendedProblemMap = new LinkedHashMap<>();
@@ -151,10 +154,7 @@ public class LearnServiceImpl implements LearnService {
                 continue;
             }
 
-            boolean languageMatched = preferredLanguage == null
-                    || (path.getLanguage() != null
-                    && path.getLanguage().toLowerCase().contains(preferredLanguage.toLowerCase()));
-            if (!languageMatched) {
+            if (!isJavaAgentPath(path)) {
                 continue;
             }
 
@@ -178,6 +178,10 @@ public class LearnServiceImpl implements LearnService {
                     }
                 }
                 if (alreadyAdded) {
+                    continue;
+                }
+
+                if (!isJavaAgentPath(path)) {
                     continue;
                 }
 
@@ -378,6 +382,24 @@ public class LearnServiceImpl implements LearnService {
         return problemLanguage.equals(preferred)
                 || problemLanguage.contains(preferred)
                 || preferred.contains(problemLanguage);
+    }
+
+    private boolean isJavaAgentPath(LearningPath path) {
+        if (path == null || path.getId() == null) {
+            return false;
+        }
+        if (path.getId() == 1L || path.getId() == 3L || path.getId() == 4L
+                || path.getId() == 5L || path.getId() == 6L) {
+            return true;
+        }
+        String name = path.getName() == null ? "" : path.getName();
+        String language = path.getLanguage() == null ? "" : path.getLanguage();
+        String direction = path.getDirection() == null ? "" : path.getDirection();
+        String scopeText = (name + " " + language + " " + direction).toLowerCase();
+        return scopeText.contains("java")
+                || name.contains("算法")
+                || name.contains("后端开发基础")
+                || name.contains("Java后端");
     }
 
     private Set<Long> parseIdSet(String rawIds) {

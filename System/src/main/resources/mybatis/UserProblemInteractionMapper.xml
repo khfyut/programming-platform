@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.programming.mapper.UserProblemInteractionMapper">
+
+    <select id="findByUserAndProblem" resultType="com.programming.entity.UserProblemInteraction">
+        SELECT * FROM user_problem_interaction
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_problem_interaction
+        (user_id, problem_id, hint_count, diagnose_count, explain_count, recommend_count, reflect_count,
+         has_viewed_answer, consecutive_failures, last_submit_id, last_action_time, last_action_type,
+         last_goal, last_guidance_type, error_tag, weak_points, learning_stage, create_time, update_time)
+        VALUES
+        (#{userId}, #{problemId}, #{hintCount}, #{diagnoseCount}, #{explainCount}, #{recommendCount}, #{reflectCount},
+         #{hasViewedAnswer}, #{consecutiveFailures}, #{lastSubmitId}, #{lastActionTime}, #{lastActionType},
+         #{lastGoal}, #{lastGuidanceType}, #{errorTag}, #{weakPoints}, #{learningStage}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="update">
+        UPDATE user_problem_interaction
+        SET hint_count = #{hintCount},
+            diagnose_count = #{diagnoseCount},
+            explain_count = #{explainCount},
+            recommend_count = #{recommendCount},
+            reflect_count = #{reflectCount},
+            has_viewed_answer = #{hasViewedAnswer},
+            consecutive_failures = #{consecutiveFailures},
+            last_submit_id = #{lastSubmitId},
+            last_action_time = #{lastActionTime},
+            last_action_type = #{lastActionType},
+            last_goal = #{lastGoal},
+            last_guidance_type = #{lastGuidanceType},
+            error_tag = #{errorTag},
+            weak_points = #{weakPoints},
+            learning_stage = #{learningStage},
+            update_time = #{updateTime}
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementHintCount">
+        UPDATE user_problem_interaction
+        SET hint_count = hint_count + 1,
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="incrementDiagnoseCount">
+        UPDATE user_problem_interaction
+        SET diagnose_count = diagnose_count + 1,
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="incrementExplainCount">
+        UPDATE user_problem_interaction
+        SET explain_count = explain_count + 1,
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="incrementRecommendCount">
+        UPDATE user_problem_interaction
+        SET recommend_count = recommend_count + 1,
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="incrementReflectCount">
+        UPDATE user_problem_interaction
+        SET reflect_count = reflect_count + 1,
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="updateConsecutiveFailures">
+        UPDATE user_problem_interaction
+        SET consecutive_failures = #{failures},
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="updateLearningState">
+        UPDATE user_problem_interaction
+        SET error_tag = #{errorTag},
+            weak_points = #{weakPoints},
+            learning_stage = #{learningStage},
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <update id="updateActionSemanticState">
+        UPDATE user_problem_interaction
+        SET last_action_type = #{lastActionType},
+            last_goal = #{lastGoal},
+            last_guidance_type = #{lastGuidanceType},
+            learning_stage = #{learningStage},
+            last_action_time = NOW(),
+            update_time = NOW()
+        WHERE user_id = #{userId} AND problem_id = #{problemId}
+    </update>
+
+    <select id="findRecentByUser" resultType="com.programming.entity.UserProblemInteraction">
+        SELECT * FROM user_problem_interaction
+        WHERE user_id = #{userId}
+        ORDER BY update_time DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

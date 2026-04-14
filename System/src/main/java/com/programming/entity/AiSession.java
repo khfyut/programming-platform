@@ -11,6 +11,10 @@ public class AiSession {
     private Long userId;
     private String topic;
     private Integer status;
+    private String sessionType;
+    private Long relatedProblemId;
+    private Long lastSubmitId;
+    private String metadataJson;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private List<AiMessage> messages;

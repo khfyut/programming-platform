@@ -179,8 +179,12 @@
 
     <el-dialog v-model="languageDialogVisible" title="设置常用编程语言" width="400px">
       <el-select v-model="selectedLanguage" placeholder="请选择语言" style="width: 100%">
-        <el-option label="Java" value="java" />
-        <el-option label="Python" value="python" />
+        <el-option
+          v-for="item in runtimeLanguageCatalog"
+          :key="item.code"
+          :label="item.label"
+          :value="item.code"
+        />
       </el-select>
       <template #footer>
         <el-button @click="languageDialogVisible = false">取消</el-button>
@@ -269,6 +273,7 @@ import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyLearnStats } from '@/api/learn'
+import { runtimeLanguageCatalog } from '@/utils/runtimeLanguage'
 import {
   Edit,
   Search,

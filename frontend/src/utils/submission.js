@@ -2,9 +2,9 @@ export const getSubmissionResultText = (resultType) => {
   const texts = {
     0: '通过',
     1: '答案错误',
-    2: '运行错误',
-    3: '超时',
-    4: '内存超限'
+    2: '编译错误',
+    3: '运行错误',
+    4: '执行失败'
   }
 
   return texts[resultType] || '未知错误'

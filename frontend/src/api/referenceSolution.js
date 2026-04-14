@@ -6,9 +6,9 @@ export function getReferenceSolution(problemId, language) {
   })
 }
 
-export function getHint(problemId, hintLevel = 1) {
+export function getHint(problemId, hintLevel = 1, language) {
   return request(`/api/reference-solution/${problemId}/hint`, {
-    params: { hintLevel }
+    params: { hintLevel, language }
   })
 }
 

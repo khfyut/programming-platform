@@ -145,6 +145,18 @@ const routes = [
         meta: { title: '学习社区' }
       },
       {
+        path: 'community/write',
+        name: 'CommunityWrite',
+        component: () => import('@/views/CommunityWrite.vue'),
+        meta: { title: '写学习动态' }
+      },
+      {
+        path: 'community/write/:id',
+        name: 'CommunityEdit',
+        component: () => import('@/views/CommunityWrite.vue'),
+        meta: { title: '编辑学习动态' }
+      },
+      {
         path: 'community/post/:id',
         name: 'CommunityPost',
         component: () => import('@/views/CommunityPost.vue'),

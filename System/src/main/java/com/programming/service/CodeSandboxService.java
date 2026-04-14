@@ -6,6 +6,10 @@ import java.util.List;
 public interface CodeSandboxService {
 
     String runCode(String code, String language, String input);
+
+    CodeExecutionResult executeCode(String code, String language, String input);
+
+    CodeExecutionResult executeCode(String code, String language, String input, Integer timeLimit, Integer memoryLimit);
     
     List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs);
     

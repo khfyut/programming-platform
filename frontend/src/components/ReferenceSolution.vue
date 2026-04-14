@@ -19,8 +19,8 @@
       <div v-loading="contentLoading" class="solution-content">
         <div class="toolbar">
           <div class="toolbar-copy">
-            <strong>{{ solution.language || selectedLanguage || '默认语言' }}</strong>
-            <span>切换语言查看不同实现，并结合思路说明理解解法。</span>
+            <strong>{{ getRuntimeLanguageLabel(solution.language || selectedLanguage || 'java') }}</strong>
+            <span>支持按语言切换查看不同实现，并结合思路说明理解解法。</span>
           </div>
           <el-select
             v-model="selectedLanguage"
@@ -32,7 +32,7 @@
             <el-option
               v-for="lang in availableLanguages"
               :key="lang"
-              :label="lang"
+              :label="getRuntimeLanguageLabel(lang)"
               :value="lang"
             />
           </el-select>
@@ -65,7 +65,7 @@
           <div class="editor-shell">
             <MonacoEditor
               v-model="solution.solutionCode"
-              :language="getMonacoLanguage(solution.language || selectedLanguage)"
+              :language="getRuntimeMonacoLanguage(solution.language || selectedLanguage)"
               height="400px"
               :read-only="true"
             />
@@ -91,9 +91,10 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, reactive, ref } from 'vue'
+import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAvailableLanguages, getReferenceSolution } from '@/api/referenceSolution'
+import { getRuntimeLanguageLabel, getRuntimeMonacoLanguage, normalizeRuntimeLanguage } from '@/utils/runtimeLanguage'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
 
@@ -105,6 +106,10 @@ const props = defineProps({
   canView: {
     type: Boolean,
     default: false
+  },
+  preferredLanguage: {
+    type: String,
+    default: ''
   }
 })
 
@@ -141,6 +146,14 @@ const resetSolution = () => {
   })
 }
 
+const pickLanguage = (languages) => {
+  const preferred = normalizeRuntimeLanguage(props.preferredLanguage)
+  if (preferred && languages.includes(preferred)) {
+    return preferred
+  }
+  return languages[0] || ''
+}
+
 const handleViewSolution = async () => {
   if (!props.canView) {
     return
@@ -149,7 +162,9 @@ const handleViewSolution = async () => {
   buttonLoading.value = true
   try {
     const languagesRes = await getAvailableLanguages(props.problemId)
-    const languages = languagesRes?.code === 200 ? languagesRes.data || [] : []
+    const languages = languagesRes?.code === 200
+      ? (languagesRes.data || []).map(normalizeRuntimeLanguage).filter(Boolean)
+      : []
 
     if (languages.length === 0) {
       ElMessage.error('暂无参考答案')
@@ -157,7 +172,7 @@ const handleViewSolution = async () => {
     }
 
     availableLanguages.value = languages
-    selectedLanguage.value = languages[0]
+    selectedLanguage.value = pickLanguage(languages)
     showDialog.value = true
     emit('view-solution')
     await loadSolution()
@@ -179,12 +194,12 @@ const loadSolution = async () => {
     const res = await getReferenceSolution(props.problemId, selectedLanguage.value)
 
     if (res?.code !== 200 || !res.data) {
-      throw new Error(res?.message || '获取参考答案失败')
+      throw new Error(res?.msg || '获取参考答案失败')
     }
 
     Object.assign(solution, {
       ...res.data,
-      language: res.data.language || selectedLanguage.value,
+      language: normalizeRuntimeLanguage(res.data.language || selectedLanguage.value),
       solutionCode: res.data.solutionCode || '',
       timeComplexity: res.data.timeComplexity || '',
       spaceComplexity: res.data.spaceComplexity || '',
@@ -218,20 +233,16 @@ const copyCode = async () => {
   }
 }
 
-const getMonacoLanguage = (language) => {
-  const languageMap = {
-    Java: 'java',
-    Python: 'python',
-    'C++': 'cpp',
-    JavaScript: 'javascript',
-    java: 'java',
-    python: 'python',
-    cpp: 'cpp',
-    javascript: 'javascript'
+watch(
+  () => props.preferredLanguage,
+  (nextLanguage) => {
+    const normalized = normalizeRuntimeLanguage(nextLanguage)
+    if (showDialog.value && normalized && availableLanguages.value.includes(normalized)) {
+      selectedLanguage.value = normalized
+      loadSolution()
+    }
   }
-
-  return languageMap[language] || 'text'
-}
+)
 </script>
 
 <style scoped>
@@ -359,10 +370,9 @@ const getMonacoLanguage = (language) => {
 
 @media (max-width: 768px) {
   .toolbar,
-  .code-header,
-  .hint-item {
-    align-items: flex-start;
+  .code-header {
     flex-direction: column;
+    align-items: flex-start;
   }
 
   .language-select {

@@ -5,7 +5,7 @@
         <div class="hero-copy">
           <p class="hero-kicker">Community</p>
           <h1 class="page-title">学习社区</h1>
-          <p class="page-subtitle">把提问、讨论和经验分享放在一起，让练题之外的思路交流也能持续发生。</p>
+          <p class="page-subtitle">把学习笔记、提问、讨论和经验分享放在一起：想公开分享就发到广场，只想沉淀给自己也可以私密记录。</p>
         </div>
         <div class="hero-actions">
           <el-button plain @click="refreshCommunity" :loading="loading">
@@ -14,7 +14,7 @@
           </el-button>
           <el-button type="primary" @click="showCreateDialog">
             <el-icon><Edit /></el-icon>
-            发布帖子
+            发布学习动态
           </el-button>
         </div>
       </section>
@@ -32,14 +32,27 @@
           <section class="toolbar-card">
             <div class="toolbar-head">
               <div>
-                <h2 class="section-title">帖子列表</h2>
-                <p class="section-subtitle">按内容类型筛选，快速进入你当前更需要的讨论氛围。</p>
+                <h2 class="section-title">{{ feedMode === 'mine' ? '我的动态' : '社区广场' }}</h2>
+                <p class="section-subtitle">
+                  {{ feedMode === 'mine'
+                    ? '这里会展示你发布过的公开动态和仅自己可见笔记。'
+                    : '广场只展示公开内容，私密学习笔记不会出现在这里。' }}
+                </p>
               </div>
+            </div>
+
+            <div class="toolbar-row feed-mode-row">
+              <el-radio-group v-model="feedMode" size="small" @change="handleFeedModeChange">
+                <el-radio-button value="public">社区广场</el-radio-button>
+                <el-radio-button value="mine">我的动态</el-radio-button>
+              </el-radio-group>
+              <span class="mode-hint">{{ feedMode === 'mine' ? '公开 + 私密' : '仅公开' }}</span>
             </div>
 
             <div class="toolbar-row">
               <el-radio-group v-model="postType" size="small" @change="handleTypeChange">
                 <el-radio-button value="">全部</el-radio-button>
+                <el-radio-button value="note">学习笔记</el-radio-button>
                 <el-radio-button value="discussion">讨论</el-radio-button>
                 <el-radio-button value="question">问答</el-radio-button>
                 <el-radio-button value="share">分享</el-radio-button>
@@ -66,14 +79,29 @@
                     </div>
                   </div>
                 </div>
-                <el-tag :type="getPostTypeTag(post.type)" size="small">
-                  {{ getPostTypeText(post.type) }}
-                </el-tag>
+                <div class="post-badges">
+                  <el-tag :type="getPostTypeTag(post.type)" size="small">
+                    {{ getPostTypeText(post.type) }}
+                  </el-tag>
+                  <el-tag v-if="feedMode === 'mine'" :type="getVisibilityTag(post.visibility)" size="small" effect="plain">
+                    {{ getVisibilityText(post.visibility) }}
+                  </el-tag>
+                </div>
               </div>
 
               <div class="post-content">
                 <h3 class="post-title">{{ post.title || '未命名帖子' }}</h3>
                 <p class="post-summary">{{ summarizeContent(post.content) }}</p>
+                <div v-if="normalizeTags(post.tags).length" class="post-tags">
+                  <el-tag
+                    v-for="tag in normalizeTags(post.tags)"
+                    :key="`${post.id}-${tag}`"
+                    size="small"
+                    effect="plain"
+                  >
+                    {{ tag }}
+                  </el-tag>
+                </div>
               </div>
 
               <div class="post-footer">
@@ -96,11 +124,11 @@
             </article>
 
             <div v-if="posts.length === 0 && !loading" class="empty-posts">
-              <el-empty description="当前筛选下还没有帖子">
+              <el-empty :description="feedMode === 'mine' ? '你还没有发布学习动态' : '当前筛选下还没有公开动态'">
                 <template #description>
-                  <p class="empty-text">可以先发布一个问题或经验分享，给社区开个头。</p>
+                  <p class="empty-text">{{ feedMode === 'mine' ? '可以先记录一条仅自己可见的学习笔记。' : '可以先发布一个问题或经验分享，给社区开个头。' }}</p>
                 </template>
-                <el-button type="primary" @click="showCreateDialog">发布第一条帖子</el-button>
+                <el-button type="primary" @click="showCreateDialog">发布第一条学习动态</el-button>
               </el-empty>
             </div>
           </div>
@@ -155,46 +183,12 @@
       </div>
     </div>
 
-    <el-dialog
-      v-model="createDialogVisible"
-      title="发布帖子"
-      width="600px"
-      :close-on-click-modal="false"
-    >
-      <el-form :model="newPost" label-width="80px">
-        <el-form-item label="类型">
-          <el-select v-model="newPost.type" placeholder="请选择帖子类型">
-            <el-option label="讨论" value="discussion" />
-            <el-option label="问答" value="question" />
-            <el-option label="分享" value="share" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="标题">
-          <el-input v-model="newPost.title" placeholder="请输入标题" maxlength="100" show-word-limit />
-        </el-form-item>
-        <el-form-item label="内容">
-          <el-input
-            v-model="newPost.content"
-            type="textarea"
-            :rows="8"
-            placeholder="请输入内容"
-            maxlength="2000"
-            show-word-limit
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleCreatePost" :loading="submitting">发布</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import {
   Edit,
   UserFilled,
@@ -205,27 +199,21 @@ import {
 } from '@element-plus/icons-vue'
 import {
   getPosts,
-  createPost,
+  getUserPosts,
   getCommunityStatistics,
   getHotTopics
 } from '@/api/community'
+import { markdownToPlainText } from '@/utils/markdown'
 
 const router = useRouter()
 
 const loading = ref(false)
-const submitting = ref(false)
 const posts = ref([])
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const postType = ref('')
-const createDialogVisible = ref(false)
-
-const newPost = ref({
-  type: 'discussion',
-  title: '',
-  content: ''
-})
+const feedMode = ref('public')
 
 const statistics = ref({
   totalPosts: 0,
@@ -238,9 +226,9 @@ const hotTopics = ref([])
 
 const summaryCards = computed(() => [
   {
-    label: '总帖子数',
+    label: '公开动态数',
     value: Number(statistics.value.totalPosts || 0),
-    hint: '社区目前沉淀的全部内容'
+    hint: '社区广场目前沉淀的公开内容'
   },
   {
     label: '总评论数',
@@ -253,9 +241,9 @@ const summaryCards = computed(() => [
     hint: '最近仍在参与交流的用户'
   },
   {
-    label: '今日新帖',
+    label: '今日新动态',
     value: Number(statistics.value.todayPosts || 0),
-    hint: '今天社区新增的讨论内容'
+    hint: '今天社区新增的公开内容'
   }
 ])
 
@@ -281,6 +269,17 @@ const normalizePostsResponse = (data) => {
   }
 }
 
+const normalizePost = (data = {}) => ({
+  ...data,
+  username: data.username || data.authorName || '',
+  type: data.type || 'note',
+  visibility: data.visibility || 'public',
+  tags: data.tags || '',
+  viewCount: Number(data.viewCount ?? data.views ?? 0),
+  commentCount: Number(data.commentCount ?? data.comments ?? 0),
+  likeCount: Number(data.likeCount ?? data.likes ?? 0)
+})
+
 const normalizeStatistics = (data = {}) => ({
   totalPosts: Number(data.totalPosts ?? data.postCount ?? 0),
   totalComments: Number(data.totalComments ?? data.commentCount ?? 0),
@@ -300,6 +299,7 @@ const normalizeTopicList = (data) => {
 
 const getPostTypeTag = (type) => {
   const types = {
+    note: 'info',
     discussion: 'primary',
     question: 'warning',
     share: 'success'
@@ -309,6 +309,7 @@ const getPostTypeTag = (type) => {
 
 const getPostTypeText = (type) => {
   const texts = {
+    note: '学习笔记',
     discussion: '讨论',
     question: '问答',
     share: '分享'
@@ -316,11 +317,22 @@ const getPostTypeText = (type) => {
   return texts[type] || '其他'
 }
 
+const getVisibilityText = (visibility) => (visibility === 'private' ? '仅自己可见' : '公开')
+
+const getVisibilityTag = (visibility) => (visibility === 'private' ? 'warning' : 'success')
+
+const normalizeTags = (tags) => {
+  if (Array.isArray(tags)) {
+    return tags.map((tag) => String(tag).trim()).filter(Boolean)
+  }
+  return String(tags || '')
+    .split(/[,，]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+}
+
 const summarizeContent = (content) => {
-  const plainText = String(content || '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const plainText = markdownToPlainText(content)
 
   if (!plainText) {
     return '这条帖子暂时还没有正文摘要。'
@@ -356,10 +368,12 @@ const fetchPosts = async () => {
       params.type = postType.value
     }
 
-    const res = await getPosts(params)
+    const res = feedMode.value === 'mine'
+      ? await getUserPosts(params)
+      : await getPosts(params)
     if (res.code === 200) {
       const normalized = normalizePostsResponse(res.data)
-      posts.value = normalized.list
+      posts.value = normalized.list.map(normalizePost)
       total.value = normalized.total
       return
     }
@@ -367,7 +381,7 @@ const fetchPosts = async () => {
     posts.value = []
     total.value = 0
   } catch (error) {
-    console.error('获取帖子列表失败:', error)
+    console.error('获取学习动态列表失败:', error)
     posts.value = []
     total.value = 0
   } finally {
@@ -417,45 +431,15 @@ const clearFilter = async () => {
 }
 
 const showCreateDialog = () => {
-  newPost.value = {
-    type: 'discussion',
-    title: '',
-    content: ''
-  }
-  createDialogVisible.value = true
-}
-
-const handleCreatePost = async () => {
-  if (!newPost.value.title.trim()) {
-    ElMessage.warning('请输入标题')
-    return
-  }
-
-  if (!newPost.value.content.trim()) {
-    ElMessage.warning('请输入内容')
-    return
-  }
-
-  submitting.value = true
-  try {
-    const res = await createPost(newPost.value)
-    if (res.code === 200) {
-      ElMessage.success('发布成功')
-      createDialogVisible.value = false
-      currentPage.value = 1
-      await Promise.all([fetchPosts(), fetchStatistics(), fetchHotTopics()])
-    } else {
-      ElMessage.error(res.msg || '发布失败')
-    }
-  } catch (error) {
-    console.error('发布帖子失败:', error)
-    ElMessage.error('发布失败，请重试')
-  } finally {
-    submitting.value = false
-  }
+  router.push('/community/write')
 }
 
 const handleTypeChange = async () => {
+  currentPage.value = 1
+  await fetchPosts()
+}
+
+const handleFeedModeChange = async () => {
   currentPage.value = 1
   await fetchPosts()
 }
@@ -622,6 +606,16 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.feed-mode-row {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.mode-hint {
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 12px;
+}
+
 .posts-list {
   display: flex;
   flex-direction: column;
@@ -649,6 +643,13 @@ onMounted(() => {
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.post-badges {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .post-author {
@@ -690,6 +691,13 @@ onMounted(() => {
   margin: 0;
   color: var(--leetcode-text-secondary, #6b7280);
   line-height: 1.8;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .post-footer {

@@ -151,12 +151,17 @@ public class AiServiceImpl implements AiService {
                 session.setUserId(userId);
                 String topic = content.length() > 30 ? content.substring(0, 30) + "..." : content;
                 session.setTopic(topic);
+                session.setSessionType("general");
+                session.setStatus(1);
                 session.setCreateTime(LocalDateTime.now());
                 session.setUpdateTime(LocalDateTime.now());
                 aiSessionMapper.insertSession(session);
             } else {
                 // 更新会话的更新时间
                 existingSession.setUpdateTime(LocalDateTime.now());
+                if (existingSession.getSessionType() == null || existingSession.getSessionType().isBlank()) {
+                    existingSession.setSessionType("general");
+                }
                 aiSessionMapper.updateSession(existingSession);
             }
 
@@ -190,6 +195,7 @@ public class AiServiceImpl implements AiService {
             userMsgRecord.setSessionId(sessionId);
             userMsgRecord.setRole("user");
             userMsgRecord.setContent(fullContent);
+            userMsgRecord.setMessageKind("chat");
             userMsgRecord.setCreateTime(LocalDateTime.now());
             aiSessionMapper.insertMessage(userMsgRecord);
 
@@ -197,6 +203,7 @@ public class AiServiceImpl implements AiService {
             assistantMsgRecord.setSessionId(sessionId);
             assistantMsgRecord.setRole("assistant");
             assistantMsgRecord.setContent(response);
+            assistantMsgRecord.setMessageKind("chat");
             assistantMsgRecord.setCreateTime(LocalDateTime.now());
             aiSessionMapper.insertMessage(assistantMsgRecord);
 

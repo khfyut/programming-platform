@@ -27,7 +27,12 @@ public class AdminWebMvcConfig implements WebMvcConfigurer {
                         "/api/problem/detail/*",
                         "/api/problem/*/test-cases/sample",
                         "/api/problem/tag/*",
-                        "/api/problem/languages"
+                        "/api/problem/languages",
+                        "/api/community/posts",
+                        "/api/community/post/*",
+                        "/api/community/post/*/comments",
+                        "/api/community/statistics",
+                        "/api/community/hot-topics"
                 );
 
         registry.addInterceptor(adminInterceptor)

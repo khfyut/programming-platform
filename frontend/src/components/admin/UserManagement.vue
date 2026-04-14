@@ -82,6 +82,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
+import { getRuntimeLanguageLabel } from '@/utils/runtimeLanguage'
 
 defineProps({
   users: {
@@ -101,8 +102,7 @@ const selectedUser = ref(null)
 const selectedRole = ref(0)
 
 const formatLanguage = (language) => {
-  if (!language) return '--'
-  return String(language).toUpperCase()
+  return getRuntimeLanguageLabel(language)
 }
 
 const openRoleDialog = (user) => {

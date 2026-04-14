@@ -1,7 +1,10 @@
 package com.programming.controller;
 
 import com.programming.service.CodeSandboxService;
+import com.programming.service.ProblemService;
+import com.programming.service.runtime.RuntimeCatalogService;
 import com.programming.util.ResultUtil;
+import com.programming.vo.CodeExecutionResult;
 import com.programming.vo.CodeRunVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,10 +19,25 @@ public class CodeController {
     @Autowired
     private CodeSandboxService codeSandboxService;
 
+    @Autowired
+    private ProblemService problemService;
+
+    @Autowired
+    private RuntimeCatalogService runtimeCatalogService;
+
     @PostMapping("/run")
-    public ResultUtil<String> runCode(@RequestBody CodeRunVO codeRunVO) {
+    public ResultUtil<CodeExecutionResult> runCode(@RequestBody CodeRunVO codeRunVO) {
         try {
-            String result = codeSandboxService.runCode(
+            if (!runtimeCatalogService.isJudgeLanguageSupported(codeRunVO.getLanguage())) {
+                return ResultUtil.error(400, "Unsupported language: " + codeRunVO.getLanguage());
+            }
+
+            if (codeRunVO.getProblemId() != null
+                    && !problemService.isLanguageEnabledForProblem(codeRunVO.getProblemId(), codeRunVO.getLanguage())) {
+                return ResultUtil.error(400, "Language is not enabled for this problem");
+            }
+
+            CodeExecutionResult result = codeSandboxService.executeCode(
                     codeRunVO.getCode(),
                     codeRunVO.getLanguage(),
                     codeRunVO.getInput()

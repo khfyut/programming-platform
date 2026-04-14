@@ -42,12 +42,16 @@ public class DockerUtil {
 
     private final SandboxCommandBuilder commandBuilder;
     private final SandboxResourceLimitResolver limitResolver;
+    private final LocalExecutionUtil localExecutionUtil;
 
     private DockerClient dockerClient;
+    private volatile boolean forceLocalExecution;
 
-    public DockerUtil(SandboxCommandBuilder commandBuilder, SandboxResourceLimitResolver limitResolver) {
+    public DockerUtil(SandboxCommandBuilder commandBuilder, SandboxResourceLimitResolver limitResolver,
+                      LocalExecutionUtil localExecutionUtil) {
         this.commandBuilder = commandBuilder;
         this.limitResolver = limitResolver;
+        this.localExecutionUtil = localExecutionUtil;
     }
 
     private void initDockerClient() {
@@ -88,8 +92,33 @@ public class DockerUtil {
     }
 
     private CodeExecutionResult executeCode(String code, String language, String input, SandboxLimits limits) {
-        initDockerClient();
+        if (forceLocalExecution) {
+            return localExecutionUtil.executeCode(code, language, input, limits);
+        }
 
+        try {
+            initDockerClient();
+            return executeCodeInDocker(code, language, input, limits);
+        } catch (Exception e) {
+            if (isDockerUnavailable(e)) {
+                forceLocalExecution = true;
+                log.warn("Docker host {} is unavailable, falling back to local execution", dockerHost, e);
+                return localExecutionUtil.executeCode(code, language, input, limits);
+            }
+
+            log.error("Failed to execute code", e);
+            CodeExecutionResult result = new CodeExecutionResult();
+            result.setOutput("");
+            result.setStatus("EXECUTION_EXCEPTION");
+            result.setExitCode(SERVICE_EXCEPTION_EXIT_CODE);
+            result.setErrorMessage("Execution exception: " + e.getMessage());
+            result.setTimeCost(0);
+            result.setMemoryCost(0);
+            return result;
+        }
+    }
+
+    private CodeExecutionResult executeCodeInDocker(String code, String language, String input, SandboxLimits limits) {
         CodeExecutionResult result = new CodeExecutionResult();
         result.setOutput("");
         long startTime = System.currentTimeMillis();
@@ -123,7 +152,12 @@ public class DockerUtil {
             }
 
             result.setTimeCost(System.currentTimeMillis() - startTime);
-            logCallback.awaitCompletion(1, TimeUnit.SECONDS);
+            try {
+                logCallback.awaitCompletion(1, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for container logs", e);
+            }
             result.setMemoryCost(limitResolver.bytesToKb(peakMemoryBytes.get()));
 
             String fullOutput = output.toString().trim();
@@ -136,12 +170,6 @@ public class DockerUtil {
                 log.warn("Code execution failed, exitCode={}, error={}", result.getExitCode(), result.getErrorMessage());
             }
             return result;
-        } catch (Exception e) {
-            log.error("Failed to execute code", e);
-            result.setExitCode(SERVICE_EXCEPTION_EXIT_CODE);
-            result.setErrorMessage("Execution exception: " + e.getMessage());
-            result.setTimeCost(System.currentTimeMillis() - startTime);
-            return result;
         } finally {
             closeWaitQuietly(waitCallback);
             closeLogQuietly(logCallback);
@@ -151,6 +179,7 @@ public class DockerUtil {
     }
 
     private CodeExecutionResult buildUnsupportedLanguageResult(CodeExecutionResult result, String language) {
+        result.setStatus("UNSUPPORTED_LANGUAGE");
         result.setExitCode(SERVICE_EXCEPTION_EXIT_CODE);
         result.setErrorMessage("Unsupported language: " + language);
         result.setTimeCost(0);
@@ -204,6 +233,7 @@ public class DockerUtil {
         stopContainerQuietly(containerId);
         result.setTimeCost(System.currentTimeMillis() - startTime);
         result.setExitCode(SERVICE_EXECUTION_FAILED_EXIT_CODE);
+        result.setStatus("TIMEOUT");
         result.setErrorMessage("Execution timed out");
         return null;
     }
@@ -253,18 +283,22 @@ public class DockerUtil {
         if (exitCode == null) {
             result.setExitCode(SERVICE_EXECUTION_FAILED_EXIT_CODE);
             result.setOutput("");
+            result.setStatus("EXECUTION_FAILED");
             result.setErrorMessage("Execution failed: missing container exit code");
             return;
         }
 
         if (exitCode == 0) {
             result.setExitCode(0);
+            result.setStatus("SUCCESS");
             result.setOutput(fullOutput);
             return;
         }
 
         if (exitCode == commandBuilder.getCompileErrorExitCode()) {
             result.setExitCode(SERVICE_COMPILE_ERROR_EXIT_CODE);
+            result.setStatus("COMPILE_ERROR");
+            result.setCompileOutput(errorDetail);
             result.setErrorMessage(errorDetail);
             result.setOutput(fullOutput == null ? "" : fullOutput);
             return;
@@ -272,12 +306,14 @@ public class DockerUtil {
 
         if (exitCode == commandBuilder.getRuntimeErrorExitCode()) {
             result.setExitCode(SERVICE_RUNTIME_ERROR_EXIT_CODE);
+            result.setStatus("RUNTIME_ERROR");
             result.setErrorMessage(errorDetail);
             result.setOutput(fullOutput == null ? "" : fullOutput);
             return;
         }
 
         result.setExitCode(SERVICE_EXECUTION_FAILED_EXIT_CODE);
+        result.setStatus("EXECUTION_FAILED");
         result.setErrorMessage(errorDetail.isEmpty()
                 ? "Execution failed with container exit code " + exitCode
                 : errorDetail);
@@ -363,5 +399,25 @@ public class DockerUtil {
     private boolean isWaitTimeout(DockerClientException e) {
         String message = e.getMessage();
         return message != null && message.contains("Awaiting status code timeout");
+    }
+
+    private boolean isDockerUnavailable(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null) {
+                String normalized = message.toLowerCase();
+                if (normalized.contains("connection refused")
+                        || normalized.contains("http://127.0.0.1:2375")
+                        || normalized.contains("docker_engine")
+                        || normalized.contains("connect to http://")
+                        || normalized.contains("no such file or directory")
+                        || normalized.contains("connection reset")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

@@ -21,6 +21,7 @@
         SELECT p.* FROM problem p
         INNER JOIN path_level_problem plp ON p.id = plp.problem_id
         WHERE plp.level_id = #{levelId}
+          AND COALESCE(p.status, 'PUBLISHED') = 'PUBLISHED'
         ORDER BY plp.order_num ASC
     </select>
 

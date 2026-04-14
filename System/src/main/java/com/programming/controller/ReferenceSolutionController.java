@@ -55,9 +55,10 @@ public class ReferenceSolutionController {
     @GetMapping("/{problemId}/hint")
     public Object getHint(
             @PathVariable Long problemId,
-            @RequestParam(defaultValue = "1") Integer hintLevel) {
+            @RequestParam(defaultValue = "1") Integer hintLevel,
+            @RequestParam(required = false) String language) {
 
-        String hint = referenceSolutionService.getHint(problemId, hintLevel);
+        String hint = referenceSolutionService.getHint(problemId, hintLevel, language);
         return ResultUtil.success(hint);
     }
 

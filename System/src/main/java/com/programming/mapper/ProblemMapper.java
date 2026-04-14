@@ -18,6 +18,7 @@ public interface ProblemMapper {
               @Param("knowledge") String knowledge);
     int insert(Problem problem);
     int update(Problem problem);
+    int updateLanguageById(@Param("id") Long id, @Param("language") String language);
     int deleteById(@Param("id") Long id);
     List<Problem> findByTags(@Param("tag") String tag);
     List<Problem> findByDifficulty(@Param("difficulty") Integer difficulty);

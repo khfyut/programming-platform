@@ -23,6 +23,63 @@
       </article>
     </section>
 
+    <section class="panel-card agent-summary-panel">
+      <div class="panel-header">
+        <div>
+          <div class="section-kicker">Learning Agent</div>
+          <h2>近期 Agent 事件</h2>
+        </div>
+        <span class="panel-caption">看答案 {{ agentRevealCount }} 次</span>
+      </div>
+
+      <div v-if="agentSummary" class="agent-summary-grid">
+        <div class="agent-summary-block">
+          <div class="agent-block-title">动作分布</div>
+          <div v-if="agentActionItems.length" class="agent-action-list">
+            <div v-for="item in agentActionItems" :key="item.action" class="agent-action-item">
+              <span>{{ item.action }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+          <div v-else class="empty-copy">近期还没有 Agent 动作记录。</div>
+        </div>
+
+        <div class="agent-summary-block">
+          <div class="agent-block-title">近期薄弱点</div>
+          <div v-if="agentWeakPoints.length" class="agent-tag-list">
+            <span v-for="point in agentWeakPoints" :key="point">{{ point }}</span>
+          </div>
+          <div v-else class="empty-copy">近期没有新的薄弱点标签。</div>
+        </div>
+
+        <div class="agent-summary-block">
+          <div class="agent-block-title">反馈提示</div>
+          <div class="agent-feedback-copy">
+            {{ agentSummary.feedback_hint || agentSummary.feedbackHint || '继续观察 Agent 建议是否被采纳。' }}
+          </div>
+        </div>
+
+        <div class="agent-summary-block">
+          <div class="agent-block-title">最新事件</div>
+          <div v-if="agentRecentEvents.length" class="agent-event-list">
+            <div
+              v-for="(event, index) in agentRecentEvents"
+              :key="event.request_id || event.requestId || index"
+              class="agent-event-item"
+            >
+              <span>{{ event.action_type || event.actionType || 'UNKNOWN' }}</span>
+              <small>{{ event.trigger_source || event.triggerSource || 'manual' }}</small>
+            </div>
+          </div>
+          <div v-else class="empty-copy">暂无最新事件。</div>
+        </div>
+      </div>
+      <div v-else class="empty-box compact">
+        <div>暂无 Agent 学习摘要。</div>
+        <div class="empty-copy">完成题目陪练、错题复盘或学习路径推荐后，这里会出现近期动作和薄弱点。</div>
+      </div>
+    </section>
+
     <section class="analysis-grid">
       <div class="panel-card weak-panel">
         <div class="panel-header">
@@ -129,6 +186,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { getDifficultyStats, getKnowledgeMastery, getWeakKnowledgePoints } from '@/api/learn'
 import { getNodeDetail } from '@/api/knowledgeGraph'
+import { getAgentReportSummary } from '@/api/problemAgent'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -144,6 +202,7 @@ const difficultyStats = ref({
 })
 const knowledgeMastery = ref([])
 const weakPoints = ref([])
+const agentSummary = ref(null)
 
 const clampPercentage = (value) => Math.min(100, Math.max(0, Math.round(Number(value) || 0)))
 
@@ -273,6 +332,28 @@ const weakestPointLabel = computed(() => {
   return `${weakest.knowledgeName} 当前掌握度 ${weakest.masteryPercent}%`
 })
 
+const agentActionItems = computed(() => {
+  const counts = agentSummary.value?.action_counts || agentSummary.value?.actionCounts || {}
+  return Object.entries(counts).map(([action, count]) => ({
+    action,
+    count: Number(count || 0)
+  }))
+})
+
+const agentWeakPoints = computed(() => {
+  const points = agentSummary.value?.weak_points || agentSummary.value?.weakPoints || []
+  return Array.isArray(points) ? points : []
+})
+
+const agentRecentEvents = computed(() => {
+  const events = agentSummary.value?.recent_events || agentSummary.value?.recentEvents || []
+  return Array.isArray(events) ? events.slice(0, 5) : []
+})
+
+const agentRevealCount = computed(() =>
+  Number(agentSummary.value?.revealed_solution_count || agentSummary.value?.revealedSolutionCount || 0)
+)
+
 const getMasteryLabel = (value) => {
   if (value >= 80) return '熟练'
   if (value >= 50) return '掌握中'
@@ -326,10 +407,11 @@ const fetchData = async ({ force = false } = {}) => {
   analysisLoading.value = true
 
   try {
-    const [difficultyRes, masteryRes, weakRes] = await Promise.allSettled([
+    const [difficultyRes, masteryRes, weakRes, agentRes] = await Promise.allSettled([
       getDifficultyStats(currentUserId),
       getKnowledgeMastery(),
-      getWeakKnowledgePoints()
+      getWeakKnowledgePoints(),
+      getAgentReportSummary()
     ])
 
     difficultyStats.value =
@@ -349,12 +431,17 @@ const fetchData = async ({ force = false } = {}) => {
 
     knowledgeMastery.value = await hydrateKnowledgeNames(masteryList)
     weakPoints.value = await hydrateKnowledgeNames(weakList)
+    agentSummary.value =
+      agentRes.status === 'fulfilled' && agentRes.value?.code === 200
+        ? agentRes.value.data || null
+        : null
     loadedUserId.value = currentUserId
   } catch (error) {
     console.error('获取学习分析数据失败:', error)
     difficultyStats.value = {}
     knowledgeMastery.value = []
     weakPoints.value = []
+    agentSummary.value = null
   } finally {
     analysisLoading.value = false
   }
@@ -476,6 +563,73 @@ onMounted(() => {
   background:
     radial-gradient(circle at top right, rgba(0, 209, 255, 0.08), transparent 28%),
     var(--bg-card);
+}
+
+.agent-summary-panel {
+  border-radius: 8px;
+}
+
+.agent-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agent-summary-block {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.agent-block-title {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.agent-action-list,
+.agent-event-list,
+.agent-tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.agent-action-item,
+.agent-event-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.agent-action-item strong {
+  color: var(--text-primary);
+}
+
+.agent-tag-list {
+  align-items: flex-start;
+}
+
+.agent-tag-list span {
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--brand-accent);
+  word-break: break-word;
+}
+
+.agent-feedback-copy {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.agent-event-item small {
+  color: var(--text-muted);
 }
 
 .panel-header {
@@ -622,7 +776,8 @@ onMounted(() => {
 }
 
 @media (max-width: 1180px) {
-  .summary-grid {
+  .summary-grid,
+  .agent-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -632,7 +787,8 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .summary-grid {
+  .summary-grid,
+  .agent-summary-grid {
     grid-template-columns: 1fr;
   }
 

@@ -5,6 +5,8 @@ import java.util.List;
 
 @Data
 public class SubmitResultVO {
+    private Long submitId;
+    private String language;
     private Integer result;
     private Integer timeCost;
     private Integer memoryCost;

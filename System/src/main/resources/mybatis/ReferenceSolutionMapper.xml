@@ -16,40 +16,100 @@
     </resultMap>
 
     <select id="findByProblemIdAndLanguage" resultMap="BaseResultMap">
-        SELECT * FROM reference_solution 
-        WHERE problem_id = #{problemId} 
-        AND language = #{language}
+        SELECT *
+        FROM reference_solution
+        WHERE problem_id = #{problemId}
+          AND LOWER(language) = LOWER(#{language})
+        LIMIT 1
     </select>
 
     <select id="findByProblemId" resultMap="BaseResultMap">
-        SELECT * FROM reference_solution 
+        SELECT *
+        FROM reference_solution
         WHERE problem_id = #{problemId}
+        ORDER BY LOWER(language), id
     </select>
 
     <insert id="insert" parameterType="com.programming.entity.ReferenceSolution" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO reference_solution (problem_id, language, solution_code, time_complexity, space_complexity, explanation, hints, create_time, update_time)
-        VALUES (#{problemId}, #{language}, #{solutionCode}, #{timeComplexity}, #{spaceComplexity}, #{explanation}, #{hints}, NOW(), NOW())
+        INSERT INTO reference_solution (
+            problem_id,
+            language,
+            solution_code,
+            time_complexity,
+            space_complexity,
+            explanation,
+            hints,
+            create_time,
+            update_time
+        )
+        VALUES (
+            #{problemId},
+            #{language},
+            #{solutionCode},
+            #{timeComplexity},
+            #{spaceComplexity},
+            #{explanation},
+            #{hints},
+            NOW(),
+            NOW()
+        )
+    </insert>
+
+    <insert id="batchInsert">
+        INSERT INTO reference_solution (
+            problem_id,
+            language,
+            solution_code,
+            time_complexity,
+            space_complexity,
+            explanation,
+            hints,
+            create_time,
+            update_time
+        )
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (
+                #{item.problemId},
+                #{item.language},
+                #{item.solutionCode},
+                #{item.timeComplexity},
+                #{item.spaceComplexity},
+                #{item.explanation},
+                #{item.hints},
+                NOW(),
+                NOW()
+            )
+        </foreach>
     </insert>
 
     <update id="update" parameterType="com.programming.entity.ReferenceSolution">
-        UPDATE reference_solution 
-        SET language = #{language}, 
-            solution_code = #{solutionCode}, 
-            time_complexity = #{timeComplexity}, 
-            space_complexity = #{spaceComplexity}, 
-            explanation = #{explanation}, 
-            hints = #{hints}, 
+        UPDATE reference_solution
+        SET language = #{language},
+            solution_code = #{solutionCode},
+            time_complexity = #{timeComplexity},
+            space_complexity = #{spaceComplexity},
+            explanation = #{explanation},
+            hints = #{hints},
             update_time = NOW()
         WHERE id = #{id}
     </update>
 
     <delete id="delete" parameterType="java.lang.Long">
-        DELETE FROM reference_solution WHERE id = #{id}
+        DELETE FROM reference_solution
+        WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByProblemId">
+        DELETE FROM reference_solution
+        WHERE problem_id = #{problemId}
     </delete>
 
     <select id="findLanguagesByProblemId" resultType="java.lang.String">
-        SELECT DISTINCT language FROM reference_solution 
+        SELECT DISTINCT LOWER(language)
+        FROM reference_solution
         WHERE problem_id = #{problemId}
+        ORDER BY LOWER(language)
     </select>
 
 </mapper>

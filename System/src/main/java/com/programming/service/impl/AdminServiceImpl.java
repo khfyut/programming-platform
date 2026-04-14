@@ -1,17 +1,24 @@
 package com.programming.service.impl;
 
+import com.alibaba.fastjson2.JSON;
 import com.programming.entity.*;
 import com.programming.mapper.*;
 import com.programming.service.AdminService;
+import com.programming.service.runtime.RuntimeCatalogService;
 import com.programming.vo.BatchImportProblemsVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -22,6 +29,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private ProblemMapper problemMapper;
+
+    @Autowired
+    private ProblemSupportedLanguageMapper problemSupportedLanguageMapper;
+
+    @Autowired
+    private ReferenceSolutionMapper referenceSolutionMapper;
 
     @Autowired
     private SubmitMapper submitMapper;
@@ -50,6 +63,9 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private AuditLogMapper auditLogMapper;
 
+    @Autowired
+    private RuntimeCatalogService runtimeCatalogService;
+
     @Override
     public Map<String, Object> getUserList(int page, int size) {
         int offset = (page - 1) * size;
@@ -64,35 +80,12 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public void addProblem(Map<String, Object> params) {
-        Problem problem = new Problem();
-        problem.setTitle((String) params.get("title"));
-        problem.setContent((String) params.get("content"));
-        problem.setInput((String) params.get("input"));
-        problem.setOutput((String) params.get("output"));
-        problem.setDifficulty(((Number) params.get("difficulty")).intValue());
-        problem.setLanguage((String) params.get("language"));
-        
-        if (params.get("timeLimit") != null) {
-            problem.setTimeLimit(((Number) params.get("timeLimit")).intValue());
-        }
-        if (params.get("memoryLimit") != null) {
-            problem.setMemoryLimit(((Number) params.get("memoryLimit")).intValue());
-        }
-        if (params.get("tags") != null) {
-            problem.setTags((String) params.get("tags"));
-        }
-        if (params.get("knowledgePoints") != null) {
-            problem.setKnowledgePoints((String) params.get("knowledgePoints"));
-        }
-        if (params.get("hints") != null) {
-            problem.setHints((String) params.get("hints"));
-        }
-        if (params.get("sampleExplanation") != null) {
-            problem.setSampleExplanation((String) params.get("sampleExplanation"));
-        }
-        
+    @Transactional
+    public Long addProblem(Map<String, Object> params) {
+        Problem problem = buildProblem(params, false);
         problemMapper.insert(problem);
+        syncProblemResourcesIfPresent(problem.getId(), params, problem.getLanguage());
+        return problem.getId();
     }
 
     @Override
@@ -105,74 +98,462 @@ public class AdminServiceImpl implements AdminService {
             throw new RuntimeException("题目已存在：" + title);
         }
         
-        Problem problem = new Problem();
-        problem.setTitle(title);
-        problem.setContent((String) params.get("content"));
-        problem.setInput((String) params.get("input"));
-        problem.setOutput((String) params.get("output"));
-        problem.setDifficulty(((Number) params.get("difficulty")).intValue());
-        problem.setLanguage((String) params.get("language"));
-        
-        if (params.get("timeLimit") != null) {
-            problem.setTimeLimit(((Number) params.get("timeLimit")).intValue());
-        }
-        if (params.get("memoryLimit") != null) {
-            problem.setMemoryLimit(((Number) params.get("memoryLimit")).intValue());
-        }
-        if (params.get("tags") != null) {
-            problem.setTags((String) params.get("tags"));
-        }
-        if (params.get("knowledgePoints") != null) {
-            problem.setKnowledgePoints((String) params.get("knowledgePoints"));
-        }
-        if (params.get("hints") != null) {
-            problem.setHints((String) params.get("hints"));
-        }
-        if (params.get("sampleExplanation") != null) {
-            problem.setSampleExplanation((String) params.get("sampleExplanation"));
-        }
-        
+        Problem problem = buildProblem(params, false);
         problemMapper.insert(problem);
+        syncProblemResourcesIfPresent(problem.getId(), params, problem.getLanguage());
         
         log.info("添加题目成功：{}", title);
     }
 
     @Override
-    public void updateProblem(Map<String, Object> params) {
-        Problem problem = new Problem();
-        problem.setId(((Number) params.get("id")).longValue());
-        problem.setTitle((String) params.get("title"));
-        problem.setContent((String) params.get("content"));
-        problem.setInput((String) params.get("input"));
-        problem.setOutput((String) params.get("output"));
-        problem.setDifficulty(((Number) params.get("difficulty")).intValue());
-        problem.setLanguage((String) params.get("language"));
-        
-        if (params.get("timeLimit") != null) {
-            problem.setTimeLimit(((Number) params.get("timeLimit")).intValue());
-        }
-        if (params.get("memoryLimit") != null) {
-            problem.setMemoryLimit(((Number) params.get("memoryLimit")).intValue());
-        }
-        if (params.get("tags") != null) {
-            problem.setTags((String) params.get("tags"));
-        }
-        if (params.get("knowledgePoints") != null) {
-            problem.setKnowledgePoints((String) params.get("knowledgePoints"));
-        }
-        if (params.get("hints") != null) {
-            problem.setHints((String) params.get("hints"));
-        }
-        if (params.get("sampleExplanation") != null) {
-            problem.setSampleExplanation((String) params.get("sampleExplanation"));
-        }
-        
+    @Transactional
+    public Long updateProblem(Map<String, Object> params) {
+        Problem problem = buildProblem(params, true);
         problemMapper.update(problem);
+        syncProblemResourcesIfPresent(problem.getId(), params, problem.getLanguage());
+        return problem.getId();
     }
 
     @Override
+    @Transactional
     public void deleteProblem(Long id) {
+        referenceSolutionMapper.deleteByProblemId(id);
+        problemSupportedLanguageMapper.deleteByProblemId(id);
         problemMapper.deleteById(id);
+    }
+
+    @Override
+    public List<ProblemSupportedLanguage> getProblemLanguages(Long problemId) {
+        Problem problem = requireProblem(problemId);
+        return getExistingOrFallbackLanguages(problemId, problem.getLanguage());
+    }
+
+    @Override
+    @Transactional
+    public void saveProblemLanguages(Long problemId, List<Map<String, Object>> params) {
+        Problem problem = requireProblem(problemId);
+        List<ProblemSupportedLanguage> languages = parseProblemLanguages(problemId, params);
+        List<ReferenceSolution> currentSolutions = referenceSolutionMapper.findByProblemId(problemId);
+        validateLanguageAndSolutionSet(problem.getLanguage(), languages, currentSolutions);
+        replaceProblemLanguages(problemId, languages);
+        problemMapper.updateLanguageById(problemId, resolveDefaultLanguage(languages, problem.getLanguage()));
+    }
+
+    @Override
+    public List<ReferenceSolution> getProblemReferenceSolutions(Long problemId) {
+        return referenceSolutionMapper.findByProblemId(problemId);
+    }
+
+    @Override
+    @Transactional
+    public void saveProblemReferenceSolutions(Long problemId, List<Map<String, Object>> params) {
+        Problem problem = requireProblem(problemId);
+        List<ProblemSupportedLanguage> currentLanguages = getExistingOrFallbackLanguages(problemId, problem.getLanguage());
+        List<ReferenceSolution> solutions = parseReferenceSolutions(problemId, params);
+        validateLanguageAndSolutionSet(problem.getLanguage(), currentLanguages, solutions);
+        replaceReferenceSolutions(problemId, solutions);
+    }
+
+    private Problem buildProblem(Map<String, Object> params, boolean update) {
+        Problem problem = new Problem();
+        if (update) {
+            Long id = toLong(params.get("id"));
+            if (id == null) {
+                throw new RuntimeException("题目ID不能为空");
+            }
+            requireProblem(id);
+            problem.setId(id);
+        }
+
+        String title = stringValue(params.get("title"));
+        if (title == null || title.isBlank()) {
+            throw new RuntimeException("题目标题不能为空");
+        }
+
+        String content = stringValue(params.get("content"));
+        if (content == null || content.isBlank()) {
+            throw new RuntimeException("题目描述不能为空");
+        }
+
+        String rawLanguage = stringValue(params.get("defaultLanguage"));
+        if (rawLanguage == null || rawLanguage.isBlank()) {
+            rawLanguage = stringValue(params.get("language"));
+        }
+        String defaultLanguage = runtimeCatalogService.normalizeLanguageCode(rawLanguage);
+        if (!runtimeCatalogService.isJudgeLanguageSupported(defaultLanguage)) {
+            throw new RuntimeException("不支持的默认语言: " + rawLanguage);
+        }
+
+        problem.setTitle(title.trim());
+        problem.setContent(content.trim());
+        problem.setDifficulty(toInteger(params.get("difficulty"), 0));
+        problem.setLanguage(defaultLanguage);
+        problem.setInput(trimToNull(stringValue(params.get("input"))));
+        problem.setOutput(trimToNull(stringValue(params.get("output"))));
+        problem.setTimeLimit(toIntegerObject(params.get("timeLimit")));
+        problem.setMemoryLimit(toIntegerObject(params.get("memoryLimit")));
+        problem.setTags(trimToNull(stringValue(params.get("tags"))));
+        problem.setKnowledgePoints(trimToNull(stringValue(params.get("knowledgePoints"))));
+        problem.setHints(trimToNull(stringValue(params.get("hints"))));
+        problem.setSampleExplanation(trimToNull(stringValue(params.get("sampleExplanation"))));
+        problem.setChapterId(toLong(params.get("chapterId")));
+        problem.setLevelId(toLong(params.get("levelId")));
+        return problem;
+    }
+
+    private void syncProblemResourcesIfPresent(Long problemId, Map<String, Object> params, String fallbackLanguage) {
+        boolean hasLanguagePayload = params.containsKey("supportedLanguages");
+        boolean hasSolutionPayload = params.containsKey("referenceSolutions");
+        if (!hasLanguagePayload && !hasSolutionPayload) {
+            return;
+        }
+
+        List<ProblemSupportedLanguage> languages = hasLanguagePayload
+                ? parseProblemLanguages(problemId, castListPayload(params.get("supportedLanguages")))
+                : getExistingOrFallbackLanguages(problemId, fallbackLanguage);
+        List<ReferenceSolution> solutions = hasSolutionPayload
+                ? parseReferenceSolutions(problemId, castListPayload(params.get("referenceSolutions")))
+                : referenceSolutionMapper.findByProblemId(problemId);
+
+        validateLanguageAndSolutionSet(fallbackLanguage, languages, solutions);
+        replaceProblemLanguages(problemId, languages);
+        replaceReferenceSolutions(problemId, solutions);
+        problemMapper.updateLanguageById(problemId, resolveDefaultLanguage(languages, fallbackLanguage));
+    }
+
+    private List<Map<String, Object>> castListPayload(Object payload) {
+        if (payload == null) {
+            return List.of();
+        }
+        if (payload instanceof List<?> rawList) {
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Object item : rawList) {
+                if (item instanceof Map<?, ?> rawMap) {
+                    Map<String, Object> normalizedMap = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                        if (entry.getKey() != null) {
+                            normalizedMap.put(String.valueOf(entry.getKey()), entry.getValue());
+                        }
+                    }
+                    result.add(normalizedMap);
+                    continue;
+                }
+                if (item != null) {
+                    result.add(JSON.parseObject(JSON.toJSONString(item), Map.class));
+                }
+            }
+            return result;
+        }
+        if (payload instanceof String rawJson && !rawJson.isBlank()) {
+            List<Map> parsed = JSON.parseArray(rawJson, Map.class);
+            List<Map<String, Object>> result = new ArrayList<>();
+            if (parsed != null) {
+                for (Map item : parsed) {
+                    Map<String, Object> normalizedMap = new LinkedHashMap<>();
+                    for (Object key : item.keySet()) {
+                        if (key != null) {
+                            normalizedMap.put(String.valueOf(key), item.get(key));
+                        }
+                    }
+                    result.add(normalizedMap);
+                }
+            }
+            return result;
+        }
+        throw new RuntimeException("列表参数格式不正确");
+    }
+
+    private List<ProblemSupportedLanguage> getExistingOrFallbackLanguages(Long problemId, String fallbackLanguage) {
+        List<ProblemSupportedLanguage> existing = problemSupportedLanguageMapper.findByProblemId(problemId);
+        if (existing != null && !existing.isEmpty()) {
+            existing.forEach(this::fillLanguageFallbacks);
+            return existing;
+        }
+
+        String normalizedFallback = runtimeCatalogService.normalizeLanguageCode(fallbackLanguage);
+        if (!runtimeCatalogService.isJudgeLanguageSupported(normalizedFallback)) {
+            return List.of();
+        }
+
+        ProblemSupportedLanguage fallback = new ProblemSupportedLanguage();
+        fallback.setProblemId(problemId);
+        fallback.setLanguageCode(normalizedFallback);
+        fallback.setIsDefault(1);
+        fallback.setStatus("ACTIVE");
+        fallback.setSortOrder(0);
+        fillLanguageFallbacks(fallback);
+        return List.of(fallback);
+    }
+
+    private List<ProblemSupportedLanguage> parseProblemLanguages(Long problemId, List<Map<String, Object>> params) {
+        if (params == null || params.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProblemSupportedLanguage> result = new ArrayList<>();
+        int index = 0;
+        for (Map<String, Object> item : params) {
+            String rawLanguage = stringValue(item.get("languageCode"));
+            if (rawLanguage == null || rawLanguage.isBlank()) {
+                rawLanguage = stringValue(item.get("language"));
+            }
+            String languageCode = runtimeCatalogService.normalizeLanguageCode(rawLanguage);
+            if (!runtimeCatalogService.isJudgeLanguageSupported(languageCode)) {
+                throw new RuntimeException("不支持的语言配置: " + rawLanguage);
+            }
+
+            ProblemSupportedLanguage config = new ProblemSupportedLanguage();
+            config.setProblemId(problemId);
+            config.setLanguageCode(languageCode);
+            config.setIsDefault(asBooleanFlag(item.get("isDefault")) ? 1 : 0);
+            config.setStarterCode(stringValue(item.get("starterCode")));
+            config.setStarterFilename(stringValue(item.get("starterFilename")));
+            config.setStatus(normalizeStatus(stringValue(item.get("status"))));
+            config.setSortOrder(toInteger(item.get("sortOrder"), index));
+            fillLanguageFallbacks(config);
+            result.add(config);
+            index++;
+        }
+        return result;
+    }
+
+    private List<ReferenceSolution> parseReferenceSolutions(Long problemId, List<Map<String, Object>> params) {
+        if (params == null || params.isEmpty()) {
+            return List.of();
+        }
+
+        List<ReferenceSolution> result = new ArrayList<>();
+        for (Map<String, Object> item : params) {
+            String rawLanguage = stringValue(item.get("language"));
+            if (rawLanguage == null || rawLanguage.isBlank()) {
+                rawLanguage = stringValue(item.get("languageCode"));
+            }
+            String language = runtimeCatalogService.normalizeLanguageCode(rawLanguage);
+            if (!runtimeCatalogService.isJudgeLanguageSupported(language)) {
+                throw new RuntimeException("不支持的参考答案语言: " + rawLanguage);
+            }
+
+            String solutionCode = stringValue(item.get("solutionCode"));
+            if (solutionCode == null || solutionCode.isBlank()) {
+                throw new RuntimeException("语言 " + language + " 缺少参考答案代码");
+            }
+
+            ReferenceSolution solution = new ReferenceSolution();
+            solution.setProblemId(problemId);
+            solution.setLanguage(language);
+            solution.setSolutionCode(solutionCode);
+            solution.setTimeComplexity(trimToNull(stringValue(item.get("timeComplexity"))));
+            solution.setSpaceComplexity(trimToNull(stringValue(item.get("spaceComplexity"))));
+            solution.setExplanation(trimToNull(stringValue(item.get("explanation"))));
+            solution.setHints(normalizeHintsPayload(item.get("hints")));
+            result.add(solution);
+        }
+        return result;
+    }
+
+    private void validateLanguageAndSolutionSet(String fallbackLanguage,
+                                                List<ProblemSupportedLanguage> languages,
+                                                List<ReferenceSolution> solutions) {
+        List<ProblemSupportedLanguage> activeLanguages = new ArrayList<>();
+        if (languages != null) {
+            for (ProblemSupportedLanguage item : languages) {
+                if (item != null && !"INACTIVE".equalsIgnoreCase(item.getStatus())) {
+                    activeLanguages.add(item);
+                }
+            }
+        }
+
+        if (activeLanguages.isEmpty()) {
+            throw new RuntimeException("至少需要启用一种语言");
+        }
+
+        Set<String> languageSet = new HashSet<>();
+        int defaultCount = 0;
+        for (ProblemSupportedLanguage item : activeLanguages) {
+            String languageCode = runtimeCatalogService.normalizeLanguageCode(item.getLanguageCode());
+            if (!languageSet.add(languageCode)) {
+                throw new RuntimeException("语言配置重复: " + languageCode);
+            }
+            if (item.getIsDefault() != null && item.getIsDefault() == 1) {
+                defaultCount++;
+            }
+        }
+
+        if (defaultCount != 1) {
+            throw new RuntimeException("必须且只能设置一个默认语言");
+        }
+
+        String resolvedDefaultLanguage = resolveDefaultLanguage(activeLanguages, fallbackLanguage);
+        if (!languageSet.contains(resolvedDefaultLanguage)) {
+            throw new RuntimeException("默认语言必须在启用语言列表中");
+        }
+
+        Map<String, ReferenceSolution> solutionMap = new LinkedHashMap<>();
+        if (solutions != null) {
+            for (ReferenceSolution solution : solutions) {
+                if (solution == null) {
+                    continue;
+                }
+                String language = runtimeCatalogService.normalizeLanguageCode(solution.getLanguage());
+                if (solutionMap.containsKey(language)) {
+                    throw new RuntimeException("参考答案重复: " + language);
+                }
+                if (solution.getSolutionCode() == null || solution.getSolutionCode().isBlank()) {
+                    throw new RuntimeException("语言 " + language + " 缺少参考答案代码");
+                }
+                solutionMap.put(language, solution);
+            }
+        }
+
+        for (String language : languageSet) {
+            if (!solutionMap.containsKey(language)) {
+                throw new RuntimeException("启用语言 " + language + " 缺少对应参考答案");
+            }
+        }
+    }
+
+    private void replaceProblemLanguages(Long problemId, List<ProblemSupportedLanguage> languages) {
+        problemSupportedLanguageMapper.deleteByProblemId(problemId);
+        if (languages == null || languages.isEmpty()) {
+            return;
+        }
+        problemSupportedLanguageMapper.batchInsert(languages);
+    }
+
+    private void replaceReferenceSolutions(Long problemId, List<ReferenceSolution> solutions) {
+        referenceSolutionMapper.deleteByProblemId(problemId);
+        if (solutions == null || solutions.isEmpty()) {
+            return;
+        }
+        referenceSolutionMapper.batchInsert(solutions);
+    }
+
+    private void fillLanguageFallbacks(ProblemSupportedLanguage item) {
+        if (item == null) {
+            return;
+        }
+        String normalizedLanguage = runtimeCatalogService.normalizeLanguageCode(item.getLanguageCode());
+        item.setLanguageCode(normalizedLanguage);
+        if (item.getStarterCode() == null || item.getStarterCode().isBlank()) {
+            item.setStarterCode(runtimeCatalogService.resolveDefaultStarterCode(normalizedLanguage));
+        }
+        if (item.getStarterFilename() == null || item.getStarterFilename().isBlank()) {
+            item.setStarterFilename(runtimeCatalogService.resolveDefaultFileName(normalizedLanguage));
+        }
+        if (item.getStatus() == null || item.getStatus().isBlank()) {
+            item.setStatus("ACTIVE");
+        } else {
+            item.setStatus(item.getStatus().trim().toUpperCase(Locale.ROOT));
+        }
+        if (item.getSortOrder() == null) {
+            item.setSortOrder(0);
+        }
+        if (item.getIsDefault() == null) {
+            item.setIsDefault(0);
+        }
+    }
+
+    private String resolveDefaultLanguage(List<ProblemSupportedLanguage> languages, String fallbackLanguage) {
+        if (languages != null) {
+            for (ProblemSupportedLanguage item : languages) {
+                if (item != null
+                        && !"INACTIVE".equalsIgnoreCase(item.getStatus())
+                        && item.getIsDefault() != null
+                        && item.getIsDefault() == 1) {
+                    return runtimeCatalogService.normalizeLanguageCode(item.getLanguageCode());
+                }
+            }
+        }
+        return runtimeCatalogService.normalizeLanguageCode(fallbackLanguage);
+    }
+
+    private boolean asBooleanFlag(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue() == 1;
+        }
+        String text = String.valueOf(value).trim();
+        return "1".equals(text) || "true".equalsIgnoreCase(text) || "yes".equalsIgnoreCase(text);
+    }
+
+    private Problem requireProblem(Long problemId) {
+        Problem problem = problemMapper.findById(problemId);
+        if (problem == null) {
+            throw new RuntimeException("题目不存在: " + problemId);
+        }
+        return problem;
+    }
+
+    private String normalizeHintsPayload(Object rawHints) {
+        if (rawHints == null) {
+            return "{}";
+        }
+        if (rawHints instanceof String text) {
+            return text.isBlank() ? "{}" : text;
+        }
+        try {
+            return JSON.toJSONString(rawHints);
+        } catch (Exception e) {
+            throw new RuntimeException("参考答案提示格式不正确");
+        }
+    }
+
+    private String normalizeStatus(String rawStatus) {
+        if (rawStatus == null || rawStatus.isBlank()) {
+            return "ACTIVE";
+        }
+        String normalized = rawStatus.trim().toUpperCase(Locale.ROOT);
+        return "INACTIVE".equals(normalized) ? "INACTIVE" : "ACTIVE";
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Integer toInteger(Object value, int defaultValue) {
+        Integer parsed = toIntegerObject(value);
+        return parsed == null ? defaultValue : parsed;
+    }
+
+    private Integer toIntegerObject(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        String text = String.valueOf(value).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        return Integer.valueOf(text);
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        String text = String.valueOf(value).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        return Long.valueOf(text);
     }
 
     @Override

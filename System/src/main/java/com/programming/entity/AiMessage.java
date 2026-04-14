@@ -11,5 +11,6 @@ public class AiMessage {
     private String content;
     private Long relatedProblemId;
     private Long relatedSubmitId;
+    private String messageKind;
     private LocalDateTime createTime;
 }

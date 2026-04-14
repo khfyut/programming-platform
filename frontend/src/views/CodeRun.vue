@@ -5,12 +5,16 @@
         <div class="editor-header">
           <div class="header-left">
             <el-select v-model="language" size="small" @change="handleLanguageChange" class="language-select">
-              <el-option label="Java" value="java" />
-              <el-option label="Python" value="python" />
+              <el-option
+                v-for="item in runtimeLanguages"
+                :key="item.code"
+                :label="item.label"
+                :value="item.code"
+              />
             </el-select>
-            <el-button 
-              type="info" 
-              size="small" 
+            <el-button
+              type="info"
+              size="small"
               @click="resetCode"
               text
             >
@@ -18,10 +22,10 @@
             </el-button>
           </div>
           <div class="header-right">
-            <el-button 
-              type="success" 
-              :loading="running" 
-              @click="runCode" 
+            <el-button
+              type="success"
+              :loading="running"
+              @click="runCode"
               class="run-button"
               size="default"
             >
@@ -30,17 +34,17 @@
             </el-button>
           </div>
         </div>
-        
+
         <div class="editor-container">
-          <MonacoEditor 
-            v-model="code" 
-            :language="language" 
+          <MonacoEditor
+            v-model="code"
+            :language="getRuntimeMonacoLanguage(language)"
             height="calc(100vh - 280px)"
             @change="handleCodeChange"
             @ai-action="handleAIAction"
           />
         </div>
-        <AIDialog 
+        <AIDialog
           v-model="aiDialogVisible"
           :initial-prompt="aiInitialPrompt"
           :initial-code="aiInitialCode"
@@ -59,15 +63,15 @@
                 class="code-input"
               />
               <div class="input-actions">
-                <el-button 
-                  type="primary" 
+                <el-button
+                  type="primary"
                   size="small"
                   @click="runCode"
                   :loading="running"
                 >
                   运行
                 </el-button>
-                <el-button 
+                <el-button
                   size="small"
                   @click="clearInput"
                 >
@@ -76,10 +80,10 @@
               </div>
             </div>
           </el-tab-pane>
-          
+
           <el-tab-pane label="输出" name="output">
             <div class="tab-content">
-              <div v-if="!output" class="no-output">
+              <div v-if="!hasResult" class="no-output">
                 <el-empty description="暂无输出结果" />
               </div>
               <div v-else class="output-display">
@@ -88,9 +92,10 @@
                   <el-icon v-else><CircleClose /></el-icon>
                   <span>{{ outputStatusText }}</span>
                 </div>
-                <pre class="output-content">{{ output }}</pre>
-                <div v-if="executionTime" class="execution-info">
-                  <span>执行时间: {{ executionTime }}ms</span>
+                <pre class="output-content">{{ outputText }}</pre>
+                <div v-if="executionTime !== null || executionMemory !== null" class="execution-info">
+                  <span v-if="executionTime !== null">执行时间: {{ executionTime }}ms</span>
+                  <span v-if="executionMemory !== null">内存: {{ executionMemory }}KB</span>
                 </div>
               </div>
             </div>
@@ -102,47 +107,81 @@
 </template>
 
 <script setup>
-import { defineAsyncComponent, ref, onMounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { runCode as runCodeApi } from '@/api/code'
+import { getRuntimeLanguages } from '@/api/runtime'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { VideoPlay, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import AIDialog from '@/components/AIDialog.vue'
+import {
+  getRuntimeDefaultStarterCode,
+  getRuntimeMonacoLanguage,
+  normalizeRuntimeLanguage
+} from '@/utils/runtimeLanguage'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
 
 const userStore = useUserStore()
 
+const runtimeLanguages = ref([])
 const language = ref(userStore.userInfo?.language || 'java')
 const code = ref('')
 const inputData = ref('')
-const output = ref('')
+const executionResult = ref(null)
 const running = ref(false)
 const activeTab = ref('input')
-const executionTime = ref(null)
-const outputStatusClass = ref('')
-const outputStatusText = ref('')
 const aiDialogVisible = ref(false)
 const aiInitialPrompt = ref('')
 const aiInitialCode = ref('')
 
-const codeTemplates = {
-  java: `public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello World");
-    }
-}`,
-  python: `print("Hello World")`
-}
+const hasResult = computed(() => executionResult.value !== null)
+const executionTime = computed(() => executionResult.value?.timeCost ?? null)
+const executionMemory = computed(() => executionResult.value?.memoryCost ?? null)
+const outputStatusClass = computed(() => (executionResult.value?.status === 'SUCCESS' ? 'success' : 'error'))
+const outputStatusText = computed(() => {
+  const statusTextMap = {
+    SUCCESS: '运行成功',
+    COMPILE_ERROR: '编译错误',
+    RUNTIME_ERROR: '运行错误',
+    TIMEOUT: '执行超时',
+    UNSUPPORTED_LANGUAGE: '语言不可用',
+    EXECUTION_FAILED: '执行失败',
+    EXECUTION_EXCEPTION: '执行异常'
+  }
+  return statusTextMap[executionResult.value?.status] || '执行失败'
+})
+const outputText = computed(() => {
+  if (!executionResult.value) {
+    return ''
+  }
+  return (
+    executionResult.value.output ||
+    executionResult.value.compileOutput ||
+    executionResult.value.errorMessage ||
+    '无输出'
+  )
+})
 
 const initializeCode = () => {
-  code.value = codeTemplates[language.value] || ''
+  code.value = getRuntimeDefaultStarterCode(language.value)
+}
+
+const loadRuntimeCatalog = async () => {
+  const res = await getRuntimeLanguages()
+  if (res.code !== 200) {
+    throw new Error(res.msg || '获取语言列表失败')
+  }
+  runtimeLanguages.value = (res.data || []).filter((item) => item.enabled !== false)
+  const supportedCodes = runtimeLanguages.value.map((item) => item.code)
+  if (!supportedCodes.includes(normalizeRuntimeLanguage(language.value))) {
+    language.value = supportedCodes[0] || 'java'
+  }
+  initializeCode()
 }
 
 const handleLanguageChange = () => {
-  if (!code.value.trim() || code.value === codeTemplates[Object.keys(codeTemplates).find(k => k !== language.value)]) {
-    initializeCode()
-  }
+  initializeCode()
 }
 
 const handleCodeChange = () => {}
@@ -170,9 +209,8 @@ const runCode = async () => {
   }
 
   running.value = true
-  output.value = ''
-  executionTime.value = null
-  outputStatusClass.value = ''
+  executionResult.value = null
+  activeTab.value = 'output'
 
   try {
     const res = await runCodeApi({
@@ -182,28 +220,41 @@ const runCode = async () => {
     })
 
     if (res.code === 200) {
-      output.value = res.data || '无输出'
-      outputStatusClass.value = 'success'
-      outputStatusText.value = '运行成功'
-      ElMessage.success('运行成功')
+      executionResult.value = res.data || null
+      ElMessage.success(res.data?.status === 'SUCCESS' ? '运行成功' : '执行完成')
     } else {
-      output.value = res.msg || '运行失败'
-      outputStatusClass.value = 'error'
-      outputStatusText.value = '运行失败'
+      executionResult.value = {
+        status: 'EXECUTION_FAILED',
+        errorMessage: res.msg || '运行失败',
+        output: '',
+        compileOutput: '',
+        timeCost: 0,
+        memoryCost: 0
+      }
       ElMessage.error(res.msg || '运行失败')
     }
   } catch (error) {
-    output.value = error.message || '运行失败,请重试'
-    outputStatusClass.value = 'error'
-    outputStatusText.value = '运行失败'
-    ElMessage.error('运行失败,请重试')
+    executionResult.value = {
+      status: 'EXECUTION_EXCEPTION',
+      errorMessage: error.message || '运行失败，请重试',
+      output: '',
+      compileOutput: '',
+      timeCost: 0,
+      memoryCost: 0
+    }
+    ElMessage.error('运行失败，请重试')
   } finally {
     running.value = false
   }
 }
 
-onMounted(() => {
-  initializeCode()
+onMounted(async () => {
+  try {
+    await loadRuntimeCatalog()
+  } catch (error) {
+    ElMessage.error(error.message || '获取语言列表失败')
+    initializeCode()
+  }
 })
 </script>
 
@@ -241,12 +292,7 @@ onMounted(() => {
   background: var(--leetcode-bg, #FFFFFF);
 }
 
-.header-left {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
+.header-left,
 .header-right {
   display: flex;
   gap: 12px;
@@ -254,7 +300,7 @@ onMounted(() => {
 }
 
 .language-select {
-  width: 140px;
+  width: 160px;
 }
 
 :deep(.language-select .el-input__wrapper) {
@@ -262,15 +308,6 @@ onMounted(() => {
   border-radius: 4px;
   border: 1px solid var(--leetcode-border, #E5E7EB);
   padding: 4px 8px;
-}
-
-:deep(.language-select .el-input__wrapper:hover) {
-  border-color: var(--leetcode-primary, #0066FF);
-}
-
-:deep(.language-select .el-input__wrapper.is-focus) {
-  border-color: var(--leetcode-primary, #0066FF);
-  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.1);
 }
 
 .run-button {
@@ -317,183 +354,83 @@ onMounted(() => {
   border-bottom: 1px solid var(--leetcode-border, #E5E7EB);
 }
 
-:deep(.output-tabs .el-tabs__nav-wrap::after) {
-  display: none;
-}
-
-:deep(.output-tabs .el-tabs__item) {
-  height: 44px;
-  line-height: 44px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--leetcode-text-secondary, #6B7280);
-  padding: 0 16px;
-  transition: all 0.2s ease;
-}
-
-:deep(.output-tabs .el-tabs__item:hover) {
-  color: var(--leetcode-primary, #0066FF);
-}
-
-:deep(.output-tabs .el-tabs__item.is-active) {
-  color: var(--leetcode-primary, #0066FF);
-  font-weight: 600;
-}
-
-:deep(.output-tabs .el-tabs__active-bar) {
-  background: var(--leetcode-primary, #0066FF);
-  height: 2px;
-}
-
 :deep(.output-tabs .el-tabs__content) {
   flex: 1;
-  overflow-y: auto;
-  padding: 16px;
+  overflow: hidden;
+}
+
+:deep(.output-tabs .el-tab-pane) {
+  height: 100%;
 }
 
 .tab-content {
   height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.code-input {
-  flex: 1;
-  margin-bottom: 16px;
-}
-
-:deep(.code-input .el-textarea__inner) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  border-radius: 4px;
-  font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 12px;
-}
-
-:deep(.code-input .el-textarea__inner:focus) {
-  border-color: var(--leetcode-primary, #0066FF);
-  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.1);
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .input-actions {
   display: flex;
   gap: 12px;
-  justify-content: flex-end;
+  margin-top: 16px;
 }
 
-.no-output {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 200px;
-}
-
+.no-output,
 .output-display {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  height: 100%;
 }
 
 .output-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  margin-bottom: 16px;
 }
 
 .output-status.success {
-  background: rgba(0, 200, 83, 0.1);
-  color: var(--leetcode-success, #00C853);
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
 }
 
 .output-status.error {
-  background: rgba(238, 77, 56, 0.1);
-  color: var(--leetcode-danger, #EE4D2E);
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
 }
 
 .output-content {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  padding: 12px;
-  border-radius: 4px;
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  font-family: 'Fira Code', 'Monaco', 'Courier New', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--leetcode-text, #24292F);
-  white-space: pre-wrap;
-  word-wrap: break-word;
   margin: 0;
-  flex: 1;
-  overflow-y: auto;
+  min-height: 240px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .execution-info {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  color: #64748b;
   font-size: 13px;
-  color: var(--leetcode-text-secondary, #6B7280);
-  padding: 8px 12px;
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border-radius: 4px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1024px) {
   .code-run-container {
     grid-template-columns: 1fr;
     height: auto;
   }
 
-  .editor-section {
-    height: 500px;
+  .editor-container {
+    min-height: 420px;
   }
 
   .output-section {
-    height: 400px;
-  }
-}
-
-@media (max-width: 768px) {
-  .leetcode-code-run {
-    padding: 16px;
-  }
-
-  .editor-section {
-    height: 400px;
-  }
-
-  .output-section {
-    height: 350px;
-  }
-
-  .editor-header {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-
-  .header-left,
-  .header-right {
-    justify-content: space-between;
-  }
-
-  .language-select {
-    width: 100%;
-  }
-
-  .run-button {
-    width: 100%;
-  }
-
-  .input-actions {
-    flex-direction: column;
-  }
-
-  .input-actions .el-button {
-    width: 100%;
+    min-height: 360px;
   }
 }
 </style>

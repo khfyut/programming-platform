@@ -20,7 +20,7 @@
           <span :class="['submission-status', item.result === 0 ? 'success' : 'error']">
             {{ getSubmissionResultText(item.result) }}
           </span>
-          <span class="submission-language">{{ (item.language || '-').toUpperCase() }}</span>
+          <span class="submission-language">{{ formatLanguage(item.language) }}</span>
         </div>
         <div class="submission-row-meta">
           <span>{{ item.timeCost || 0 }} ms</span>
@@ -36,6 +36,9 @@
 
 <script setup>
 import { formatSubmissionDateTime, getSubmissionResultText } from '@/utils/submission'
+import { getRuntimeLanguageLabel } from '@/utils/runtimeLanguage'
+
+const formatLanguage = (language) => getRuntimeLanguageLabel(language)
 
 defineProps({
   loading: {

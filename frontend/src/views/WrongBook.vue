@@ -119,7 +119,14 @@
               </div>
             </div>
 
-            <el-empty v-if="pagedWrongList.length === 0 && !loading" description="暂无错题记录" />
+            <div v-if="pagedWrongList.length === 0 && !loading" class="wrong-empty-agent">
+              <div class="empty-title">暂无错题记录</div>
+              <p>提交失败后，Agent 会自动沉淀错误原因、相关知识点和下次避免策略。</p>
+              <div class="empty-actions">
+                <el-button type="primary" @click="openProblemList">去题库练习</el-button>
+                <el-button @click="openLearningCenter">去学习中心</el-button>
+              </div>
+            </div>
           </div>
 
           <div class="pagination-section">
@@ -219,8 +226,8 @@
           <div v-if="agentReflectionLoading" class="agent-card muted">正在生成复盘建议...</div>
           <div v-else-if="agentReflection" class="agent-card">
             <div class="agent-meta">
-              <span>{{ agentReflection.actionType || 'REFLECT' }}</span>
-              <span>{{ agentReflection.contentType || 'reflection' }}</span>
+              <span>复盘建议</span>
+              <span v-if="agentReflection.weakPoints.length">关联 {{ agentReflection.weakPoints.length }} 个薄弱点</span>
             </div>
             <p class="agent-main">{{ agentReflection.mainResponse }}</p>
             <div v-if="agentReflection.weakPoints.length" class="agent-tags">
@@ -600,6 +607,10 @@ const fetchWrongBookReflection = async (wrongItemId) => {
 }
 
 const showWrongDetail = async (item) => {
+  if (item?.id) {
+    router.push(`/wrong-book/${item.id}`)
+    return
+  }
   detailVisible.value = true
   detailLoading.value = true
   agentReflection.value = null
@@ -700,6 +711,14 @@ const openProblem = (problemId) => {
   if (!problemId) return
   detailVisible.value = false
   router.push(`/problem/${problemId}`)
+}
+
+const openProblemList = () => {
+  router.push('/problems')
+}
+
+const openLearningCenter = () => {
+  router.push('/learn')
 }
 
 const handleFilterChange = () => {
@@ -874,6 +893,38 @@ onMounted(() => {
 
 .wrong-list {
   min-height: 400px;
+}
+
+.wrong-empty-agent {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  padding: 32px 20px;
+  color: var(--leetcode-text-secondary, #6b7280);
+  text-align: center;
+}
+
+.wrong-empty-agent .empty-title {
+  color: var(--leetcode-text, #24292f);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.wrong-empty-agent p {
+  max-width: 420px;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.wrong-empty-agent .empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .wrong-item {
@@ -1142,7 +1193,7 @@ onMounted(() => {
 .agent-meta span,
 .agent-tags span {
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #eef6ff;
   color: #2563eb;
   font-size: 12px;

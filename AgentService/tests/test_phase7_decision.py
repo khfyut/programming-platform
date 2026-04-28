@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from app.main import make_decision
+from app.main import make_rule_decision as make_decision
 from app.schemas.context import AgentContext
 
 

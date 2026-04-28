@@ -15,6 +15,7 @@ public interface AiService {
     
     // 多轮对话相关
     ResultUtil chat(Map<String, Object> params);
+    SseEmitter chatStream(Map<String, Object> params);
     List<AiMessage> getChatHistory(Long userId, String sessionId);
     
     // 代码优化相关

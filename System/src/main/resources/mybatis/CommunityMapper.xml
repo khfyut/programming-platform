@@ -5,28 +5,39 @@
 
 <mapper namespace="com.programming.mapper.CommunityMapper">
     <select id="selectPosts" resultType="com.programming.entity.CommunityPost">
-        SELECT * FROM community_post
+        SELECT
+            p.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', p.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_post p
+        LEFT JOIN user u ON u.id = p.user_id
         <where>
-            AND COALESCE(visibility, 'public') = 'public'
+            AND COALESCE(p.visibility, 'public') = 'public'
             <if test="type != null and type != ''">
-                AND type = #{type}
+                AND p.type = #{type}
             </if>
             <if test="pathId != null">
-                AND COALESCE(related_path_id, path_id) = #{pathId}
+                AND COALESCE(p.related_path_id, p.path_id) = #{pathId}
             </if>
             <if test="chapterId != null">
-                AND chapter_id = #{chapterId}
+                AND p.chapter_id = #{chapterId}
             </if>
             <if test="levelId != null">
-                AND COALESCE(related_level_id, level_id) = #{levelId}
+                AND COALESCE(p.related_level_id, p.level_id) = #{levelId}
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY p.create_time DESC
         LIMIT #{size} OFFSET #{page}
     </select>
 
     <select id="selectPostById" resultType="com.programming.entity.CommunityPost">
-        SELECT * FROM community_post WHERE id = #{id}
+        SELECT
+            p.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', p.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_post p
+        LEFT JOIN user u ON u.id = p.user_id
+        WHERE p.id = #{id}
     </select>
 
     <insert id="insertPost" parameterType="com.programming.entity.CommunityPost" useGeneratedKeys="true" keyProperty="id">
@@ -72,9 +83,14 @@
     </update>
 
     <select id="selectCommentsByPostId" resultType="com.programming.entity.CommunityComment">
-        SELECT * FROM community_comment
-        WHERE post_id = #{postId}
-        ORDER BY create_time ASC
+        SELECT
+            c.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', c.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_comment c
+        LEFT JOIN user u ON u.id = c.user_id
+        WHERE c.post_id = #{postId}
+        ORDER BY c.create_time ASC
     </select>
 
     <select id="selectCommentById" resultType="com.programming.entity.CommunityComment">
@@ -101,23 +117,33 @@
     </update>
 
     <select id="selectPostsByUserId" resultType="com.programming.entity.CommunityPost">
-        SELECT * FROM community_post
+        SELECT
+            p.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', p.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_post p
+        LEFT JOIN user u ON u.id = p.user_id
         <where>
-            AND user_id = #{userId}
+            AND p.user_id = #{userId}
             <if test="!includePrivate">
-                AND COALESCE(visibility, 'public') = 'public'
+                AND COALESCE(p.visibility, 'public') = 'public'
             </if>
             <if test="type != null and type != ''">
-                AND type = #{type}
+                AND p.type = #{type}
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY p.create_time DESC
         LIMIT #{size} OFFSET #{page}
     </select>
 
     <select id="selectCommentsByUserId" resultType="com.programming.entity.CommunityComment">
-        SELECT c.* FROM community_comment c
+        SELECT
+            c.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', c.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_comment c
         INNER JOIN community_post p ON p.id = c.post_id
+        LEFT JOIN user u ON u.id = c.user_id
         WHERE c.user_id = #{userId}
           AND COALESCE(p.visibility, 'public') = 'public'
         ORDER BY c.create_time DESC
@@ -139,17 +165,27 @@
     </select>
 
     <select id="findRecentPostsByUserId" resultType="com.programming.entity.CommunityPost">
-        SELECT * FROM community_post
-        WHERE user_id = #{userId}
-          AND COALESCE(visibility, 'public') = 'public'
-        ORDER BY create_time DESC, id DESC
+        SELECT
+            p.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', p.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_post p
+        LEFT JOIN user u ON u.id = p.user_id
+        WHERE p.user_id = #{userId}
+          AND COALESCE(p.visibility, 'public') = 'public'
+        ORDER BY p.create_time DESC, p.id DESC
         LIMIT #{size} OFFSET #{page}
     </select>
 
     <select id="findPostById" resultType="com.programming.entity.CommunityPost">
-        SELECT * FROM community_post
-        WHERE id = #{id}
-          AND COALESCE(visibility, 'public') = 'public'
+        SELECT
+            p.*,
+            COALESCE(NULLIF(u.username, ''), CONCAT('用户#', p.user_id)) AS author_name,
+            u.avatar_url AS avatar_url
+        FROM community_post p
+        LEFT JOIN user u ON u.id = p.user_id
+        WHERE p.id = #{id}
+          AND COALESCE(p.visibility, 'public') = 'public'
     </select>
 
     <select id="countTotalPosts" resultType="java.lang.Integer">

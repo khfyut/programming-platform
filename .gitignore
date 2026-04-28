@@ -96,5 +96,40 @@ application-*.yml
 # Skills sub-repo kept as external asset
 /skills/
 .gstack/
-.gstack/
-.gstack/
+
+# Thesis working files (personal, not code)
+_*.doc
+_*.docx
+_thesis_text_*.txt
+polish_thesis_docx.py
+Agent学习笔记.md
+
+# Runtime logs (may contain secrets)
+runtime-logs/
+jmeter.log
+
+# Database backups and dumps
+System/backup.sql
+
+# Password generator (contains hardcoded credentials)
+System/SimplePasswordGenerator.java
+
+# Tooling caches
+.codex-dev/
+.superpowers/
+.pytest_cache/
+
+# Legacy tooling directories
+System/tools/
+
+# Claude Code local settings (shared settings.json is committed)
+.claude/settings.local.json
+
+# Loadtest summary outputs
+/System/loadtest-run-output/summary-*
+
+# Thesis tools and data (personal, not code)
+scripts/capture_light_thesis_screenshots.js
+scripts/improve_thesis_diagrams.py
+tools/appendix_payload_20260423.json
+tools/complete_appendix_word.ps1

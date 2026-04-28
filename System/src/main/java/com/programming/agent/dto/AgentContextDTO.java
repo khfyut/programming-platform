@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public class AgentContextDTO {
 
@@ -36,6 +37,34 @@ public class AgentContextDTO {
     @JsonProperty("user_message")
     @JSONField(name = "user_message")
     private String userMessage;
+
+    @JsonProperty("scene")
+    @JSONField(name = "scene")
+    private String scene;
+
+    @JsonProperty("action_hint")
+    @JSONField(name = "action_hint")
+    private String actionHint;
+
+    @JsonProperty("conversation_history")
+    @JSONField(name = "conversation_history")
+    private List<Map<String, Object>> conversationHistory;
+
+    @JsonProperty("reduced_context")
+    @JSONField(name = "reduced_context")
+    private Map<String, Object> reducedContext;
+
+    @JsonProperty("failure_evidence_level")
+    @JSONField(name = "failure_evidence_level")
+    private String failureEvidenceLevel;
+
+    @JsonProperty("failure_signals")
+    @JSONField(name = "failure_signals")
+    private Map<String, Object> failureSignals;
+
+    @JsonProperty("violation")
+    @JSONField(name = "violation")
+    private Map<String, Object> violation;
 
     @JsonProperty("requested_full_solution")
     @JSONField(name = "requested_full_solution")
@@ -93,6 +122,30 @@ public class AgentContextDTO {
     @JSONField(name = "learning_stage")
     private String learningStage;
 
+    @JsonProperty("policy_profile")
+    @JSONField(name = "policy_profile")
+    private String policyProfile;
+
+    @JsonProperty("candidate_actions")
+    @JSONField(name = "candidate_actions")
+    private List<String> candidateActions;
+
+    @JsonProperty("tool_results")
+    @JSONField(name = "tool_results")
+    private List<Map<String, Object>> toolResults;
+
+    @JsonProperty("prompt_layers")
+    @JSONField(name = "prompt_layers")
+    private Map<String, Object> promptLayers;
+
+    @JsonProperty("learning_summary")
+    @JSONField(name = "learning_summary")
+    private Map<String, Object> learningSummary;
+
+    @JsonProperty("intent_hypothesis")
+    @JSONField(name = "intent_hypothesis")
+    private Map<String, Object> intentHypothesis;
+
     // Getters and Setters
     public String getRequestId() { return requestId; }
     public void setRequestId(String requestId) { this.requestId = requestId; }
@@ -114,6 +167,27 @@ public class AgentContextDTO {
 
     public String getUserMessage() { return userMessage; }
     public void setUserMessage(String userMessage) { this.userMessage = userMessage; }
+
+    public String getScene() { return scene; }
+    public void setScene(String scene) { this.scene = scene; }
+
+    public String getActionHint() { return actionHint; }
+    public void setActionHint(String actionHint) { this.actionHint = actionHint; }
+
+    public List<Map<String, Object>> getConversationHistory() { return conversationHistory; }
+    public void setConversationHistory(List<Map<String, Object>> conversationHistory) { this.conversationHistory = conversationHistory; }
+
+    public Map<String, Object> getReducedContext() { return reducedContext; }
+    public void setReducedContext(Map<String, Object> reducedContext) { this.reducedContext = reducedContext; }
+
+    public String getFailureEvidenceLevel() { return failureEvidenceLevel; }
+    public void setFailureEvidenceLevel(String failureEvidenceLevel) { this.failureEvidenceLevel = failureEvidenceLevel; }
+
+    public Map<String, Object> getFailureSignals() { return failureSignals; }
+    public void setFailureSignals(Map<String, Object> failureSignals) { this.failureSignals = failureSignals; }
+
+    public Map<String, Object> getViolation() { return violation; }
+    public void setViolation(Map<String, Object> violation) { this.violation = violation; }
 
     public boolean isRequestedFullSolution() { return requestedFullSolution; }
     public void setRequestedFullSolution(boolean requestedFullSolution) { this.requestedFullSolution = requestedFullSolution; }
@@ -156,4 +230,22 @@ public class AgentContextDTO {
 
     public String getLearningStage() { return learningStage; }
     public void setLearningStage(String learningStage) { this.learningStage = learningStage; }
+
+    public String getPolicyProfile() { return policyProfile; }
+    public void setPolicyProfile(String policyProfile) { this.policyProfile = policyProfile; }
+
+    public List<String> getCandidateActions() { return candidateActions; }
+    public void setCandidateActions(List<String> candidateActions) { this.candidateActions = candidateActions; }
+
+    public List<Map<String, Object>> getToolResults() { return toolResults; }
+    public void setToolResults(List<Map<String, Object>> toolResults) { this.toolResults = toolResults; }
+
+    public Map<String, Object> getPromptLayers() { return promptLayers; }
+    public void setPromptLayers(Map<String, Object> promptLayers) { this.promptLayers = promptLayers; }
+
+    public Map<String, Object> getLearningSummary() { return learningSummary; }
+    public void setLearningSummary(Map<String, Object> learningSummary) { this.learningSummary = learningSummary; }
+
+    public Map<String, Object> getIntentHypothesis() { return intentHypothesis; }
+    public void setIntentHypothesis(Map<String, Object> intentHypothesis) { this.intentHypothesis = intentHypothesis; }
 }

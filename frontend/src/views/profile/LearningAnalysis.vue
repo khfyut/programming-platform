@@ -27,17 +27,17 @@
       <div class="panel-header">
         <div>
           <div class="section-kicker">Learning Agent</div>
-          <h2>近期 Agent 事件</h2>
+          <h2>近期学习洞察</h2>
         </div>
         <span class="panel-caption">看答案 {{ agentRevealCount }} 次</span>
       </div>
 
       <div v-if="agentSummary" class="agent-summary-grid">
         <div class="agent-summary-block">
-          <div class="agent-block-title">动作分布</div>
+          <div class="agent-block-title">最近需要的帮助</div>
           <div v-if="agentActionItems.length" class="agent-action-list">
             <div v-for="item in agentActionItems" :key="item.action" class="agent-action-item">
-              <span>{{ item.action }}</span>
+              <span>{{ item.label }}</span>
               <strong>{{ item.count }}</strong>
             </div>
           </div>
@@ -60,15 +60,15 @@
         </div>
 
         <div class="agent-summary-block">
-          <div class="agent-block-title">最新事件</div>
+          <div class="agent-block-title">最近学习入口</div>
           <div v-if="agentRecentEvents.length" class="agent-event-list">
             <div
               v-for="(event, index) in agentRecentEvents"
               :key="event.request_id || event.requestId || index"
               class="agent-event-item"
             >
-              <span>{{ event.action_type || event.actionType || 'UNKNOWN' }}</span>
-              <small>{{ event.trigger_source || event.triggerSource || 'manual' }}</small>
+              <span>{{ getAgentActionLabel(event.action_type || event.actionType) }}</span>
+              <small>{{ getAgentTriggerLabel(event.trigger_source || event.triggerSource) }}</small>
             </div>
           </div>
           <div v-else class="empty-copy">暂无最新事件。</div>
@@ -334,10 +334,13 @@ const weakestPointLabel = computed(() => {
 
 const agentActionItems = computed(() => {
   const counts = agentSummary.value?.action_counts || agentSummary.value?.actionCounts || {}
-  return Object.entries(counts).map(([action, count]) => ({
-    action,
-    count: Number(count || 0)
-  }))
+  return Object.entries(counts)
+    .map(([action, count]) => ({
+      action,
+      label: getAgentActionLabel(action),
+      count: Number(count || 0)
+    }))
+    .sort((a, b) => b.count - a.count)
 })
 
 const agentWeakPoints = computed(() => {
@@ -370,6 +373,31 @@ const getMasteryColor = (value) => {
   if (value >= 80) return '#22c55e'
   if (value >= 50) return '#f59e0b'
   return '#f43f5e'
+}
+
+const getAgentActionLabel = (action) => {
+  const labels = {
+    GUIDE_IDEA: '思路引导',
+    HINT: '轻提示',
+    DIAGNOSE: '错误诊断',
+    EXPLAIN: '知识讲解',
+    RECOMMEND: '路径推荐',
+    REFLECT: '错题复盘',
+    REVEAL_ANSWER: '参考修正版'
+  }
+  return labels[action] || '学习建议'
+}
+
+const getAgentTriggerLabel = (trigger) => {
+  const labels = {
+    PROBLEM_PAGE_CHAT: '题目页陪练',
+    RUN_RESULT: '运行后分析',
+    SUBMISSION_RESULT: '提交后分析',
+    WRONG_BOOK_ENTRY: '错题本复盘',
+    LEARNING_PATH_ENTRY: '学习路径推荐',
+    MANUAL_HELP_REQUEST: '主动求助'
+  }
+  return labels[trigger] || '学习记录'
 }
 
 const ensureUserReady = async () => {

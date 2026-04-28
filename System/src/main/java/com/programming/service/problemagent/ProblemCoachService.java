@@ -258,7 +258,12 @@ public class ProblemCoachService {
 
     private String buildSummary(ProblemCoachContext context, boolean revealFullSolution, AgentDecisionDTO decision) {
         if (decision != null && decision.getActionType() != null && decision.getPedagogicalGoal() != null) {
-            return decision.getActionType() + " / " + decision.getPedagogicalGoal();
+            String actionLabel = actionSummaryLabel(decision.getActionType());
+            String nextSuggestion = decision.getNextSuggestion();
+            if (nextSuggestion != null && !nextSuggestion.isBlank()) {
+                return actionLabel + "：" + nextSuggestion;
+            }
+            return actionLabel + "已生成，可以继续追问或按提示尝试。";
         }
         if (revealFullSolution) {
             return "你已经有失败记录，本次可以在约束允许后查看参考修正版。";
@@ -273,6 +278,31 @@ public class ProblemCoachService {
             return "这道题已有失败记录，可以继续要定向提示，必要时再请求参考修正版。";
         }
         return "陪练已就绪，可以追问思路、代码问题或下一步练习。";
+    }
+
+    private String actionSummaryLabel(String actionType) {
+        if ("GUIDE_IDEA".equals(actionType)) {
+            return "思路引导";
+        }
+        if ("HINT".equals(actionType)) {
+            return "轻提示";
+        }
+        if ("DIAGNOSE".equals(actionType)) {
+            return "错误诊断";
+        }
+        if ("EXPLAIN".equals(actionType)) {
+            return "知识讲解";
+        }
+        if ("RECOMMEND".equals(actionType)) {
+            return "下一步建议";
+        }
+        if ("REFLECT".equals(actionType)) {
+            return "复盘建议";
+        }
+        if ("REVEAL_ANSWER".equals(actionType)) {
+            return "参考修正版";
+        }
+        return "陪练建议";
     }
 
     private List<CoachActionVO> buildActions(ProblemCoachContext context, boolean revealFullSolution, String draftCode) {

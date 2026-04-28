@@ -9,9 +9,9 @@ spring:
       enabled: true
 
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:programming_system}?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${DB_HOST:192.168.59.133}:${DB_PORT:3306}/${DB_NAME:programming_system}?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     username: ${DB_USER:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:123}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   flyway:
@@ -50,9 +50,12 @@ programming:
     timeout: ${PROGRAMMING_DOCKER_TIMEOUT:2000}
     memory: ${PROGRAMMING_DOCKER_MEMORY:134217728}
   ai:
+    provider: ${PROGRAMMING_AI_PROVIDER:ollama}
+    model: ${PROGRAMMING_AI_MODEL:gemma4:e2b}
+    ollama-url: ${PROGRAMMING_AI_OLLAMA_URL:http://127.0.0.1:11434}
     api-key: ${PROGRAMMING_AI_API_KEY:}
     api-url: ${PROGRAMMING_AI_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
-    prompt: ${PROGRAMMING_AI_PROMPT:你是专业的编程助教，只回答编程相关问题，给出清晰思路和示例代码，不直接给完整答案。}
+    prompt: ${PROGRAMMING_AI_PROMPT:你是专业的编程助教，只回答编程学习相关问题。回答要清晰、有步骤，优先解释思路，再给必要示例。}
 
 server:
   port: ${SERVER_PORT:8080}

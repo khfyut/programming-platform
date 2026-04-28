@@ -48,17 +48,17 @@
       <div class="hero-content">
         <div class="hero-badge">
           <span class="badge-dot"></span>
-          <span>AI 驱动的编程学习平台</span>
+          <span>AI 编程学习</span>
         </div>
 
         <h1 class="hero-title">
-          <span class="title-line">把练题、路径和反馈</span>
-          <span class="title-highlight">放进同一条成长回路</span>
-          <span class="title-line">让每次练习都更有方向</span>
+          <span class="title-line">练题、路径、反馈</span>
+          <span class="title-highlight">一站完成</span>
+          <span class="title-line">下一步更清楚</span>
         </h1>
 
         <p class="hero-subtitle">
-          通过系统化学习路径、题库练习、提交反馈和 AI 辅助，把“学了什么、练了什么、哪里还薄弱”串成一条清晰主线。
+          按路径学习，在线练题，提交后获得反馈和 AI 建议。
         </p>
 
         <div class="hero-actions">
@@ -73,25 +73,25 @@
         </div>
 
         <div class="hero-highlights">
-          <span class="highlight-pill">学习路径引导</span>
-          <span class="highlight-pill">做题与提交联动</span>
-          <span class="highlight-pill">错题与 AI 复盘</span>
+          <span class="highlight-pill">路径学习</span>
+          <span class="highlight-pill">提交反馈</span>
+          <span class="highlight-pill">AI 复盘</span>
         </div>
 
         <div class="hero-stats">
           <div class="stat-item">
             <div class="stat-number">题库</div>
-            <div class="stat-label">覆盖练题、提交和解析链路</div>
+            <div class="stat-label">练习与解析</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat-item">
             <div class="stat-number">路径</div>
-            <div class="stat-label">把知识点组织成渐进式任务</div>
+            <div class="stat-label">串联知识点</div>
           </div>
           <div class="stat-divider"></div>
           <div class="stat-item">
             <div class="stat-number">反馈</div>
-            <div class="stat-label">从结果、错题到复盘持续闭环</div>
+            <div class="stat-label">定位薄弱点</div>
           </div>
         </div>
       </div>
@@ -110,27 +110,27 @@
           <div class="editor-content">
             <div class="code-line"><span class="keyword">const</span> <span class="class-name">session</span> = {</div>
             <div class="code-line">  <span class="type">path</span>: <span class="string">'算法入门'</span>,</div>
-            <div class="code-line">  <span class="type">focus</span>: <span class="string">'数组与哈希'</span>,</div>
-            <div class="code-line">  <span class="type">next</span>: <span class="string">'继续做题并复盘'</span></div>
+            <div class="code-line">  <span class="type">focus</span>: <span class="string">'数组哈希'</span>,</div>
+            <div class="code-line">  <span class="type">next</span>: <span class="string">'提交后复盘'</span></div>
             <div class="code-line">}</div>
           </div>
 
           <div class="signal-grid">
             <div class="signal-card">
               <span class="signal-label">当前任务</span>
-              <strong>完成一题并查看提交结果</strong>
+              <strong>完成一题</strong>
             </div>
             <div class="signal-card">
               <span class="signal-label">AI 建议</span>
-              <strong>优先补数组边界和哈希映射</strong>
+              <strong>先看失败点</strong>
             </div>
           </div>
 
           <div class="ai-assistant">
             <div class="ai-icon">AI</div>
             <div class="ai-message">
-              <div class="ai-message-title">学习建议已生成</div>
-              <div class="ai-message-text">先做题，再根据提交结果决定是否复盘错题。</div>
+              <div class="ai-message-title">建议已生成</div>
+              <div class="ai-message-text">根据提交结果安排下一步</div>
             </div>
           </div>
         </div>
@@ -152,13 +152,13 @@ const isLoggedIn = computed(() => Boolean(userStore.token))
 const primaryAction = computed(() => {
   if (isLoggedIn.value) {
     return {
-      label: '进入学习中心',
+      label: '开始学习',
       to: '/learn'
     }
   }
 
   return {
-    label: '立即开始',
+    label: '开始学习',
     to: '/register'
   }
 })
@@ -166,13 +166,13 @@ const primaryAction = computed(() => {
 const secondaryAction = computed(() => {
   if (isLoggedIn.value) {
     return {
-      label: '继续练题',
+      label: '去刷题',
       to: '/problems'
     }
   }
 
   return {
-    label: '先看看题库',
+    label: '去刷题',
     to: '/problems'
   }
 })

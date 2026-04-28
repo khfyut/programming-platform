@@ -1,16 +1,21 @@
 package com.programming.service.impl;
 
-import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
-import com.programming.entity.*;
-import com.programming.mapper.QuestionMapper;
+import com.programming.entity.AiCollection;
+import com.programming.entity.AiMessage;
+import com.programming.entity.AiSession;
+import com.programming.entity.KnowledgePoint;
+import com.programming.entity.Question;
+import com.programming.entity.UserKnowledgeMastery;
 import com.programming.mapper.AiSessionMapper;
 import com.programming.mapper.KnowledgeMasteryMapper;
+import com.programming.mapper.QuestionMapper;
 import com.programming.service.AiService;
-import com.programming.vo.AiAskVO;
+import com.programming.service.ai.AiLlmClient;
+import com.programming.service.ai.AiLlmConfig;
 import com.programming.util.ResultUtil;
+import com.programming.vo.AiAskVO;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,98 +36,61 @@ public class AiServiceImpl implements AiService {
     @Autowired
     private QuestionMapper questionMapper;
 
-    @Value("${programming.ai.api-key}")
+    @Autowired
+    private KnowledgeMasteryMapper knowledgeMasteryMapper;
+
+    @Autowired
+    private AiSessionMapper aiSessionMapper;
+
+    @Autowired(required = false)
+    private AiLlmClient aiLlmClient;
+
+    @Value("${programming.ai.provider:ollama}")
+    private String aiProvider;
+
+    @Value("${programming.ai.model:gemma4:e2b}")
+    private String aiModel;
+
+    @Value("${programming.ai.ollama-url:http://127.0.0.1:11434}")
+    private String ollamaUrl;
+
+    @Value("${programming.ai.api-key:}")
     private String apiKey;
 
-    @Value("${programming.ai.api-url}")
+    @Value("${programming.ai.api-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
     private String apiUrl;
 
-    @Value("${programming.ai.prompt}")
+    @Value("${programming.ai.prompt:你是专业的编程助教，只回答编程学习相关问题。回答要清晰、有步骤，优先解释思路，再给必要示例。}")
     private String prompt;
 
-    private final OkHttpClient client = new OkHttpClient();
-
+    @Override
     public ResultUtil askQuestion(AiAskVO aiAskVO) {
         try {
             String question = aiAskVO.getContent();
             String code = aiAskVO.getCode();
-            
             String answer = callAiApi(question, code);
-            
+
             Question questionRecord = new Question();
             questionRecord.setUserId(aiAskVO.getUserId());
             questionRecord.setContent(question);
             questionRecord.setAnswer(answer);
             questionRecord.setCode(code);
-            
+            questionRecord.setCreateTime(LocalDateTime.now());
             questionMapper.insert(questionRecord);
-            
+
             return ResultUtil.success(answer);
         } catch (Exception e) {
-            log.error("AI问答失败", e);
-            return ResultUtil.error("AI问答失败：" + e.getMessage());
-        }
-    }
-
-    private String callAiApi(String question, String code) {
-        try {
-            log.info("调用AI API - 问题: {}, 代码: {}", question, code);
-            
-            String fullPrompt = prompt + "\n\n用户问题：" + question;
-            if (code != null && !code.isEmpty()) {
-                fullPrompt += "\n\n用户代码：\n" + code;
-            }
-            
-            log.info("完整提示词: {}", fullPrompt);
-            
-            JSONObject requestBody = new JSONObject();
-            requestBody.put("model", "qwen-turbo");
-            
-            JSONObject message = new JSONObject();
-            message.put("role", "user");
-            message.put("content", fullPrompt);
-            
-            requestBody.put("messages", new Object[]{message});
-            requestBody.put("temperature", 0.7);
-            
-            Request request = new Request.Builder()
-                    .url(apiUrl + "/chat/completions")
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(requestBody.toJSONString(), MediaType.parse("application/json")))
-                    .build();
-            
-            try (Response response = client.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    log.error("AI API调用失败，状态码: {}, 响应: {}", response.code(), response.body().string());
-                    throw new RuntimeException("AI API调用失败: " + response.code());
-                }
-                
-                String responseBody = response.body().string();
-                log.info("AI API响应: {}", responseBody);
-                
-                JSONObject jsonResponse = JSON.parseObject(responseBody);
-                String answer = jsonResponse.getJSONArray("choices")
-                        .getJSONObject(0)
-                        .getJSONObject("message")
-                        .getString("content");
-                
-                return answer;
-            }
-        } catch (Exception e) {
-            log.error("调用AI API异常", e);
-            throw new RuntimeException("调用AI API异常: " + e.getMessage());
+            log.error("AI 问答失败", e);
+            return ResultUtil.error("AI 问答失败：" + e.getMessage());
         }
     }
 
     @Override
     public Map<String, Object> getHistory(Long userId, int page, int size) {
         List<AiSession> sessions = aiSessionMapper.selectSessionsByUserId(userId);
-        
         Map<String, Object> result = new HashMap<>();
         result.put("total", sessions.size());
         result.put("list", sessions);
-
         return result;
     }
 
@@ -132,32 +100,29 @@ public class AiServiceImpl implements AiService {
             Long userId = Long.valueOf(params.get("userId").toString());
             String sessionId = (String) params.get("sessionId");
             String content = (String) params.get("content");
-            String code = params.get("code") != null ? params.get("code").toString() : null;
+            String code = params.get("code") == null ? null : params.get("code").toString();
 
-            // 检查会话是否存在，不存在则创建新会话
             AiSession existingSession = null;
-            if (sessionId != null && !sessionId.isEmpty()) {
+            if (sessionId != null && !sessionId.isBlank()) {
                 existingSession = aiSessionMapper.selectSessionBySessionId(sessionId);
                 if (existingSession != null && (existingSession.getUserId() == null || !existingSession.getUserId().equals(userId))) {
                     throw new RuntimeException("Session not found");
                 }
             }
-            
+
             if (existingSession == null) {
-                // 会话不存在，创建新会话
                 sessionId = UUID.randomUUID().toString();
                 AiSession session = new AiSession();
                 session.setSessionId(sessionId);
                 session.setUserId(userId);
-                String topic = content.length() > 30 ? content.substring(0, 30) + "..." : content;
-                session.setTopic(topic);
+                session.setTopic(buildTopic(content));
                 session.setSessionType("general");
                 session.setStatus(1);
+                session.setMetadataJson("{}");
                 session.setCreateTime(LocalDateTime.now());
                 session.setUpdateTime(LocalDateTime.now());
                 aiSessionMapper.insertSession(session);
             } else {
-                // 更新会话的更新时间
                 existingSession.setUpdateTime(LocalDateTime.now());
                 if (existingSession.getSessionType() == null || existingSession.getSessionType().isBlank()) {
                     existingSession.setSessionType("general");
@@ -165,11 +130,10 @@ public class AiServiceImpl implements AiService {
                 aiSessionMapper.updateSession(existingSession);
             }
 
-            // 构建消息历史
             List<AiMessage> history = aiSessionMapper.selectMessagesBySessionId(sessionId);
             List<JSONObject> messages = new ArrayList<>();
+            addSystemMessage(messages);
 
-            // 添加历史消息
             for (AiMessage msg : history) {
                 JSONObject message = new JSONObject();
                 message.put("role", msg.getRole());
@@ -177,45 +141,118 @@ public class AiServiceImpl implements AiService {
                 messages.add(message);
             }
 
-            // 添加新消息
+            String fullContent = appendCode(content, code);
             JSONObject userMessage = new JSONObject();
             userMessage.put("role", "user");
-            String fullContent = content;
-            if (code != null && !code.isEmpty()) {
-                fullContent += "\n\n代码：\n" + code;
-            }
             userMessage.put("content", fullContent);
             messages.add(userMessage);
 
-            // 调用AI API
             String response = callChatApi(messages);
-
-            // 保存消息记录
-            AiMessage userMsgRecord = new AiMessage();
-            userMsgRecord.setSessionId(sessionId);
-            userMsgRecord.setRole("user");
-            userMsgRecord.setContent(fullContent);
-            userMsgRecord.setMessageKind("chat");
-            userMsgRecord.setCreateTime(LocalDateTime.now());
-            aiSessionMapper.insertMessage(userMsgRecord);
-
-            AiMessage assistantMsgRecord = new AiMessage();
-            assistantMsgRecord.setSessionId(sessionId);
-            assistantMsgRecord.setRole("assistant");
-            assistantMsgRecord.setContent(response);
-            assistantMsgRecord.setMessageKind("chat");
-            assistantMsgRecord.setCreateTime(LocalDateTime.now());
-            aiSessionMapper.insertMessage(assistantMsgRecord);
+            persistChatMessages(sessionId, fullContent, response);
 
             Map<String, Object> result = new HashMap<>();
             result.put("sessionId", sessionId);
             result.put("response", response);
-
             return ResultUtil.success(result);
         } catch (Exception e) {
-            log.error("AI多轮对话失败", e);
-            return ResultUtil.error("AI多轮对话失败：" + e.getMessage());
+            log.error("AI 多轮对话失败", e);
+            return ResultUtil.error("AI 多轮对话失败：" + e.getMessage());
         }
+    }
+
+    @Override
+    public SseEmitter chatStream(Map<String, Object> params) {
+        SseEmitter emitter = new SseEmitter(60000L);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                sendStreamEvent(emitter, "status", Map.of("text", "已收到问题，正在准备回答"));
+
+                Long userId = Long.valueOf(params.get("userId").toString());
+                String sessionId = (String) params.get("sessionId");
+                String content = (String) params.get("content");
+                String code = params.get("code") == null ? null : params.get("code").toString();
+
+                AiSession existingSession = null;
+                if (sessionId != null && !sessionId.isBlank()) {
+                    existingSession = aiSessionMapper.selectSessionBySessionId(sessionId);
+                    if (existingSession != null && (existingSession.getUserId() == null || !existingSession.getUserId().equals(userId))) {
+                        throw new RuntimeException("Session not found");
+                    }
+                }
+
+                sendStreamEvent(emitter, "status", Map.of("text", "正在整理历史对话和上下文"));
+                if (existingSession == null) {
+                    sessionId = UUID.randomUUID().toString();
+                    AiSession session = new AiSession();
+                    session.setSessionId(sessionId);
+                    session.setUserId(userId);
+                    session.setTopic(buildTopic(content));
+                    session.setSessionType("general");
+                    session.setStatus(1);
+                    session.setMetadataJson("{}");
+                    session.setCreateTime(LocalDateTime.now());
+                    session.setUpdateTime(LocalDateTime.now());
+                    aiSessionMapper.insertSession(session);
+                } else {
+                    existingSession.setUpdateTime(LocalDateTime.now());
+                    if (existingSession.getSessionType() == null || existingSession.getSessionType().isBlank()) {
+                        existingSession.setSessionType("general");
+                    }
+                    aiSessionMapper.updateSession(existingSession);
+                }
+
+                sendStreamEvent(emitter, "meta", Map.of("sessionId", sessionId));
+                List<AiMessage> history = aiSessionMapper.selectMessagesBySessionId(sessionId);
+                List<JSONObject> messages = new ArrayList<>();
+                addSystemMessage(messages);
+
+                for (AiMessage msg : history) {
+                    JSONObject message = new JSONObject();
+                    message.put("role", msg.getRole());
+                    message.put("content", msg.getContent());
+                    messages.add(message);
+                }
+
+                String fullContent = appendCode(content, code);
+                JSONObject userMessage = new JSONObject();
+                userMessage.put("role", "user");
+                userMessage.put("content", fullContent);
+                messages.add(userMessage);
+
+                sendStreamEvent(emitter, "status", Map.of("text", "正在生成回答"));
+                String response;
+                try {
+                    response = llmClient().streamChat(currentLlmConfig(), messages, 0.7, delta -> {
+                        if (delta != null && !delta.isEmpty()) {
+                            sendStreamEvent(emitter, "delta", Map.of("text", delta));
+                        }
+                    });
+                    if (response == null || response.isBlank()) {
+                        response = buildLocalFallbackAnswer(extractLastUserMessage(messages), null);
+                        emitFallbackText(emitter, response);
+                    }
+                } catch (Exception llmError) {
+                    log.warn("AI LLM stream failed, using local fallback. provider={}, model={}, error={}",
+                            aiProvider, aiModel, llmError.getMessage());
+                    response = buildLocalFallbackAnswer(extractLastUserMessage(messages), null);
+                    emitFallbackText(emitter, response);
+                }
+
+                persistChatMessages(sessionId, fullContent, response);
+                sendStreamEvent(emitter, "done", Map.of("sessionId", sessionId));
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("AI stream chat failed", e);
+                try {
+                    sendStreamEvent(emitter, "error", Map.of("message", "AI 响应失败，请稍后重试"));
+                } finally {
+                    emitter.completeWithError(e);
+                }
+            }
+        });
+
+        return emitter;
     }
 
     @Override
@@ -227,9 +264,8 @@ public class AiServiceImpl implements AiService {
     @Override
     public ResultUtil optimizeCode(String code, String language) {
         try {
-            String prompt = "请优化以下" + language + "代码，使其更高效、更可读：\n" + code;
-            String response = callAiApi(prompt, null);
-            return ResultUtil.success(response);
+            String requestPrompt = "请优化以下 " + language + " 代码，使它更高效、更可读，并指出主要改动：\n\n" + code;
+            return ResultUtil.success(callAiApi(requestPrompt, null));
         } catch (Exception e) {
             log.error("代码优化失败", e);
             return ResultUtil.error("代码优化失败：" + e.getMessage());
@@ -239,9 +275,8 @@ public class AiServiceImpl implements AiService {
     @Override
     public ResultUtil explainKnowledge(String knowledgePoint) {
         try {
-            String prompt = "请详细讲解以下编程知识点：" + knowledgePoint + "，包括基本概念、使用方法、常见问题和最佳实践。";
-            String response = callAiApi(prompt, null);
-            return ResultUtil.success(response);
+            String requestPrompt = "请讲解以下编程知识点：" + knowledgePoint + "。包括概念、使用场景、常见错误和一个简短示例。";
+            return ResultUtil.success(callAiApi(requestPrompt, null));
         } catch (Exception e) {
             log.error("知识点讲解失败", e);
             return ResultUtil.error("知识点讲解失败：" + e.getMessage());
@@ -283,17 +318,14 @@ public class AiServiceImpl implements AiService {
     @Override
     public SseEmitter explainCode(String code, String language) {
         SseEmitter emitter = new SseEmitter(60000L);
-        
-        String prompt = buildExplainPrompt(code, language);
-        
+        String requestPrompt = buildExplainPrompt(code, language);
+
         CompletableFuture.runAsync(() -> {
             try {
-                String response = callAiApi(prompt, null);
-                // 模拟流式响应
-                String[] chunks = response.split("\\. ");
-                for (String chunk : chunks) {
-                    emitter.send(chunk + ". ");
-                    Thread.sleep(500);
+                String response = callAiApi(requestPrompt, null);
+                for (String chunk : splitForStreaming(response)) {
+                    emitter.send(chunk);
+                    Thread.sleep(120);
                 }
                 emitter.complete();
             } catch (Exception e) {
@@ -301,16 +333,14 @@ public class AiServiceImpl implements AiService {
                 emitter.completeWithError(e);
             }
         });
-        
+
         return emitter;
     }
 
     @Override
     public ResultUtil diagnoseError(String code, String errorMessage, String language) {
         try {
-            String prompt = buildDiagnosePrompt(code, errorMessage, language);
-            String response = callAiApi(prompt, null);
-            return ResultUtil.success(response);
+            return ResultUtil.success(callAiApi(buildDiagnosePrompt(code, errorMessage, language), null));
         } catch (Exception e) {
             log.error("错误诊断失败", e);
             return ResultUtil.error("错误诊断失败：" + e.getMessage());
@@ -320,9 +350,7 @@ public class AiServiceImpl implements AiService {
     @Override
     public ResultUtil suggestOptimization(String code, String language) {
         try {
-            String prompt = buildOptimizationPrompt(code, language);
-            String response = callAiApi(prompt, null);
-            return ResultUtil.success(response);
+            return ResultUtil.success(callAiApi(buildOptimizationPrompt(code, language), null));
         } catch (Exception e) {
             log.error("优化建议失败", e);
             return ResultUtil.error("优化建议失败：" + e.getMessage());
@@ -337,83 +365,188 @@ public class AiServiceImpl implements AiService {
             for (UserKnowledgeMastery mastery : weakPoints) {
                 KnowledgePoint point = knowledgeMasteryMapper.selectKnowledgePointById(mastery.getKnowledgeId());
                 if (point != null) {
-                    weakPointsStr.append(point.getName()).append(" (掌握度: " + mastery.getScore() + "%), ");
+                    weakPointsStr.append(point.getName()).append("，掌握度 ").append(mastery.getScore()).append("%；");
                 }
             }
-            
-            String prompt = "基于用户的薄弱知识点：" + weakPointsStr.toString() + "，请提供个性化的学习建议，包括推荐学习资源、练习方法和学习路径。";
-            String response = callAiApi(prompt, null);
-            return ResultUtil.success(response);
+
+            String requestPrompt = "基于用户当前薄弱知识点：" + weakPointsStr + "，请给出个性化学习建议，包括复习顺序、练习方法和下一步目标。";
+            return ResultUtil.success(callAiApi(requestPrompt, null));
         } catch (Exception e) {
             log.error("学习建议失败", e);
             return ResultUtil.error("学习建议失败：" + e.getMessage());
         }
     }
 
-    private String buildExplainPrompt(String code, String language) {
-        return String.format(
-            "请详细解释以下%s代码的逻辑和算法思路:\n\n```%s\n%s\n```\n\n" +
-            "请从以下几个方面进行解释:\n" +
-            "1. 代码整体思路\n" +
-            "2. 关键算法和数据结构\n" +
-            "3. 时间复杂度和空间复杂度分析\n" +
-            "4. 代码优化建议",
-            language, language.toLowerCase(), code
-        );
+    private String callAiApi(String question, String code) {
+        List<JSONObject> messages = new ArrayList<>();
+        addSystemMessage(messages);
+
+        JSONObject userMessage = new JSONObject();
+        userMessage.put("role", "user");
+        userMessage.put("content", appendCode(question, code));
+        messages.add(userMessage);
+
+        return callChatApi(messages);
     }
 
-    private String buildDiagnosePrompt(String code, String errorMessage, String language) {
-        return String.format(
-            "以下%s代码运行时出现错误:\n\n```%s\n%s\n```\n\n" +
-            "错误信息:\n%s\n\n" +
-            "请分析错误原因并提供修复方案",
-            language, language.toLowerCase(), code, errorMessage
-        );
+    private void sendStreamEvent(SseEmitter emitter, String eventName, Map<String, Object> data) {
+        try {
+            emitter.send(SseEmitter.event().name(eventName).data(data));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to send stream event", e);
+        }
     }
 
-    private String buildOptimizationPrompt(String code, String language) {
-        return String.format(
-            "请优化以下%s代码，从性能、可读性、安全性等方面提供改进建议:\n\n```%s\n%s\n```\n\n" +
-            "请提供具体的优化方案和优化后的代码",
-            language, language.toLowerCase(), code
-        );
+    private void emitFallbackText(SseEmitter emitter, String response) {
+        for (String chunk : splitForStreaming(response)) {
+            sendStreamEvent(emitter, "delta", Map.of("text", chunk));
+        }
     }
 
     private String callChatApi(List<JSONObject> messages) {
         try {
-            JSONObject requestBody = new JSONObject();
-            requestBody.put("model", "qwen-turbo");
-            requestBody.put("messages", messages);
-            requestBody.put("temperature", 0.7);
-
-            Request request = new Request.Builder()
-                    .url(apiUrl + "/chat/completions")
-                    .addHeader("Authorization", "Bearer " + apiKey)
-                    .addHeader("Content-Type", "application/json")
-                    .post(RequestBody.create(requestBody.toJSONString(), MediaType.parse("application/json")))
-                    .build();
-
-            try (Response response = client.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    log.error("AI API调用失败，状态码: {}, 响应: {}", response.code(), response.body().string());
-                    throw new RuntimeException("AI API调用失败: " + response.code());
-                }
-
-                String responseBody = response.body().string();
-                log.info("AI API响应: {}", responseBody);
-
-                JSONObject jsonResponse = JSON.parseObject(responseBody);
-                String answer = jsonResponse.getJSONArray("choices")
-                        .getJSONObject(0)
-                        .getJSONObject("message")
-                        .getString("content");
-
-                return answer;
+            String answer = llmClient().chat(currentLlmConfig(), messages, 0.7);
+            if (answer == null || answer.isBlank()) {
+                return buildLocalFallbackAnswer(extractLastUserMessage(messages), null);
             }
+            return answer;
         } catch (Exception e) {
-            log.error("调用AI API异常", e);
-            throw new RuntimeException("调用AI API异常: " + e.getMessage());
+            log.warn("AI LLM 调用失败，使用本地兜底。provider={}, model={}, error={}",
+                    aiProvider, aiModel, e.getMessage());
+            return buildLocalFallbackAnswer(extractLastUserMessage(messages), null);
         }
+    }
+
+    private AiLlmClient llmClient() {
+        return aiLlmClient == null ? new AiLlmClient() : aiLlmClient;
+    }
+
+    private AiLlmConfig currentLlmConfig() {
+        return new AiLlmConfig(aiProvider, aiModel, ollamaUrl, apiUrl, apiKey);
+    }
+
+    private void addSystemMessage(List<JSONObject> messages) {
+        JSONObject system = new JSONObject();
+        system.put("role", "system");
+        system.put("content", prompt);
+        messages.add(system);
+    }
+
+    private String appendCode(String content, String code) {
+        String fullContent = content == null ? "" : content;
+        if (code != null && !code.isBlank()) {
+            fullContent += "\n\n代码：\n" + code;
+        }
+        return fullContent;
+    }
+
+    private void persistChatMessages(String sessionId, String fullContent, String response) {
+        AiMessage userMsgRecord = new AiMessage();
+        userMsgRecord.setSessionId(sessionId);
+        userMsgRecord.setRole("user");
+        userMsgRecord.setContent(fullContent);
+        userMsgRecord.setMessageKind("chat");
+        userMsgRecord.setCreateTime(LocalDateTime.now());
+        aiSessionMapper.insertMessage(userMsgRecord);
+
+        AiMessage assistantMsgRecord = new AiMessage();
+        assistantMsgRecord.setSessionId(sessionId);
+        assistantMsgRecord.setRole("assistant");
+        assistantMsgRecord.setContent(response);
+        assistantMsgRecord.setMessageKind("chat");
+        assistantMsgRecord.setCreateTime(LocalDateTime.now());
+        aiSessionMapper.insertMessage(assistantMsgRecord);
+    }
+
+    private String extractLastUserMessage(List<JSONObject> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return "";
+        }
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            JSONObject message = messages.get(i);
+            if ("user".equals(message.getString("role"))) {
+                return message.getString("content");
+            }
+        }
+        return "";
+    }
+
+    private String buildLocalFallbackAnswer(String question, String code) {
+        StringBuilder answer = new StringBuilder();
+        answer.append("AI 服务暂时不可用，当前使用本地兜底建议。");
+        answer.append("建议先把问题拆成输入、状态变化、输出三步来检查。");
+        if (question != null && !question.isBlank()) {
+            answer.append("针对你的问题：").append(question).append("，先确认边界条件，再用一个最小样例手动走一遍。");
+        }
+        if (code != null && !code.isBlank()) {
+            answer.append("针对当前代码，优先检查循环终止条件、变量更新顺序和输出格式。");
+        }
+        answer.append("如果需要真实模型回答，请确认 Ollama 已启动且模型可用。");
+        return answer.toString();
+    }
+
+    private String buildExplainPrompt(String code, String language) {
+        return String.format("""
+                请详细解释以下 %s 代码的逻辑和算法思路：
+
+                ```%s
+                %s
+                ```
+
+                请从代码整体思路、关键算法和数据结构、时间复杂度、空间复杂度、可改进点五个方面说明。
+                """, language, safeLanguage(language), code);
+    }
+
+    private String buildDiagnosePrompt(String code, String errorMessage, String language) {
+        return String.format("""
+                以下 %s 代码运行时出现错误：
+
+                ```%s
+                %s
+                ```
+
+                错误信息：
+                %s
+
+                请分析错误原因，并给出可执行的修复步骤。
+                """, language, safeLanguage(language), code, errorMessage);
+    }
+
+    private String buildOptimizationPrompt(String code, String language) {
+        return String.format("""
+                请优化以下 %s 代码，从性能、可读性、安全性和边界处理方面给出改进建议：
+
+                ```%s
+                %s
+                ```
+
+                请说明为什么这样优化，并给出必要的代码片段。
+                """, language, safeLanguage(language), code);
+    }
+
+    private List<String> splitForStreaming(String response) {
+        if (response == null || response.isBlank()) {
+            return List.of("");
+        }
+        String[] parts = response.split("(?<=[。！？.!?])");
+        List<String> chunks = new ArrayList<>();
+        for (String part : parts) {
+            if (!part.isBlank()) {
+                chunks.add(part);
+            }
+        }
+        return chunks.isEmpty() ? List.of(response) : chunks;
+    }
+
+    private String safeLanguage(String language) {
+        return language == null || language.isBlank() ? "text" : language.toLowerCase();
+    }
+
+    private String buildTopic(String content) {
+        if (content == null || content.isBlank()) {
+            return "AI 答疑";
+        }
+        return content.length() > 30 ? content.substring(0, 30) + "..." : content;
     }
 
     private AiSession requireOwnedSessionById(Long userId, Long id) {
@@ -431,10 +564,4 @@ public class AiServiceImpl implements AiService {
         }
         return session;
     }
-
-    @Autowired
-    private KnowledgeMasteryMapper knowledgeMasteryMapper;
-
-    @Autowired
-    private AiSessionMapper aiSessionMapper;
 }

@@ -8,14 +8,15 @@
 }
 
 .el-button--primary {
-  background: var(--gradient-brand);
-  border: none;
+  background: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
   color: #FFFFFF;
 }
 
 .el-button--primary:hover {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-md);
+  background: var(--brand-primary-hover);
+  border-color: var(--brand-primary-hover);
+  box-shadow: none;
 }
 
 .el-button--success {
@@ -26,8 +27,7 @@
 
 .el-button--success:hover {
   background: var(--success-hover);
-  transform: scale(1.02);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .el-button--danger {
@@ -38,8 +38,7 @@
 
 .el-button--danger:hover {
   background: var(--error-hover);
-  transform: scale(1.02);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .el-button--warning {
@@ -50,8 +49,7 @@
 
 .el-button--warning:hover {
   background: var(--warning-hover);
-  transform: scale(1.02);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 /* 输入框样式 */
@@ -97,8 +95,7 @@
 }
 
 .el-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
 }
 
 .el-card__header {
@@ -129,9 +126,9 @@
 
 /* 标签样式 */
 .el-tag {
-  border-radius: 20px;
+  border-radius: 6px;
   font-weight: 500;
-  padding: 4px 12px;
+  padding: 3px 8px;
 }
 
 .el-tag--success {

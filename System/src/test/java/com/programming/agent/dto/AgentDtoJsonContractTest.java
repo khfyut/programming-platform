@@ -79,6 +79,35 @@ class AgentDtoJsonContractTest {
     }
 
     @Test
+    void serializesDecisionKernelV2ContextFields() {
+        AgentContextDTO context = new AgentContextDTO();
+        context.setRequestId("req-v2");
+        context.setScene("problem_coach");
+        context.setActionHint("hint");
+        context.setConversationHistory(List.of(Map.of("role", "user", "content", "why?", "kind", "chat")));
+        context.setReducedContext(Map.of(
+                "required_context", Map.of("latest_user_message", "why?"),
+                "selected_signals", List.of("USER_CODE_PRESENT"),
+                "dropped_signals", List.of("CODE_OMITTED_NOT_DEBUG_REQUEST")
+        ));
+        context.setFailureEvidenceLevel("WEAK");
+        context.setFailureSignals(Map.of("weak_attempt_signals", List.of("USER_CODE_PRESENT")));
+        context.setViolation(Map.of("blocked_action", "REVEAL_ANSWER"));
+        context.setIntentHypothesis(Map.of("normalized_intent", "ASK_FOR_HINT", "confidence", 0.72));
+
+        String json = JSON.toJSONString(context);
+
+        assertTrue(json.contains("\"scene\":\"problem_coach\""));
+        assertTrue(json.contains("\"action_hint\":\"hint\""));
+        assertTrue(json.contains("\"conversation_history\""));
+        assertTrue(json.contains("\"reduced_context\""));
+        assertTrue(json.contains("\"failure_evidence_level\":\"WEAK\""));
+        assertTrue(json.contains("\"failure_signals\""));
+        assertTrue(json.contains("\"violation\""));
+        assertTrue(json.contains("\"intent_hypothesis\""));
+    }
+
+    @Test
     void parsesAgentDecisionFromPythonSnakeCaseFieldNames() {
         String response = """
                 {
@@ -141,6 +170,52 @@ class AgentDtoJsonContractTest {
     }
 
     @Test
+    void parsesDecisionKernelV2FieldsFromPythonResponse() {
+        String response = """
+                {
+                  "response_id": "req-v2",
+                  "action_type": "HINT",
+                  "content_type": "hint",
+                  "main_response": "start from the smallest failing case",
+                  "next_suggestion": "try one boundary input",
+                  "user_intent": "ask_hint",
+                  "teaching_goal": "narrow_scope",
+                  "requested_scope": "hint_only",
+                  "answer_scope": "hint_only",
+                  "risk_level": "low",
+                  "confidence": 0.73,
+                  "used_tool_signals": ["USER_CODE_PRESENT"],
+                  "content_plan": {"steps": ["locate failure", "ask for counterexample"]},
+                  "quality_flags": ["concise"],
+                  "normalized_intent": "ASK_FOR_HINT",
+                  "intent_confidence": 0.81,
+                  "intent_reason": "user requested a hint",
+                  "clarification_question": null,
+                  "answered_user_question": true,
+                  "alignment_reason": "directly answers the hint request",
+                  "decision_stage": "final"
+                }
+                """;
+
+        AgentDecisionDTO decision = JSON.parseObject(response, AgentDecisionDTO.class);
+
+        assertEquals("ask_hint", decision.getUserIntent());
+        assertEquals("narrow_scope", decision.getTeachingGoal());
+        assertEquals("hint_only", decision.getRequestedScope());
+        assertEquals("hint_only", decision.getAnswerScope());
+        assertEquals("low", decision.getRiskLevel());
+        assertEquals(List.of("USER_CODE_PRESENT"), decision.getUsedToolSignals());
+        assertEquals(List.of("concise"), decision.getQualityFlags());
+        assertEquals("ASK_FOR_HINT", decision.getNormalizedIntent());
+        assertEquals(0.81, decision.getIntentConfidence(), 0.0001);
+        assertEquals("user requested a hint", decision.getIntentReason());
+        assertEquals(true, decision.getAnsweredUserQuestion());
+        assertEquals("directly answers the hint request", decision.getAlignmentReason());
+        assertEquals("final", decision.getDecisionStage());
+        assertEquals(List.of("locate failure", "ask for counterexample"), decision.getContentPlan().get("steps"));
+    }
+
+    @Test
     void serializesAgentFeedbackScopeWithSnakeCaseFieldNames() throws Exception {
         AgentFeedbackRequestDTO request = new AgentFeedbackRequestDTO();
         request.setRequestId("req-path");
@@ -168,5 +243,43 @@ class AgentDtoJsonContractTest {
         assertEquals(5L, parsed.getEntryRefId());
         assertEquals(4L, parsed.getPathId());
         assertEquals(5L, parsed.getLevelId());
+    }
+
+    @Test
+    void serializesGlobalCoachChatDtosWithSnakeCaseFields() throws Exception {
+        AgentCoachChatRequestDTO request = new AgentCoachChatRequestDTO();
+        request.setSessionId("coach-session");
+        request.setMessage("这个系统怎么用");
+        request.setCurrentRoute("/problems");
+        request.setPageType("PROBLEM_LIST");
+        request.setProblemId(12L);
+        request.setMetadata(Map.of("source", "floating"));
+
+        ObjectMapper mapper = new ObjectMapper();
+        String json = mapper.writeValueAsString(request);
+
+        assertTrue(json.contains("\"session_id\""));
+        assertTrue(json.contains("\"current_route\""));
+        assertTrue(json.contains("\"page_type\""));
+        assertTrue(json.contains("\"problem_id\""));
+        assertFalse(json.contains("\"sessionId\""));
+
+        AgentCoachActionDTO action = new AgentCoachActionDTO();
+        action.setType("route");
+        action.setLabel("学习中心");
+        action.setRoute("/learn");
+
+        AgentCoachChatResponseDTO response = new AgentCoachChatResponseDTO();
+        response.setSessionId("coach-session");
+        response.setReply("建议先去 学习中心。");
+        response.setScene("global_guide");
+        response.setSource("AGENT_SERVICE");
+        response.setFallback(false);
+        response.setActions(List.of(action));
+
+        String responseJson = mapper.writeValueAsString(response);
+        assertTrue(responseJson.contains("\"session_id\""));
+        assertTrue(responseJson.contains("\"actions\""));
+        assertTrue(responseJson.contains("\"fallback\":false"));
     }
 }

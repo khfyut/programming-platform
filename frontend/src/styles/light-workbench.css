@@ -1,0 +1,834 @@
+/* Lightweight workbench unification layer.
+   Keeps the problem-list page as the visual baseline while reducing dashboard-card chrome. */
+
+:root {
+  --workbench-bg: #f7f8fa;
+  --workbench-surface: #ffffff;
+  --workbench-surface-muted: #f9fafb;
+  --workbench-line: #e5e7eb;
+  --workbench-line-soft: #f1f5f9;
+  --workbench-text: #1f2937;
+  --workbench-text-muted: #6b7280;
+  --workbench-accent: #2563eb;
+  --workbench-success: #10b981;
+  --workbench-warning: #f59e0b;
+  --workbench-danger: #ef4444;
+}
+
+/* Global chrome */
+.el-button,
+.el-input__wrapper,
+.el-select .el-input__wrapper,
+.el-dialog,
+.el-card,
+.el-tag {
+  border-radius: 8px;
+}
+
+.el-button:hover {
+  transform: none;
+}
+
+/* Shared page baselines */
+.learning-plan-page,
+.wrong-book-page,
+.leetcode-submissions,
+.profile-workspace,
+.user-profile-page {
+  background: linear-gradient(180deg, #fafbfc 0%, var(--workbench-bg) 100%);
+}
+
+.learning-plan-page,
+.wrong-book-page,
+.leetcode-submissions {
+  padding: 24px 32px;
+}
+
+.learn-container,
+.wrong-book-container,
+.submissions-container {
+  max-width: 1200px;
+}
+
+.learning-plan-page .page-title,
+.wrong-book-page .page-title,
+.leetcode-submissions .page-title {
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.learning-plan-page .page-subtitle,
+.wrong-book-page .page-subtitle,
+.leetcode-submissions .page-subtitle {
+  color: var(--workbench-text-muted);
+}
+
+/* Learn center */
+.learning-plan-page .page-shell {
+  align-items: flex-start;
+  gap: 0;
+  margin-bottom: 16px;
+  padding: 0 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--workbench-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.learning-plan-page .shell-accent {
+  display: none;
+}
+
+.learning-plan-page .shell-kicker,
+.profile-workspace .section-kicker,
+.analysis-page .section-kicker,
+.submissions-page .section-kicker {
+  color: var(--workbench-text-muted);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.learning-plan-page .page-header {
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.learning-plan-page .section-container {
+  margin-bottom: 22px;
+}
+
+.learning-plan-page .section-title {
+  font-size: 17px;
+}
+
+.learning-plan-page .progress-cards,
+.learning-plan-page .featured-grid,
+.learning-plan-page .paths-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  background: var(--workbench-surface);
+  overflow: hidden;
+}
+
+.learning-plan-page .progress-card,
+.learning-plan-page .featured-card,
+.learning-plan-page .path-card {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  min-height: 74px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid var(--workbench-line-soft);
+  border-radius: 0;
+  background: var(--workbench-surface) !important;
+  color: var(--workbench-text);
+  box-shadow: none;
+  transform: none;
+}
+
+.learning-plan-page .progress-card:last-child,
+.learning-plan-page .featured-card:last-child,
+.learning-plan-page .path-card:last-child {
+  border-bottom: 0;
+}
+
+.learning-plan-page .progress-card:hover,
+.learning-plan-page .featured-card:hover,
+.learning-plan-page .path-card:hover {
+  border-color: var(--workbench-line-soft);
+  background: var(--workbench-surface-muted) !important;
+  box-shadow: none;
+  transform: none;
+}
+
+.learning-plan-page .progress-icon,
+.learning-plan-page .path-icon-wrapper,
+.learning-plan-page .featured-icon {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  border-radius: 8px;
+  opacity: 1;
+}
+
+.learning-plan-page .featured-icon {
+  grid-row: 1;
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--workbench-accent);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.learning-plan-page .featured-content,
+.learning-plan-page .path-content {
+  min-width: 0;
+}
+
+.learning-plan-page .featured-content {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.learning-plan-page .featured-name,
+.learning-plan-page .path-name,
+.learning-plan-page .progress-name {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--workbench-text);
+}
+
+.learning-plan-page .featured-desc,
+.learning-plan-page .path-description {
+  margin: 0;
+  color: var(--workbench-text-muted);
+  opacity: 1;
+}
+
+.learning-plan-page .path-language-tag,
+.learning-plan-page .path-direction-tag {
+  border-radius: 6px;
+}
+
+.learning-plan-page .section-header-with-filter {
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  background: var(--workbench-surface);
+}
+
+.learning-plan-page .featured-empty,
+.learning-plan-page .empty-state {
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  background: var(--workbench-surface);
+}
+
+/* Wrong book */
+.wrong-book-page .stats-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-bottom: 18px;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  background: var(--workbench-surface);
+  overflow: hidden;
+}
+
+.wrong-book-page .stat-card {
+  flex: 1 1 180px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px 16px;
+  border: 0;
+  border-right: 1px solid var(--workbench-line-soft);
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.wrong-book-page .stat-card:last-child {
+  border-right: 0;
+}
+
+.wrong-book-page .stat-card:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.wrong-book-page .stat-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 18px;
+}
+
+.wrong-book-page .stat-value {
+  font-size: 20px;
+}
+
+.wrong-book-page .content-layout {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+}
+
+.wrong-book-page .main-content,
+.wrong-book-page .distribution-card {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.wrong-book-page .filter-section {
+  padding: 14px 16px;
+  background: var(--workbench-surface);
+}
+
+.wrong-book-page .wrong-item {
+  padding: 14px 16px;
+}
+
+.wrong-book-page .wrong-item:hover {
+  background: var(--workbench-surface-muted);
+}
+
+.wrong-book-page .wrong-status {
+  border-radius: 6px;
+}
+
+.wrong-book-page .side-content {
+  gap: 14px;
+}
+
+.wrong-book-page .distribution-card {
+  padding: 16px;
+}
+
+.wrong-book-page .problem-info,
+.wrong-book-page .agent-card,
+.wrong-book-page .code-block,
+.wrong-book-page .plan-item {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.wrong-book-page .agent-meta span,
+.wrong-book-page .agent-tags span {
+  border-radius: 6px;
+}
+
+/* Global submissions page */
+.leetcode-submissions .submissions-container {
+  border-radius: 8px;
+  box-shadow: none;
+  animation: none;
+}
+
+.leetcode-submissions .page-header,
+.leetcode-submissions .filter-section,
+.leetcode-submissions .pagination-section {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.leetcode-submissions .submission-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 16px;
+  padding: 14px 20px;
+  animation: none;
+}
+
+.leetcode-submissions .submission-card:hover {
+  background: var(--workbench-surface-muted);
+  transform: none;
+}
+
+.leetcode-submissions .submission-meta {
+  gap: 6px;
+}
+
+.leetcode-submissions .tag-badge,
+.leetcode-submissions .result-badge,
+.leetcode-submissions .difficulty-badge,
+.leetcode-submissions .language-badge,
+.leetcode-submissions .time-badge,
+.leetcode-submissions .memory-badge,
+.leetcode-submissions .detail-tag-badge {
+  border-radius: 6px;
+}
+
+.leetcode-submissions .detail-dialog,
+.leetcode-submissions .code-display,
+.leetcode-submissions .error-display {
+  border-radius: 8px;
+}
+
+/* Profile shell and overview */
+.profile-workspace {
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.profile-workspace .profile-sidebar,
+.profile-workspace .profile-main,
+.profile-workspace .hero-card,
+.profile-workspace .stat-card,
+.profile-workspace .panel-card,
+.profile-workspace .summary-card,
+.profile-workspace .agent-summary-block,
+.profile-workspace .weak-item,
+.profile-workspace .mastery-item,
+.profile-workspace .difficulty-item,
+.profile-workspace .submission-item,
+.profile-workspace .empty-box,
+.profile-workspace .summary-pill,
+.user-profile-page .card,
+.user-profile-page .block {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.profile-workspace .profile-sidebar,
+.profile-workspace .profile-main {
+  border-color: var(--workbench-line);
+  background: var(--workbench-surface);
+}
+
+.profile-workspace .profile-sidebar {
+  gap: 16px;
+  padding: 18px;
+  background: var(--workbench-surface);
+}
+
+.profile-workspace .profile-card,
+.profile-workspace .current-path-card,
+.profile-workspace .weak-panel,
+.profile-workspace .mastery-panel,
+.profile-workspace .summary-card,
+.profile-workspace .panel-card {
+  background: var(--workbench-surface);
+}
+
+.profile-workspace .profile-sidebar::before {
+  display: none;
+}
+
+.profile-workspace .sidebar-status,
+.profile-workspace .footer-shortcut {
+  border-radius: 8px;
+  background: var(--workbench-surface-muted);
+}
+
+.profile-workspace .nav-item {
+  border-radius: 8px;
+}
+
+.profile-workspace .nav-item:hover,
+.profile-workspace .nav-item.active {
+  transform: none;
+  background: var(--workbench-surface-muted);
+  box-shadow: none;
+}
+
+.profile-workspace .nav-item.active::before {
+  border-radius: 4px;
+  background: var(--workbench-accent);
+}
+
+.profile-workspace .profile-main {
+  padding: 20px;
+}
+
+.profile-workspace .hero-grid,
+.profile-workspace .dashboard-grid,
+.profile-workspace .analysis-grid {
+  gap: 16px;
+}
+
+.profile-workspace .hero-card,
+.profile-workspace .panel-card {
+  padding: 18px;
+}
+
+.profile-workspace .current-path-card {
+  border-color: var(--workbench-line);
+  color: var(--workbench-text);
+}
+
+.profile-workspace .avatar-shell .el-avatar {
+  box-shadow: none;
+}
+
+.profile-workspace .meta-pill,
+.profile-workspace .path-meta span,
+.profile-workspace .agent-tag-list span,
+.profile-workspace .weak-rank,
+.user-profile-page .pill {
+  border-radius: 6px;
+}
+
+.profile-workspace .stats-grid,
+.analysis-page .summary-grid {
+  gap: 0;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  background: var(--workbench-surface);
+  overflow: hidden;
+}
+
+.profile-workspace .stat-card,
+.analysis-page .summary-card {
+  border: 0;
+  border-right: 1px solid var(--workbench-line-soft);
+  border-radius: 0;
+  background: var(--workbench-surface);
+}
+
+.profile-workspace .stat-card:last-child,
+.analysis-page .summary-card:last-child {
+  border-right: 0;
+}
+
+.profile-workspace .stat-value,
+.analysis-page .summary-value {
+  font-size: 26px;
+  text-shadow: none;
+}
+
+.profile-workspace .stat-accent {
+  border-radius: 4px;
+  background: var(--workbench-accent);
+}
+
+.profile-workspace .action-item,
+.profile-workspace .submission-item,
+.analysis-page .weak-item,
+.analysis-page .mastery-item,
+.analysis-page .difficulty-item {
+  background: var(--workbench-surface);
+}
+
+.profile-workspace .action-item:first-child {
+  background: #eff6ff;
+}
+
+.profile-workspace .action-item:hover,
+.profile-workspace .submission-item:hover,
+.analysis-page .weak-item:hover,
+.analysis-page .mastery-item:hover,
+.analysis-page .difficulty-item:hover {
+  background: var(--workbench-surface-muted);
+  transform: none;
+}
+
+/* Standalone user profile route */
+.user-profile-page {
+  max-width: 1200px;
+}
+
+.user-profile-page .card {
+  border-color: var(--workbench-line);
+  background: var(--workbench-surface);
+}
+
+.user-profile-page .profile-card {
+  padding: 18px 0 20px;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.user-profile-page .stats-grid {
+  gap: 0;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  background: var(--workbench-surface);
+  overflow: hidden;
+}
+
+.user-profile-page .stat-card {
+  border: 0;
+  border-right: 1px solid var(--workbench-line-soft);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.user-profile-page .content-grid {
+  gap: 16px;
+}
+
+.user-profile-page .section-card {
+  padding: 18px;
+}
+
+.user-profile-page .block {
+  border-color: var(--workbench-line-soft);
+  background: var(--workbench-surface);
+}
+
+.user-profile-page .block:hover {
+  background: var(--workbench-surface-muted);
+}
+
+/* Profile submissions */
+.submissions-page .panel-card {
+  border-radius: 8px;
+  box-shadow: none;
+  background: var(--workbench-surface);
+}
+
+.submissions-page .summary-strip {
+  gap: 0;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.submissions-page .summary-pill {
+  flex: 1 1 150px;
+  justify-content: space-between;
+  border: 0;
+  border-right: 1px solid var(--workbench-line-soft);
+  border-radius: 0;
+  background: var(--workbench-surface);
+}
+
+.submissions-page .summary-pill:last-child {
+  border-right: 0;
+}
+
+.submissions-page .submission-list {
+  gap: 0;
+  border: 1px solid var(--workbench-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.submissions-page .submission-item {
+  border: 0;
+  border-bottom: 1px solid var(--workbench-line-soft);
+  border-radius: 0;
+  background: var(--workbench-surface);
+}
+
+.submissions-page .submission-item:last-child {
+  border-bottom: 0;
+}
+
+.submissions-page .submission-item:hover {
+  background: var(--workbench-surface-muted);
+  transform: none;
+}
+
+@media (max-width: 1200px) {
+  .wrong-book-page .content-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .wrong-book-page .side-content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .learning-plan-page,
+  .wrong-book-page,
+  .leetcode-submissions {
+    padding: 16px;
+  }
+
+  .learning-plan-page .progress-card,
+  .learning-plan-page .featured-card,
+  .learning-plan-page .path-card,
+  .leetcode-submissions .submission-card {
+    grid-template-columns: 1fr;
+  }
+
+  .learning-plan-page .progress-icon,
+  .learning-plan-page .path-icon-wrapper,
+  .learning-plan-page .featured-icon {
+    display: none;
+  }
+
+  .wrong-book-page .stats-overview,
+  .profile-workspace .stats-grid,
+  .analysis-page .summary-grid,
+  .submissions-page .summary-strip {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .wrong-book-page .stat-card,
+  .profile-workspace .stat-card,
+  .analysis-page .summary-card,
+  .submissions-page .summary-pill,
+  .user-profile-page .stat-card {
+    border-right: 0;
+    border-bottom: 1px solid var(--workbench-line-soft);
+  }
+
+  .wrong-book-page .stat-card:last-child,
+  .profile-workspace .stat-card:last-child,
+  .analysis-page .summary-card:last-child,
+  .submissions-page .summary-pill:last-child,
+  .user-profile-page .stat-card:last-child {
+    border-bottom: 0;
+  }
+
+  .profile-workspace {
+    gap: 16px;
+  }
+}
+
+/* Route-level priority overrides. Async route CSS can load after app CSS, so keep the
+   core visual reset above scoped component rules without changing component data flow. */
+#app .learning-plan-page .page-shell {
+  padding: 0 0 14px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--workbench-line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+#app .learning-plan-page .shell-accent {
+  display: none !important;
+}
+
+#app .learning-plan-page .progress-cards,
+#app .learning-plan-page .featured-grid,
+#app .learning-plan-page .paths-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  border: 1px solid var(--workbench-line) !important;
+  border-radius: 8px !important;
+  background: var(--workbench-surface) !important;
+  overflow: hidden !important;
+}
+
+#app .learning-plan-page .progress-card,
+#app .learning-plan-page .featured-card,
+#app .learning-plan-page .path-card {
+  display: grid !important;
+  grid-template-columns: 48px minmax(0, 1fr) !important;
+  min-height: 74px !important;
+  padding: 14px 18px !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--workbench-line-soft) !important;
+  border-radius: 0 !important;
+  background: var(--workbench-surface) !important;
+  color: var(--workbench-text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .learning-plan-page .progress-card:hover,
+#app .learning-plan-page .featured-card:hover,
+#app .learning-plan-page .path-card:hover {
+  background: var(--workbench-surface-muted) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .wrong-book-page .stats-overview {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0 !important;
+  border: 1px solid var(--workbench-line) !important;
+  border-radius: 8px !important;
+  background: var(--workbench-surface) !important;
+  overflow: hidden !important;
+}
+
+#app .wrong-book-page .stat-card {
+  flex: 1 1 180px !important;
+  min-height: 58px !important;
+  padding: 12px 16px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--workbench-line-soft) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .wrong-book-page .main-content,
+#app .wrong-book-page .distribution-card,
+#app .leetcode-submissions .submissions-container,
+#app .submissions-page .panel-card,
+#app .profile-workspace .profile-sidebar,
+#app .profile-workspace .profile-main,
+#app .profile-workspace .hero-card,
+#app .profile-workspace .panel-card,
+#app .profile-workspace .stat-card,
+#app .profile-workspace .summary-card,
+#app .analysis-page .summary-card,
+#app .analysis-page .panel-card,
+#app .user-profile-page .card,
+#app .user-profile-page .block {
+  border-radius: 8px !important;
+  background: var(--workbench-surface) !important;
+  box-shadow: none !important;
+}
+
+#app .leetcode-submissions .submission-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 160px !important;
+  padding: 14px 20px !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+#app .leetcode-submissions .submission-card:hover,
+#app .wrong-book-page .wrong-item:hover,
+#app .profile-workspace .action-item:hover,
+#app .profile-workspace .submission-item:hover,
+#app .analysis-page .weak-item:hover,
+#app .analysis-page .mastery-item:hover,
+#app .analysis-page .difficulty-item:hover,
+#app .submissions-page .submission-item:hover,
+#app .user-profile-page .block:hover {
+  background: var(--workbench-surface-muted) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#app .profile-workspace .profile-sidebar::before {
+  display: none !important;
+}
+
+#app .profile-workspace .stats-grid,
+#app .analysis-page .summary-grid,
+#app .user-profile-page .stats-grid,
+#app .submissions-page .summary-strip,
+#app .submissions-page .submission-list {
+  gap: 0 !important;
+  border: 1px solid var(--workbench-line) !important;
+  border-radius: 8px !important;
+  background: var(--workbench-surface) !important;
+  overflow: hidden !important;
+}
+
+#app .profile-workspace .stat-card,
+#app .analysis-page .summary-card,
+#app .user-profile-page .stat-card,
+#app .submissions-page .summary-pill,
+#app .submissions-page .submission-item {
+  border: 0 !important;
+  border-right: 1px solid var(--workbench-line-soft) !important;
+  border-radius: 0 !important;
+  background: var(--workbench-surface) !important;
+  box-shadow: none !important;
+}
+
+#app .submissions-page .submission-item {
+  border-right: 0 !important;
+  border-bottom: 1px solid var(--workbench-line-soft) !important;
+}
+
+#app .profile-workspace .stat-card:last-child,
+#app .analysis-page .summary-card:last-child,
+#app .user-profile-page .stat-card:last-child,
+#app .submissions-page .summary-pill:last-child {
+  border-right: 0 !important;
+}
+
+#app .submissions-page .submission-item:last-child {
+  border-bottom: 0 !important;
+}
+
+@media (max-width: 768px) {
+  #app .learning-plan-page .progress-card,
+  #app .learning-plan-page .featured-card,
+  #app .learning-plan-page .path-card,
+  #app .leetcode-submissions .submission-card {
+    grid-template-columns: 1fr !important;
+  }
+}

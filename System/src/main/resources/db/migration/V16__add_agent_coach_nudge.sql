@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS agent_coach_nudge (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    request_id VARCHAR(64) NOT NULL,
+    trigger_source VARCHAR(64) NOT NULL,
+    action_type VARCHAR(32) NOT NULL,
+    pedagogical_goal VARCHAR(64) NOT NULL,
+    title VARCHAR(128) NOT NULL,
+    summary VARCHAR(512) NOT NULL,
+    target_route VARCHAR(255),
+    priority INT NOT NULL DEFAULT 1,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    metadata_json TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NULL,
+    INDEX idx_agent_coach_user_status (user_id, status, expires_at),
+    INDEX idx_agent_coach_user_trigger (user_id, trigger_source, action_type, created_at),
+    UNIQUE KEY uk_agent_coach_request (request_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

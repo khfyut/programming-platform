@@ -43,6 +43,7 @@ public class ProblemController {
             @RequestParam(required = false) Integer difficulty,
             @RequestParam(required = false) String language,
             @RequestParam(required = false) String knowledge,
+            @RequestParam(required = false) Long categoryId,
             HttpServletRequest request) {
         try {
             Long userId = null;
@@ -54,7 +55,16 @@ public class ProblemController {
                 }
             }
 
-            return ResultUtil.success(problemService.getProblemList(page, size, difficulty, language, knowledge, userId));
+            return ResultUtil.success(problemService.getProblemList(page, size, difficulty, language, knowledge, categoryId, userId));
+        } catch (Exception e) {
+            return ResultUtil.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/categories")
+    public ResultUtil<List<Map<String, Object>>> getCategories() {
+        try {
+            return ResultUtil.success(problemService.getCategories());
         } catch (Exception e) {
             return ResultUtil.error(e.getMessage());
         }

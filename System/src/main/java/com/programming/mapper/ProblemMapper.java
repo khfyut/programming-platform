@@ -11,11 +11,11 @@ import java.util.Map;
 public interface ProblemMapper {
     List<Problem> findByPage(@Param("page") int page, @Param("size") int size, 
                               @Param("difficulty") Integer difficulty, @Param("language") String language,
-                              @Param("knowledge") String knowledge);
+                              @Param("knowledge") String knowledge, @Param("categoryId") Long categoryId);
     Problem findById(@Param("id") Long id);
     Problem findByTitle(@Param("title") String title);
     int count(@Param("difficulty") Integer difficulty, @Param("language") String language,
-              @Param("knowledge") String knowledge);
+              @Param("knowledge") String knowledge, @Param("categoryId") Long categoryId);
     int insert(Problem problem);
     int update(Problem problem);
     int updateLanguageById(@Param("id") Long id, @Param("language") String language);
@@ -25,4 +25,5 @@ public interface ProblemMapper {
     List<Problem> findByKnowledgePoint(@Param("knowledgePoint") String knowledgePoint, @Param("limit") int limit);
     List<Problem> selectAll();
     List<Map<String, Object>> getLanguageStats();
+    List<Map<String, Object>> getCategoryStats();
 }

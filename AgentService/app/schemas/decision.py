@@ -40,6 +40,21 @@ class AgentDecision(BaseModel):
     weak_points: list[str] = Field(default_factory=list)
     confidence: float = 0.65
     used_knowledge_refs: list[str] = Field(default_factory=list)
+    user_intent: str = "UNKNOWN"
+    teaching_goal: str = "clarify_next_step"
+    requested_scope: str = "concept_only"
+    answer_scope: str = "concept_only"
+    risk_level: str = "LOW"
+    used_tool_signals: list[str] = Field(default_factory=list)
+    content_plan: dict = Field(default_factory=dict)
+    quality_flags: list[str] = Field(default_factory=list)
+    normalized_intent: str = "UNKNOWN"
+    intent_confidence: float = 0.0
+    intent_reason: str = ""
+    clarification_question: Optional[str] = None
+    answered_user_question: bool = True
+    alignment_reason: str = ""
+    decision_stage: str = "final"
     content: str
     suggested_next_action: Optional[str] = None
     proposed_updates: list[ProposedStateUpdate] = Field(default_factory=list)

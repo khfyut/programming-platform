@@ -1,52 +1,49 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { getProblemList, getLanguages } from '@/api/problem'
-import { getKnowledgePointStats } from '@/api/knowledge'
+import { getProblemList, getLanguages, getProblemCategories } from '@/api/problem'
 
 const fallbackLanguageTypes = [
-  { value: 'algorithm', label: '算法', icon: 'Cpu', color: '#F59E0B' },
-  { value: 'database', label: '数据库', icon: 'DataLine', color: '#3B82F6' },
   { value: 'java', label: 'Java', icon: 'Document', color: '#EA2D2E' },
   { value: 'python', label: 'Python', icon: 'Coin', color: '#3776AB' }
 ]
 
-const fallbackKnowledgeTags = [
-  { name: '数组', count: 2306 },
-  { name: '字符串', count: 938 },
-  { name: '哈希表', count: 870 },
-  { name: '数学', count: 721 },
-  { name: '动态规划', count: 718 },
-  { name: '排序', count: 549 },
-  { name: '贪心', count: 467 },
-  { name: '深度优先搜索', count: 395 },
-  { name: '二分查找', count: 361 },
-  { name: '位运算', count: 310 }
+const fallbackProblemCategories = [
+  { id: 1, name: '基础语法', count: 0 },
+  { id: 2, name: '算法', count: 0 },
+  { id: 3, name: '数据结构', count: 0 },
+  { id: 4, name: '面向对象', count: 0 },
+  { id: 5, name: '网络编程', count: 0 },
+  { id: 6, name: '数据库', count: 0 },
+  { id: 7, name: '项目实战', count: 0 }
 ]
 
 export const useProblemStore = defineStore('problem', () => {
   const loading = ref(false)
   const problemList = ref([])
-  const knowledgeTags = ref([])
+  const problemCategories = ref([])
   const languageTypes = ref([])
-  const searchKeyword = ref('')
-  const selectedKnowledge = ref('')
+  const selectedCategoryId = ref('all')
   const selectedLang = ref('all')
   const solvedCount = ref(0)
-  const showAllKnowledge = ref(false)
+  const showAllCategories = ref(false)
   const sortMode = ref('default')
-  const knowledgeDisplayLimit = 12
+  const categoryDisplayLimit = 12
   const pagination = ref({
     page: 1,
     size: 20,
     total: 0
   })
 
-  const visibleKnowledgeTags = computed(() => {
-    if (showAllKnowledge.value) {
-      return knowledgeTags.value
+  const visibleProblemCategories = computed(() => {
+    if (showAllCategories.value) {
+      return problemCategories.value
     }
 
-    return knowledgeTags.value.slice(0, knowledgeDisplayLimit)
+    return problemCategories.value.slice(0, categoryDisplayLimit)
+  })
+
+  const allCategoryCount = computed(() => {
+    return problemCategories.value.reduce((sum, item) => sum + Number(item.count || 0), 0)
   })
 
   const sortLabel = computed(() => {
@@ -61,8 +58,7 @@ export const useProblemStore = defineStore('problem', () => {
 
   const hasActiveFilters = computed(() => {
     return Boolean(
-      searchKeyword.value.trim() ||
-      selectedKnowledge.value ||
+      selectedCategoryId.value !== 'all' ||
       selectedLang.value !== 'all'
     )
   })
@@ -77,6 +73,18 @@ export const useProblemStore = defineStore('problem', () => {
       label: item.label || item.name || item.value || item.language,
       icon: item.icon || 'Document',
       color: item.color || '#3B82F6'
+    }))
+  }
+
+  const normalizeProblemCategories = (items) => {
+    if (!Array.isArray(items) || items.length === 0) {
+      return fallbackProblemCategories
+    }
+
+    return items.map((item) => ({
+      id: String(item.id),
+      name: item.name || item.label || `分类 ${item.id}`,
+      count: Number(item.problemCount ?? item.count ?? 0)
     }))
   }
 
@@ -116,16 +124,12 @@ export const useProblemStore = defineStore('problem', () => {
         size: pagination.value.size
       }
 
-      if (searchKeyword.value.trim()) {
-        params.keyword = searchKeyword.value.trim()
-      }
-
       if (selectedLang.value !== 'all') {
         params.language = selectedLang.value
       }
 
-      if (selectedKnowledge.value.trim()) {
-        params.knowledge = selectedKnowledge.value.trim()
+      if (selectedCategoryId.value !== 'all') {
+        params.categoryId = selectedCategoryId.value
       }
 
       const res = await getProblemList(params)
@@ -147,23 +151,18 @@ export const useProblemStore = defineStore('problem', () => {
     }
   }
 
-  const fetchKnowledgeTags = async () => {
+  const fetchProblemCategories = async () => {
     try {
-      const res = await getKnowledgePointStats()
-      if (res.code === 200 && Array.isArray(res.data)) {
-        knowledgeTags.value = res.data
-          .filter((item) => item.problemCount > 0)
-          .map((item) => ({
-            name: item.name,
-            count: item.problemCount
-          }))
+      const res = await getProblemCategories()
+      if (res.code === 200) {
+        problemCategories.value = normalizeProblemCategories(res.data)
         return
       }
     } catch (error) {
-      console.error('获取知识点分类失败:', error)
+      console.error('获取题目分类失败:', error)
     }
 
-    knowledgeTags.value = fallbackKnowledgeTags
+    problemCategories.value = fallbackProblemCategories
   }
 
   const fetchLanguageTypes = async () => {
@@ -183,27 +182,26 @@ export const useProblemStore = defineStore('problem', () => {
   const initialize = async () => {
     await Promise.all([
       fetchProblems(),
-      fetchKnowledgeTags(),
+      fetchProblemCategories(),
       fetchLanguageTypes()
     ])
   }
 
-  const selectKnowledge = async (knowledge) => {
-    selectedKnowledge.value = selectedKnowledge.value === knowledge ? '' : knowledge
-    selectedLang.value = 'all'
+  const selectCategory = async (categoryId) => {
+    const nextCategoryId = categoryId == null ? 'all' : String(categoryId)
+    selectedCategoryId.value = selectedCategoryId.value === nextCategoryId ? 'all' : nextCategoryId
     pagination.value.page = 1
     await fetchProblems()
   }
 
   const selectLang = async (lang) => {
     selectedLang.value = lang
-    selectedKnowledge.value = ''
     pagination.value.page = 1
     await fetchProblems()
   }
 
-  const toggleKnowledgeExpand = () => {
-    showAllKnowledge.value = !showAllKnowledge.value
+  const toggleCategoryExpand = () => {
+    showAllCategories.value = !showAllCategories.value
   }
 
   const toggleSort = () => {
@@ -217,14 +215,8 @@ export const useProblemStore = defineStore('problem', () => {
     applySort()
   }
 
-  const handleSearch = async () => {
-    pagination.value.page = 1
-    await fetchProblems()
-  }
-
   const clearFilters = async () => {
-    searchKeyword.value = ''
-    selectedKnowledge.value = ''
+    selectedCategoryId.value = 'all'
     selectedLang.value = 'all'
     pagination.value.page = 1
     await fetchProblems()
@@ -237,25 +229,24 @@ export const useProblemStore = defineStore('problem', () => {
   return {
     loading,
     problemList,
-    knowledgeTags,
+    problemCategories,
     languageTypes,
-    searchKeyword,
-    selectedKnowledge,
+    selectedCategoryId,
     selectedLang,
     solvedCount,
-    showAllKnowledge,
+    showAllCategories,
     sortMode,
     pagination,
-    visibleKnowledgeTags,
+    visibleProblemCategories,
+    allCategoryCount,
     sortLabel,
     hasActiveFilters,
     initialize,
     fetchProblems,
-    selectKnowledge,
+    selectCategory,
     selectLang,
-    toggleKnowledgeExpand,
+    toggleCategoryExpand,
     toggleSort,
-    handleSearch,
     clearFilters,
     toggleFavorite
   }

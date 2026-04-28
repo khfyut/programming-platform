@@ -28,3 +28,7 @@ export const getAllTestCases = (id) => {
 export const getLanguages = () => {
   return request('/api/problem/languages')
 }
+
+export const getProblemCategories = () => {
+  return request('/api/problem/categories')
+}

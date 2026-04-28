@@ -9,7 +9,7 @@
         SELECT * FROM wrong_book WHERE user_id = #{userId}
     </select>
 
-    <insert id="insertWrongBook" parameterType="com.programming.entity.WrongBook">
+    <insert id="insertWrongBook" parameterType="com.programming.entity.WrongBook" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO wrong_book (user_id, create_time, update_time)
         VALUES (#{userId}, NOW(), NOW())
     </insert>
@@ -36,7 +36,7 @@
         WHERE wrong_book_id = #{wrongBookId} AND problem_id = #{problemId}
     </select>
 
-    <insert id="insertWrongBookItem" parameterType="com.programming.entity.WrongBookItem">
+    <insert id="insertWrongBookItem" parameterType="com.programming.entity.WrongBookItem" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO wrong_book_item (wrong_book_id, problem_id, submit_id, code, language, 
             error_message, knowledge_points, review_status, last_review_time, create_time, update_time)
         VALUES (#{wrongBookId}, #{problemId}, #{submitId}, #{code}, #{language}, 

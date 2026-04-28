@@ -11,6 +11,7 @@ import './styles/theme.css'
 import './styles/leetcode-theme.css'
 import './styles/element-plus-override.css'
 import './styles/enhanced-theme.css'
+import './styles/light-workbench.css'
 
 const app = createApp(App)
 const pinia = createPinia()

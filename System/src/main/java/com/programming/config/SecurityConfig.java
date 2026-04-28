@@ -1,6 +1,7 @@
 package com.programming.config;
 
 import com.programming.security.JwtAuthenticationFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,7 @@ public class SecurityConfig {
             "/api/problem/*/test-cases/sample",
             "/api/problem/tag/*",
             "/api/problem/languages",
+            "/api/problem/categories",
             "/api/admin/home/statistics"
     };
 
@@ -55,6 +57,7 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, accessDeniedException) ->
                                 writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "无权限访问")))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/community/posts",

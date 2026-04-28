@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { getSafeRedirectPath } from '@/utils/navigation'
 
 const routes = [
   {
@@ -127,6 +128,12 @@ const routes = [
         meta: { title: '错题本' }
       },
       {
+        path: 'wrong-book/:id',
+        name: 'WrongBookDetail',
+        component: () => import('@/views/WrongBookDetail.vue'),
+        meta: { title: '错题详情' }
+      },
+      {
         path: 'submissions',
         name: 'Submissions',
         component: () => import('@/views/Submissions.vue'),
@@ -165,7 +172,7 @@ const routes = [
       {
         path: 'profile',
         component: () => import('@/views/profile/Index.vue'),
-        meta: { title: '个人主页' },
+        meta: { title: '个人主页', hideResourceSidebar: true },
         children: [
           {
             path: '',
@@ -203,7 +210,7 @@ const routes = [
         path: 'profile/:userId',
         name: 'UserProfileById',
         component: () => import('@/views/UserProfile.vue'),
-        meta: { title: '用户主页' }
+        meta: { title: '用户主页', hideResourceSidebar: true }
       }
     ]
   }
@@ -217,6 +224,8 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const userStore = useUserStore()
   const token = userStore.token
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
+  const isAuthRoute = to.path === '/login' || to.path === '/register'
 
   if (token && !userStore.userInfo) {
     try {
@@ -226,16 +235,19 @@ router.beforeEach(async (to) => {
     }
   }
 
-  if (to.meta.requiresAuth && !token) {
-    return '/login'
+  if (requiresAuth && !token) {
+    return {
+      path: '/login',
+      query: { redirect: to.fullPath }
+    }
   }
 
   if (to.meta.requiresAdmin && Number(userStore.userInfo?.role) !== 1) {
     return '/'
   }
 
-  if ((to.path === '/login' || to.path === '/register') && token) {
-    return '/learn'
+  if (isAuthRoute && token) {
+    return getSafeRedirectPath(to.query.redirect)
   }
 
   return true

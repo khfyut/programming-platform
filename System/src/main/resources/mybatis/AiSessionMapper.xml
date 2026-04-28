@@ -10,6 +10,7 @@
         <result column="status" property="status"/>
         <result column="session_type" property="sessionType"/>
         <result column="related_problem_id" property="relatedProblemId"/>
+        <result column="related_wrong_item_id" property="relatedWrongItemId"/>
         <result column="last_submit_id" property="lastSubmitId"/>
         <result column="metadata_json" property="metadataJson"/>
         <result column="create_time" property="createTime"/>
@@ -60,6 +61,15 @@
         LIMIT 1
     </select>
 
+    <select id="selectLatestWrongBookReviewSession" resultMap="SessionResultMap">
+        SELECT * FROM ai_session
+        WHERE user_id = #{userId}
+          AND session_type = 'wrong_book_review'
+          AND related_wrong_item_id = #{wrongItemId}
+        ORDER BY update_time DESC, id DESC
+        LIMIT 1
+    </select>
+
     <insert id="insertSession" parameterType="com.programming.entity.AiSession" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO ai_session (
             session_id,
@@ -68,6 +78,7 @@
             status,
             session_type,
             related_problem_id,
+            related_wrong_item_id,
             last_submit_id,
             metadata_json,
             create_time,
@@ -80,6 +91,7 @@
             #{status},
             #{sessionType},
             #{relatedProblemId},
+            #{relatedWrongItemId},
             #{lastSubmitId},
             #{metadataJson},
             NOW(),
@@ -93,6 +105,7 @@
             status = #{status},
             session_type = #{sessionType},
             related_problem_id = #{relatedProblemId},
+            related_wrong_item_id = #{relatedWrongItemId},
             last_submit_id = #{lastSubmitId},
             metadata_json = #{metadataJson},
             update_time = NOW()

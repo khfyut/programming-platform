@@ -6,11 +6,11 @@
         INSERT INTO learning_event_log
         (user_id, problem_id, submit_id, trigger_source, user_intent, action_type, action_id,
          pedagogical_goal, content_type, strategy, decision_reason, content, request_id,
-         executed, blocked_reason, entry_ref_type, entry_ref_id, path_id, level_id, wrong_item_id, create_time)
+         executed, blocked_reason, policy_profile, entry_ref_type, entry_ref_id, path_id, level_id, wrong_item_id, create_time)
         VALUES
         (#{userId}, #{problemId}, #{submitId}, #{triggerSource}, #{userIntent}, #{actionType}, #{actionId},
          #{pedagogicalGoal}, #{contentType}, #{strategy}, #{decisionReason}, #{content}, #{requestId},
-         #{executed}, #{blockedReason}, #{entryRefType}, #{entryRefId}, #{pathId}, #{levelId}, #{wrongItemId}, #{createTime})
+         #{executed}, #{blockedReason}, #{policyProfile}, #{entryRefType}, #{entryRefId}, #{pathId}, #{levelId}, #{wrongItemId}, #{createTime})
     </insert>
 
     <select id="findByUserAndProblem" resultType="com.programming.entity.LearningEventLog">

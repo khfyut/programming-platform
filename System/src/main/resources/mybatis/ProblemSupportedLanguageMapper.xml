@@ -80,13 +80,13 @@
     <select id="getLanguageStats" resultType="java.util.Map">
         SELECT language, COUNT(*) AS problemCount
         FROM (
-            SELECT LOWER(psl.language_code) AS language, psl.problem_id
+            SELECT LOWER(psl.language_code) COLLATE utf8mb4_unicode_ci AS language, psl.problem_id
             FROM problem_supported_language psl
             WHERE psl.status = 'ACTIVE'
 
             UNION ALL
 
-            SELECT LOWER(p.language) AS language, p.id AS problem_id
+            SELECT LOWER(p.language) COLLATE utf8mb4_unicode_ci AS language, p.id AS problem_id
             FROM problem p
             WHERE p.language IS NOT NULL
               AND NOT EXISTS (

@@ -1,14 +1,18 @@
 package com.programming.agent;
 
 import com.programming.agent.dto.AgentContextDTO;
+import com.programming.agent.dto.AgentCoachChatRequestDTO;
 import com.programming.entity.Problem;
 import com.programming.entity.Submit;
 import com.programming.entity.UserProblemInteraction;
 import com.programming.service.problemagent.ProblemCoachContext;
 import com.programming.vo.problemagent.ProblemAgentChatRequestVO;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AgentContextBuilderTest {
 
@@ -30,6 +34,25 @@ class AgentContextBuilderTest {
         assertEquals("先查补数，再记录当前数字。", context.getProblem().getHints());
         assertEquals("nums[0] + nums[1] = target。", context.getProblem().getSampleExplanation());
         assertEquals("数组,哈希表", context.getProblem().getTags());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "这道题的思路是什么",
+            "这题应该怎么做",
+            "这题应该怎么想",
+            "先给方向，不要给完整代码"
+    })
+    void mapsIdeaPhrasesToProblemSolvingIntent(String message) {
+        AgentContextDTO context = builder.buildForProblemCoach(
+                coachContext("manual", null),
+                request(message, false),
+                interaction(),
+                0
+        );
+
+        assertEquals("PROBLEM_PAGE_CHAT", context.getTriggerSource());
+        assertEquals("ASK_PROBLEM_SOLVING_IDEA", context.getUserIntent());
     }
 
     @Test
@@ -61,6 +84,25 @@ class AgentContextBuilderTest {
         assertEquals(9, context.getSubmission().getSubmitId());
         assertEquals("WA", context.getSubmission().getErrorMessage());
         assertEquals(2, context.getConsecutiveFailures());
+    }
+
+    @Test
+    void buildsGlobalGuideContextWithLowPrivilegePolicy() {
+        AgentCoachChatRequestDTO request = new AgentCoachChatRequestDTO();
+        request.setMessage("这个系统怎么用");
+        request.setCurrentRoute("/problems");
+        request.setPageType("PROBLEM_LIST");
+
+        AgentContextDTO context = builder.buildForGlobalGuideChat(request);
+
+        assertEquals("global_guide", context.getScene());
+        assertEquals("GLOBAL_GUIDE_CHAT", context.getTriggerSource());
+        assertEquals("GLOBAL_GUIDE", context.getPolicyProfile());
+        assertEquals("global_guide_chat", context.getActionHint());
+        assertEquals("GENERAL_CHAT", context.getUserIntent());
+        assertTrue(context.getCandidateActions().contains("EXPLAIN"));
+        assertTrue(context.getCandidateActions().contains("RECOMMEND"));
+        assertTrue(context.getCandidateActions().contains("CLARIFY_INTENT"));
     }
 
     private ProblemCoachContext coachContext(String triggerType, Submit submit) {

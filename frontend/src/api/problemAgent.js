@@ -37,3 +37,28 @@ export const recommendLearningPathLevel = (pathId, levelId) => {
 export const getAgentReportSummary = () => {
   return request('/api/agent/report/summary')
 }
+
+export const getAgentCoachState = () => {
+  return request('/api/agent/coach/state')
+}
+
+export const decideAgentCoach = (data) => {
+  return request('/api/agent/coach/decide', {
+    method: 'POST',
+    data
+  })
+}
+
+export const chatAgentCoach = (data) => {
+  return request('/api/agent/coach/chat', {
+    method: 'POST',
+    data
+  })
+}
+
+export const recordAgentCoachEvent = (data) => {
+  return request('/api/agent/coach/event', {
+    method: 'POST',
+    data
+  })
+}

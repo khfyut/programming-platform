@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { streamSsePost } from '@/utils/sseStream'
 
 export const askAI = (data) => {
   return request('/api/ai/ask', {
@@ -12,6 +13,10 @@ export const chatAI = (data) => {
     method: 'POST',
     data: data
   })
+}
+
+export const streamAIChat = (data, handlers = {}) => {
+  return streamSsePost('/api/ai/chat/stream', data, handlers)
 }
 
 export const getAIHistory = (params) => {

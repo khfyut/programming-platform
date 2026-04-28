@@ -12,6 +12,8 @@ public final class AgentProtocolConstants {
     public static final String TRIGGER_WRONG_BOOK_ENTRY = "WRONG_BOOK_ENTRY";
     public static final String TRIGGER_LEARNING_PATH_ENTRY = "LEARNING_PATH_ENTRY";
     public static final String TRIGGER_MANUAL_HELP_REQUEST = "MANUAL_HELP_REQUEST";
+    public static final String TRIGGER_GLOBAL_GUIDE_CHAT = "GLOBAL_GUIDE_CHAT";
+    public static final String TRIGGER_PAGE_ENTRY = "PAGE_ENTRY";
 
     public static final String INTENT_ASK_PROBLEM_SOLVING_IDEA = "ASK_PROBLEM_SOLVING_IDEA";
     public static final String INTENT_ASK_FOR_HINT = "ASK_FOR_HINT";
@@ -30,6 +32,7 @@ public final class AgentProtocolConstants {
     public static final String ACTION_RECOMMEND = "RECOMMEND";
     public static final String ACTION_REFLECT = "REFLECT";
     public static final String ACTION_REVEAL_ANSWER = "REVEAL_ANSWER";
+    public static final String ACTION_CLARIFY_INTENT = "CLARIFY_INTENT";
 
     public static final Map<String, String> CONTENT_TYPE_BY_ACTION = Map.of(
             ACTION_GUIDE_IDEA, "guidance",
@@ -38,7 +41,8 @@ public final class AgentProtocolConstants {
             ACTION_EXPLAIN, "explanation",
             ACTION_RECOMMEND, "recommendation",
             ACTION_REFLECT, "reflection",
-            ACTION_REVEAL_ANSWER, "solution"
+            ACTION_REVEAL_ANSWER, "solution",
+            ACTION_CLARIFY_INTENT, "clarification"
     );
 
     public static final Map<String, String> GOAL_BY_ACTION = Map.of(
@@ -48,7 +52,8 @@ public final class AgentProtocolConstants {
             ACTION_EXPLAIN, "EXPLAIN_CONCEPT",
             ACTION_RECOMMEND, "RECOMMEND_REMEDIATION",
             ACTION_REFLECT, "REVIEW_AFTER_SOLUTION",
-            ACTION_REVEAL_ANSWER, "REVIEW_AFTER_SOLUTION"
+            ACTION_REVEAL_ANSWER, "REVIEW_AFTER_SOLUTION",
+            ACTION_CLARIFY_INTENT, "CLARIFY_USER_INTENT"
     );
 
     public static final Set<String> LEARNING_ACTIONS = Set.of(
@@ -58,6 +63,7 @@ public final class AgentProtocolConstants {
             ACTION_EXPLAIN,
             ACTION_RECOMMEND,
             ACTION_REFLECT,
-            ACTION_REVEAL_ANSWER
+            ACTION_REVEAL_ANSWER,
+            ACTION_CLARIFY_INTENT
     );
 }

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿<template>
+<template>
   <div class="problem-detail-page">
     <!-- 椤堕儴瀵艰埅鏍?-->
     <div class="problem-header">
@@ -144,6 +144,16 @@
             @refresh="fetchProblemSubmissions"
             @select="openSubmissionDetail"
           />
+
+          <ProblemCoachSidebar
+            v-if="activeTab === 'coach'"
+            ref="coachSidebarRef"
+            :problem-id="route.params.id"
+            :problem-title="problem?.title"
+            :code="code"
+            :language="language"
+            @apply-draft="handleApplyDraft"
+          />
         </div>
       </div>
 
@@ -175,7 +185,7 @@
                   </span>
                 </el-option>
               </el-select>
-              <el-button text size="small" @click="coachVisible = !coachVisible" class="coach-btn">
+              <el-button text size="small" @click="openCoachTab" class="coach-btn">
                 陪练
               </el-button>
               <el-button text size="small" @click="resetCode" class="reset-btn">
@@ -206,16 +216,6 @@
             @run="runCode"
           />
         </div>
-
-        <ProblemCoachSidebar
-          ref="coachSidebarRef"
-          v-model:visible="coachVisible"
-          :problem-id="route.params.id"
-          :problem-title="problem?.title"
-          :code="code"
-          :language="language"
-          @apply-draft="handleApplyDraft"
-        />
       </div>
     </div>
 
@@ -245,7 +245,7 @@
 </template>
 
 <script setup>
-import { defineAsyncComponent, nextTick, ref, onBeforeUnmount } from 'vue'
+import { defineAsyncComponent, nextTick, ref, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -369,7 +369,6 @@ const handleUpdateLanguage = async () => {
 // 鐘舵€?
 const leftPanelWidth = ref(45)
 const isResizing = ref(false)
-const coachVisible = ref(false)
 const coachSidebarRef = ref(null)
 
 const startResize = (e) => {
@@ -395,11 +394,27 @@ const stopResize = () => {
   document.removeEventListener('mouseup', stopResize)
 }
 
+const openCoachTab = () => {
+  activeTab.value = 'coach'
+}
+
+const emitLearningAgentEvent = (eventType, payload = {}) => {
+  window.dispatchEvent(new CustomEvent('learning-agent-event', {
+    detail: {
+      eventType,
+      problemId: Number(route.params.id),
+      route: route.fullPath,
+      ...payload
+    }
+  }))
+}
+
 // AI鍔╂墜
 const runCode = async () => {
   const runState = await baseRunCode()
   if (runState?.failed) {
-    coachVisible.value = true
+    emitLearningAgentEvent('run_failed', runState)
+    openCoachTab()
     await nextTick()
     await coachSidebarRef.value?.triggerFailure(runState)
   }
@@ -409,15 +424,18 @@ const runCode = async () => {
 const submitCode = async () => {
   const submitState = await baseSubmitCode()
   if (submitState?.failed) {
-    coachVisible.value = true
+    emitLearningAgentEvent('submit_failed', submitState)
+    openCoachTab()
     await nextTick()
     await coachSidebarRef.value?.triggerFailure(submitState)
+  } else if (submitState?.ok) {
+    emitLearningAgentEvent('accepted', submitState)
   }
   return submitState
 }
 
 const handleAIAction = async (data) => {
-  coachVisible.value = true
+  openCoachTab()
   await nextTick()
   await coachSidebarRef.value?.openWithPrompt({
     prompt: data.prompt,
@@ -427,7 +445,9 @@ const handleAIAction = async (data) => {
 
 const handleCodeChange = () => {}
 
-const handleViewSolution = () => {}
+const handleViewSolution = () => {
+  emitLearningAgentEvent('viewed_solution')
+}
 
 const handleApplyDraft = (draftCode) => {
   if (!draftCode) {
@@ -437,9 +457,19 @@ const handleApplyDraft = (draftCode) => {
   ElMessage.success('已用参考修正版覆盖当前代码')
 }
 
+const handleGlobalCoachFocus = async () => {
+  openCoachTab()
+  await nextTick()
+}
+
+onMounted(() => {
+  window.addEventListener('learning-agent-focus-problem-coach', handleGlobalCoachFocus)
+})
+
 onBeforeUnmount(() => {
   document.removeEventListener('mousemove', resize)
   document.removeEventListener('mouseup', stopResize)
+  window.removeEventListener('learning-agent-focus-problem-coach', handleGlobalCoachFocus)
 })
 </script>
 

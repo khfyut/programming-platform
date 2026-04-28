@@ -39,7 +39,8 @@ export function useProblemDetailData(route, userStore) {
   const tabs = [
     { key: 'description', label: '题目描述' },
     { key: 'solution', label: '题解' },
-    { key: 'submissions', label: '提交记录' }
+    { key: 'submissions', label: '提交记录' },
+    { key: 'coach', label: '陪练' }
   ]
   const activeTab = ref('description')
 

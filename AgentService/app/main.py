@@ -3,6 +3,7 @@ from datetime import datetime
 from fastapi import FastAPI
 
 from app.core.content import CONTENT_TYPE_BY_ACTION, ContentGenerator, PedagogicalGoalBuilder
+from app.core.llm_decision import LlmDecisionEngine
 from app.core.policy import ConstraintFilter, IntentRouter, StrategySelector
 from app.schemas.context import AgentContext
 from app.schemas.decision import AgentDecision, CandidateAction
@@ -12,6 +13,10 @@ app = FastAPI(title="Learning Agent Service")
 
 @app.post("/decision", response_model=AgentDecision)
 def make_decision(context: AgentContext):
+    return LlmDecisionEngine().decide(context)
+
+
+def make_rule_decision(context: AgentContext):
     intent = IntentRouter().detect(context)
     available_actions, blocked_actions, applied_constraints = ConstraintFilter().check(context, intent)
     action_type = StrategySelector().select(context, intent, available_actions)
@@ -74,6 +79,7 @@ def make_decision(context: AgentContext):
 def _decision_reason(context: AgentContext, intent: str, action_type: str) -> str:
     return (
         f"trigger_source={context.trigger_source}, user_intent={intent}, "
+        f"policy_profile={context.policy_profile}, "
         f"user_message={context.user_message!r}, requested_full_solution={context.requested_full_solution}, "
         f"consecutive_failures={context.consecutive_failures}, "
         f"hint_count={context.hint_count}, diagnose_count={context.diagnose_count}, "
@@ -100,16 +106,18 @@ def _action_title(action_type: str) -> str:
         "RECOMMEND": "下一步推荐",
         "REFLECT": "答案后复盘",
         "REVEAL_ANSWER": "完整答案",
+        "CLARIFY_INTENT": "确认意图",
     }[action_type]
 
 
 def _action_description(action_type: str) -> str:
     return {
-        "GUIDE_IDEA": "在不直接给代码的前提下引导起步",
-        "HINT": "只给下一步提示",
-        "DIAGNOSE": "定位错误原因和薄弱点",
-        "EXPLAIN": "讲解当前卡点背后的知识",
-        "RECOMMEND": "推荐后续练习或复习方向",
-        "REFLECT": "看过答案后复盘学习收获",
-        "REVEAL_ANSWER": "在约束允许后释放完整答案",
+        "GUIDE_IDEA": "在不直接给代码的前提下引导起步。",
+        "HINT": "只给下一步提示。",
+        "DIAGNOSE": "定位错误原因和薄弱点。",
+        "EXPLAIN": "讲解当前卡点背后的知识。",
+        "RECOMMEND": "推荐后续练习或复习方向。",
+        "REFLECT": "看过答案后复盘学习收获。",
+        "REVEAL_ANSWER": "在约束允许后释放完整答案。",
+        "CLARIFY_INTENT": "在意图不明确时先追问确认。",
     }[action_type]

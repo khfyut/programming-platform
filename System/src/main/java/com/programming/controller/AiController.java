@@ -5,7 +5,15 @@ import com.programming.util.ResultUtil;
 import com.programming.vo.AiAskVO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.Map;
@@ -24,7 +32,7 @@ public class AiController {
             aiAskVO.setUserId(userId);
             return aiService.askQuestion(aiAskVO);
         } catch (Exception e) {
-            return ResultUtil.error("AI问答失败：" + e.getMessage());
+            return ResultUtil.error("AI 问答失败：" + e.getMessage());
         }
     }
 
@@ -35,7 +43,27 @@ public class AiController {
             params.put("userId", userId);
             return aiService.chat(params);
         } catch (Exception e) {
-            return ResultUtil.error("AI对话失败：" + e.getMessage());
+            return ResultUtil.error("AI 对话失败：" + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter chatStream(@RequestBody Map<String, Object> params, HttpServletRequest request) {
+        try {
+            Long userId = (Long) request.getAttribute("userId");
+            params.put("userId", userId);
+            return aiService.chatStream(params);
+        } catch (Exception e) {
+            SseEmitter emitter = new SseEmitter();
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("error")
+                        .data(Map.of("message", "AI 对话失败：" + e.getMessage())));
+            } catch (Exception ignored) {
+                // Nothing else to do if the stream cannot be opened.
+            }
+            emitter.completeWithError(e);
+            return emitter;
         }
     }
 
@@ -75,7 +103,6 @@ public class AiController {
         }
     }
 
-    // AI能力增强API
     @GetMapping("/explain-code")
     public SseEmitter explainCode(
             @RequestParam String code,

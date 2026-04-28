@@ -65,6 +65,22 @@
           </div>
           <div class="chat-header-right">
             <span v-if="currentModeLabel" class="mode-badge">当前模式：{{ currentModeLabel }}</span>
+            <div class="mode-strip inline-mode-strip">
+              <button
+                v-for="mode in expertModes"
+                :key="mode.key"
+                type="button"
+                :class="['mode-pill', { active: currentExpertMode === mode.key }]"
+                @click="switchExpertMode(mode.key)"
+              >
+                <el-icon><component :is="mode.icon" /></el-icon>
+                <span>{{ mode.label }}</span>
+              </button>
+            </div>
+            <el-button type="primary" plain @click="createNewSession">
+              <el-icon><Plus /></el-icon>
+              新对话
+            </el-button>
             <el-button text @click="clearMessages" :disabled="messages.length === 0 && !currentSessionId">
               <el-icon><Delete /></el-icon>
               清空当前对话
@@ -113,9 +129,19 @@
                 </div>
               </div>
 
+              <div
+                v-if="message.role === 'assistant' && message.streaming && !message.content"
+                class="message-status"
+              >
+                {{ streamStatus || '正在连接 AI...' }}
+              </div>
               <div class="message-text" v-html="formatMessage(message.content)"></div>
+              <span
+                v-if="message.role === 'assistant' && message.streaming && message.content"
+                class="stream-cursor"
+              ></span>
 
-              <div v-if="message.role === 'assistant'" class="message-actions">
+              <div v-if="message.role === 'assistant' && !message.streaming" class="message-actions">
                 <el-button size="small" text @click="copyMessage(message.content)">
                   <el-icon><DocumentCopy /></el-icon>
                   复制
@@ -128,7 +154,7 @@
             </div>
           </div>
 
-          <div v-if="loading" class="message-wrapper assistant">
+          <div v-if="loading && !hasStreamingMessage" class="message-wrapper assistant">
             <div class="message-content">
               <div class="message-header">
                 <div class="ai-avatar">
@@ -168,7 +194,7 @@
                   type="primary"
                   @click="sendMessage"
                   :loading="loading"
-                  :disabled="!inputMessage.trim()"
+                  :disabled="!inputMessage.trim() || loading"
                 >
                   <el-icon><Promotion /></el-icon>
                   发送
@@ -183,8 +209,10 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
-import { chatAI, deleteAIHistory, getAIHistory, getSessionMessages } from '@/api/ai'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { deleteAIHistory, getAIHistory, getSessionMessages, streamAIChat } from '@/api/ai'
+import { createTypewriterController } from '@/utils/typewriter'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ChatDotRound,
@@ -200,6 +228,8 @@ import {
 } from '@element-plus/icons-vue'
 
 const messages = ref([])
+const route = useRoute()
+const router = useRouter()
 const inputMessage = ref('')
 const loading = ref(false)
 const messagesContainer = ref(null)
@@ -207,6 +237,8 @@ const sessions = ref([])
 const sessionsLoading = ref(false)
 const currentSessionId = ref(null)
 const currentExpertMode = ref('')
+const streamStatus = ref('')
+const activeStreamController = ref(null)
 
 const expertModes = [
   { key: 'algorithm', label: '算法优化', icon: TrendCharts },
@@ -224,6 +256,10 @@ const quickPrompts = [
 
 const currentModeLabel = computed(() => {
   return expertModes.find((mode) => mode.key === currentExpertMode.value)?.label || ''
+})
+
+const hasStreamingMessage = computed(() => {
+  return messages.value.some((message) => message.role === 'assistant' && message.streaming)
 })
 
 const escapeHtml = (text) => {
@@ -319,8 +355,31 @@ const scrollToBottom = async () => {
   }
 }
 
+const typewriter = createTypewriterController({
+  onTick: scrollToBottom
+})
+
+const enqueueAssistantText = (targetMessage, text) => {
+  typewriter.enqueue(targetMessage, text)
+}
+
+const waitForTypewriter = () => {
+  return typewriter.waitForIdle()
+}
+
+const stopTypewriter = (options) => {
+  typewriter.stop(options)
+}
+
 const applyPrompt = (prompt) => {
   inputMessage.value = prompt
+}
+
+const syncRouteSessionId = (sessionId) => {
+  if (!sessionId || String(route.query.sessionId || '') === String(sessionId)) {
+    return
+  }
+  router.replace({ path: '/ai', query: { sessionId } })
 }
 
 const switchExpertMode = (mode) => {
@@ -342,44 +401,84 @@ const sendMessage = async () => {
     return
   }
 
+  stopTypewriter()
   messages.value.push({
     role: 'user',
     content: currentInput,
     time: new Date().toISOString()
   })
 
+  const assistantMessage = {
+    role: 'assistant',
+    content: '',
+    time: new Date().toISOString(),
+    streaming: true
+  }
+  messages.value.push(assistantMessage)
+
   inputMessage.value = ''
   await scrollToBottom()
 
   loading.value = true
+  streamStatus.value = '正在连接 AI...'
+  activeStreamController.value?.abort?.()
+  const controller = new AbortController()
+  activeStreamController.value = controller
+  let streamError = ''
   try {
-    const res = await chatAI({
+    await streamAIChat({
       content: currentInput,
       sessionId: currentSessionId.value,
       expertMode: currentExpertMode.value
+    }, {
+      signal: controller.signal,
+      onStatus(data) {
+        streamStatus.value = data?.text || 'AI 正在工作...'
+      },
+      onMeta(data) {
+        if (data?.sessionId) {
+          currentSessionId.value = data.sessionId
+          syncRouteSessionId(data.sessionId)
+        }
+      },
+      onDelta(data) {
+        streamStatus.value = ''
+        enqueueAssistantText(assistantMessage, data?.text || data || '')
+      },
+      onError(data) {
+        streamError = data?.message || 'AI 响应失败，请稍后重试'
+      },
+      onDone(data) {
+        if (data?.sessionId) {
+          currentSessionId.value = data.sessionId
+          syncRouteSessionId(data.sessionId)
+        }
+      }
     })
 
-    if (res.code === 200) {
-      const data = res.data || {}
-      messages.value.push({
-        role: 'assistant',
-        content: data.response || data.content || data.message || '抱歉，我暂时无法回答这个问题。',
-        time: data.time || data.createTime || new Date().toISOString()
-      })
-
-      if (data.sessionId || data.id) {
-        currentSessionId.value = data.sessionId || data.id
-      }
-
-      await fetchSessions()
-    } else {
-      ElMessage.error(res.msg || '发送失败')
+    if (streamError) {
+      throw new Error(streamError)
     }
+    await waitForTypewriter()
+    assistantMessage.streaming = false
+    if (!assistantMessage.content) {
+      assistantMessage.content = '抱歉，我暂时无法回答这个问题。'
+    }
+    window.dispatchEvent(new CustomEvent('ai-sessions-refresh'))
   } catch (error) {
     console.error('AI 请求失败:', error)
-    ElMessage.error('发送失败，请重试')
+    stopTypewriter()
+    assistantMessage.streaming = false
+    if (!assistantMessage.content) {
+      assistantMessage.content = error?.message || '发送失败，请重试。'
+    }
+    ElMessage.error(error?.message || '发送失败，请重试')
   } finally {
+    if (activeStreamController.value === controller) {
+      activeStreamController.value = null
+    }
     loading.value = false
+    streamStatus.value = ''
     await scrollToBottom()
   }
 }
@@ -421,6 +520,7 @@ const clearMessages = async () => {
       }
     )
 
+    stopTypewriter()
     messages.value = []
     currentSessionId.value = null
     ElMessage.success('已清空当前对话')
@@ -430,15 +530,20 @@ const clearMessages = async () => {
 }
 
 const createNewSession = () => {
+  stopTypewriter()
   messages.value = []
   currentSessionId.value = null
   inputMessage.value = ''
+  if (route.query.sessionId) {
+    router.replace('/ai')
+  }
   ElMessage.success('已创建新对话')
 }
 
 const switchSession = async (sessionId) => {
-  if (!sessionId || currentSessionId.value === sessionId) return
+  if (!sessionId || String(currentSessionId.value || '') === String(sessionId)) return
 
+  stopTypewriter()
   currentSessionId.value = sessionId
   messages.value = []
 
@@ -455,6 +560,20 @@ const switchSession = async (sessionId) => {
     ElMessage.error('加载对话失败')
   }
 }
+
+watch(
+  () => route.query.sessionId,
+  async (sessionId) => {
+    if (!sessionId) {
+      stopTypewriter()
+      currentSessionId.value = null
+      messages.value = []
+      return
+    }
+    await switchSession(sessionId)
+  },
+  { immediate: true }
+)
 
 const deleteSession = async (session) => {
   const targetId = session?.id || session?.sessionId
@@ -506,8 +625,12 @@ const fetchSessions = async () => {
 }
 
 onMounted(async () => {
-  await fetchSessions()
   await scrollToBottom()
+})
+
+onBeforeUnmount(() => {
+  activeStreamController.value?.abort?.()
+  stopTypewriter()
 })
 </script>
 
@@ -533,13 +656,7 @@ onMounted(async () => {
 }
 
 .sidebar {
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--leetcode-border, #e5e7eb);
-  background:
-    linear-gradient(180deg, rgba(0, 102, 255, 0.04), transparent 30%),
-    var(--leetcode-bg-secondary, #f7f8fa);
+  display: none;
 }
 
 .sidebar-header {
@@ -683,8 +800,16 @@ onMounted(async () => {
 .chat-header-right {
   display: flex;
   align-items: flex-start;
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
+  max-width: 680px;
+}
+
+.inline-mode-strip {
+  justify-content: flex-end;
+  padding: 0;
+  border-bottom: 0;
 }
 
 .mode-badge {
@@ -787,7 +912,7 @@ onMounted(async () => {
 }
 
 .message-content {
-  max-width: 76%;
+  max-width: min(820px, 82%);
   padding: 16px 20px;
   border-radius: 18px;
 }
@@ -855,6 +980,35 @@ onMounted(async () => {
   font-size: 14px;
   line-height: 1.8;
   word-break: break-word;
+}
+
+.message-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--leetcode-text-secondary, #6b7280);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.message-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1668dc;
+  animation: typing 1.2s infinite;
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 16px;
+  margin-left: 2px;
+  border-radius: 2px;
+  background: #1668dc;
+  vertical-align: middle;
+  animation: cursorBlink 1s infinite;
 }
 
 .message-text :deep(.code-block-wrapper) {
@@ -950,6 +1104,16 @@ onMounted(async () => {
   }
 }
 
+@keyframes cursorBlink {
+  0%, 50% {
+    opacity: 1;
+  }
+
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
 .chat-input {
   padding: 20px 24px;
   border-top: 1px solid var(--leetcode-border, #e5e7eb);
@@ -957,7 +1121,7 @@ onMounted(async () => {
 }
 
 .input-container {
-  max-width: 880px;
+  max-width: 960px;
   margin: 0 auto;
 }
 

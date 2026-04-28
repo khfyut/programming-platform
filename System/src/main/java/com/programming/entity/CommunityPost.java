@@ -23,5 +23,7 @@ public class CommunityPost {
     private Integer views;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private String authorName;
+    private String avatarUrl;
     private User user; // 关联用户信息
 }

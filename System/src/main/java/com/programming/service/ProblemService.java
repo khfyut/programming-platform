@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface ProblemService {
-    Map<String, Object> getProblemList(int page, int size, Integer difficulty, String language, String knowledge, Long userId);
+    Map<String, Object> getProblemList(int page, int size, Integer difficulty, String language, String knowledge, Long categoryId, Long userId);
 
     Problem getProblemDetail(Long id);
 
@@ -20,4 +20,6 @@ public interface ProblemService {
     List<Problem> getProblemsByDifficulty(Integer difficulty);
 
     List<Map<String, Object>> getLanguages();
+
+    List<Map<String, Object>> getCategories();
 }

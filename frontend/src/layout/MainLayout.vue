@@ -32,19 +32,6 @@
           </nav>
         </div>
         <div class="header-right">
-          <div class="search-box">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索题目..."
-              clearable
-              class="search-input"
-              @keyup.enter="handleSearch"
-            >
-              <template #prefix>
-                <el-icon class="search-icon"><Search /></el-icon>
-              </template>
-            </el-input>
-          </div>
           <el-tooltip content="切换主题" placement="bottom">
             <el-button 
               class="theme-toggle-btn"
@@ -133,7 +120,7 @@
     </el-header>
     
     <!-- 侧边栏 -->
-    <el-aside v-if="!route.meta.hideHeader" class="leetcode-sidebar" width="240px">
+    <el-aside v-if="showResourceSidebar" class="leetcode-sidebar" width="240px">
       <div class="sidebar-content">
         <div class="sidebar-section">
           <h3 class="sidebar-section-title">学习资源</h3>
@@ -164,12 +151,44 @@
             </li>
           </ul>
         </div>
-        
+
+        <div v-if="showAiSessionSidebar" class="sidebar-section ai-session-section">
+          <div class="ai-session-header">
+            <h3 class="sidebar-section-title">AI 对话</h3>
+            <el-button type="primary" size="small" text @click="createAiSession">
+              <el-icon><Plus /></el-icon>
+              新建
+            </el-button>
+          </div>
+          <div class="ai-session-list" v-loading="aiSessionsLoading">
+            <div
+              v-for="session in aiSessions"
+              :key="getSessionKey(session)"
+              :class="['ai-session-item', { active: String(currentAiSessionId) === String(getSessionId(session)) }]"
+              role="button"
+              tabindex="0"
+              @click="openAiSession(session)"
+              @keydown.enter.prevent="openAiSession(session)"
+              @keydown.space.prevent="openAiSession(session)"
+            >
+              <div class="ai-session-info">
+                <div class="ai-session-title">{{ getSessionTitle(session) }}</div>
+                <div class="ai-session-time">{{ formatSessionTime(session.updateTime || session.createTime) }}</div>
+              </div>
+              <el-button class="ai-session-delete" type="danger" size="small" text @click.stop="removeAiSession(session)">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </div>
+            <div v-if="aiSessions.length === 0 && !aiSessionsLoading" class="ai-session-empty">
+              还没有对话记录
+            </div>
+          </div>
+        </div>
 
       </div>
     </el-aside>
     
-    <el-main class="leetcode-main">
+    <el-main class="leetcode-main" :class="{ 'without-sidebar': !showResourceSidebar }">
       <router-view v-slot="{ Component }">
         <transition name="fade" mode="out-in">
           <component :is="Component" />
@@ -267,16 +286,25 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useThemeStore } from '@/stores/theme'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyLearnStats } from '@/api/learn'
+import { deleteAIHistory, getAIHistory } from '@/api/ai'
+import { shouldShowResourceSidebar } from '@/utils/layoutVisibility'
+import {
+  formatSessionTime,
+  getSessionId,
+  getSessionKey,
+  getSessionTitle,
+  normalizeSessionList,
+  shouldShowAiSessionSidebar
+} from '@/utils/aiSessionView'
 import { runtimeLanguageCatalog } from '@/utils/runtimeLanguage'
 import {
   Edit,
-  Search,
   Setting,
   UserFilled,
   SwitchButton,
@@ -291,7 +319,9 @@ import {
   Timer,
   Monitor,
   ArrowDown,
+  Delete,
   Cpu,
+  Plus,
   Reading,
   Warning,
   DataAnalysis,
@@ -304,12 +334,16 @@ const userStore = useUserStore()
 const themeStore = useThemeStore()
 
 const isDark = computed(() => themeStore.isDark)
-const searchKeyword = ref('')
 const languageDialogVisible = ref(false)
 const selectedLanguage = ref(userStore.userInfo?.language || 'java')
 const mobileMenuVisible = ref(false)
 const sidebarVisible = ref(true)
 const statsLoading = ref(false)
+const showResourceSidebar = computed(() => shouldShowResourceSidebar(route))
+const showAiSessionSidebar = computed(() => shouldShowAiSessionSidebar(route))
+const aiSessions = ref([])
+const aiSessionsLoading = ref(false)
+const currentAiSessionId = computed(() => route.path === '/ai' ? (route.query.sessionId || null) : null)
 
 // 用户统计数据
 const userStats = ref({
@@ -387,18 +421,66 @@ const goToProfile = (tab) => {
   router.push(routeByTab[tab] || { name: 'UserProfile' })
 }
 
+const fetchAiSessions = async () => {
+  if (!showAiSessionSidebar.value || !userStore.token) {
+    aiSessions.value = []
+    return
+  }
+
+  aiSessionsLoading.value = true
+  try {
+    const res = await getAIHistory({ page: 1, size: 20 })
+    aiSessions.value = res?.code === 200 ? normalizeSessionList(res.data) : []
+  } catch (error) {
+    console.error('获取 AI 对话历史失败:', error)
+    aiSessions.value = []
+  } finally {
+    aiSessionsLoading.value = false
+  }
+}
+
+const createAiSession = () => {
+  router.push('/ai')
+}
+
+const openAiSession = (session) => {
+  const sessionId = getSessionId(session)
+  if (!sessionId) return
+  router.push({ path: '/ai', query: { sessionId } })
+}
+
+const removeAiSession = async (session) => {
+  const sessionId = getSessionId(session)
+  if (!sessionId) return
+
+  try {
+    await ElMessageBox.confirm('确定要删除这段 AI 对话吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const res = await deleteAIHistory(sessionId)
+    if (res?.code !== 200) {
+      ElMessage.error(res?.msg || '删除失败')
+      return
+    }
+
+    aiSessions.value = aiSessions.value.filter((item) => String(getSessionId(item)) !== String(sessionId))
+    if (String(currentAiSessionId.value) === String(sessionId)) {
+      router.replace('/ai')
+    }
+    ElMessage.success('对话已删除')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
 const toggleTheme = () => {
   themeStore.toggleTheme()
   ElMessage.success(isDark.value ? '已切换到亮色模式' : '已切换到暗色模式')
-}
-
-const handleSearch = () => {
-  if (searchKeyword.value.trim()) {
-    router.push({
-      path: '/problems',
-      query: { keyword: searchKeyword.value.trim() }
-    })
-  }
 }
 
 const handleCommand = async (command) => {
@@ -444,7 +526,16 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => [route.path, userStore.token],
+  () => {
+    fetchAiSessions()
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
+  window.addEventListener('ai-sessions-refresh', fetchAiSessions)
   if (userStore.token && !userStore.userInfo) {
     userStore.fetchUserInfo().finally(() => {
       refreshUserStats()
@@ -452,6 +543,10 @@ onMounted(() => {
     return
   }
   refreshUserStats()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('ai-sessions-refresh', fetchAiSessions)
 })
 </script>
 
@@ -528,7 +623,9 @@ onMounted(() => {
 
 .sidebar-content {
   height: 100%;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0 16px;
 }
 
@@ -583,6 +680,102 @@ onMounted(() => {
   font-size: 16px;
   width: 20px;
   text-align: center;
+}
+
+.ai-session-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--leetcode-border, #E5E7EB);
+}
+
+.ai-session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px 8px;
+}
+
+.ai-session-header .sidebar-section-title {
+  margin-bottom: 0;
+}
+
+.ai-session-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 0 8px;
+}
+
+.ai-session-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  margin-bottom: 4px;
+  padding: 8px 6px 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--leetcode-text, #24292F);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.ai-session-item:hover {
+  background: var(--leetcode-bg-secondary, #F7F8FA);
+  border-color: var(--leetcode-border, #E5E7EB);
+}
+
+.ai-session-item.active {
+  background: rgba(0, 102, 255, 0.08);
+  border-color: rgba(0, 102, 255, 0.16);
+  color: var(--leetcode-primary, #0066FF);
+}
+
+.ai-session-item:focus-visible {
+  outline: 2px solid rgba(0, 102, 255, 0.28);
+  outline-offset: 2px;
+}
+
+.ai-session-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ai-session-title {
+  overflow: hidden;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-session-time {
+  margin-top: 3px;
+  color: var(--leetcode-text-secondary, #6B7280);
+  font-size: 11px;
+}
+
+.ai-session-delete {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ai-session-item:hover .ai-session-delete,
+.ai-session-item.active .ai-session-delete {
+  opacity: 1;
+}
+
+.ai-session-empty {
+  padding: 12px;
+  color: var(--leetcode-text-secondary, #6B7280);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 /* 主内容区域调整 */
@@ -742,39 +935,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.search-box {
-  position: relative;
-}
-
-.search-input {
-  width: 240px;
-}
-
-.search-icon {
-  color: var(--leetcode-text-secondary, #6B7280);
-  transition: color 0.2s ease;
-}
-
-:deep(.search-input .el-input__wrapper) {
-  background: var(--leetcode-bg-secondary, #F7F8FA);
-  border: 1px solid var(--leetcode-border, #E5E7EB);
-  border-radius: 6px;
-  padding: 6px 12px;
-  transition: all 0.2s ease;
-  box-shadow: none;
-}
-
-:deep(.search-input .el-input__wrapper:hover) {
-  border-color: var(--leetcode-primary, #0066FF);
-  background: #FFFFFF;
-}
-
-:deep(.search-input .el-input__wrapper.is-focus) {
-  border-color: var(--leetcode-primary, #0066FF);
-  background: #FFFFFF;
-  box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
 }
 
 .theme-toggle-btn {
@@ -1024,6 +1184,10 @@ onMounted(() => {
   min-height: calc(100vh - 60px);
 }
 
+.leetcode-main.without-sidebar {
+  margin-left: 0;
+}
+
 /* 隐藏头部时的样式 */
 .leetcode-layout.hide-header .leetcode-main {
   margin-top: 0;
@@ -1126,10 +1290,6 @@ onMounted(() => {
     font-size: 13px;
   }
 
-  .search-input {
-    width: 200px;
-  }
-
   .username {
     display: none;
   }
@@ -1146,10 +1306,6 @@ onMounted(() => {
 
   .mobile-menu-btn {
     display: flex;
-  }
-
-  .search-input {
-    width: 160px;
   }
 
   .theme-toggle-btn {
@@ -1300,10 +1456,6 @@ onMounted(() => {
   .mobile-nav-item {
     padding: 14px 16px;
     font-size: 15px;
-  }
-
-  .search-input {
-    width: 120px;
   }
 }
 </style>

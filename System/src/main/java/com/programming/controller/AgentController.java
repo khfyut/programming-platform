@@ -1,7 +1,11 @@
 package com.programming.controller;
 
 import com.programming.agent.dto.AgentDecisionDTO;
+import com.programming.agent.dto.AgentCoachChatRequestDTO;
+import com.programming.agent.dto.AgentCoachDecideRequestDTO;
+import com.programming.agent.dto.AgentCoachEventRequestDTO;
 import com.programming.agent.dto.AgentFeedbackRequestDTO;
+import com.programming.service.AgentCoachService;
 import com.programming.service.AgentFeedbackService;
 import com.programming.service.AgentService;
 import com.programming.util.ResultUtil;
@@ -24,6 +28,9 @@ public class AgentController {
     @Autowired
     private AgentFeedbackService agentFeedbackService;
 
+    @Autowired
+    private AgentCoachService agentCoachService;
+
     @PostMapping("/advice/{submitId}")
     public ResultUtil getLearningAdvice(@RequestAttribute("userId") Long userId,
                                         @PathVariable Long submitId) {
@@ -42,6 +49,45 @@ public class AgentController {
             return ResultUtil.success(agentFeedbackService.recordFeedback(userId, request));
         } catch (Exception e) {
             return ResultUtil.error("记录Agent反馈失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/coach/state")
+    public ResultUtil getCoachState(@RequestAttribute("userId") Long userId) {
+        try {
+            return ResultUtil.success(agentCoachService.getState(userId));
+        } catch (Exception e) {
+            return ResultUtil.error("获取常驻教练状态失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/coach/decide")
+    public ResultUtil decideCoachNudge(@RequestAttribute("userId") Long userId,
+                                       @RequestBody AgentCoachDecideRequestDTO request) {
+        try {
+            return ResultUtil.success(agentCoachService.decide(userId, request));
+        } catch (Exception e) {
+            return ResultUtil.error("生成常驻教练建议失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/coach/chat")
+    public ResultUtil chatWithGlobalCoach(@RequestAttribute("userId") Long userId,
+                                          @RequestBody AgentCoachChatRequestDTO request) {
+        try {
+            return ResultUtil.success(agentService.processGlobalGuideChat(userId, request));
+        } catch (Exception e) {
+            return ResultUtil.error("常驻学习助手对话失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/coach/event")
+    public ResultUtil recordCoachEvent(@RequestAttribute("userId") Long userId,
+                                       @RequestBody AgentCoachEventRequestDTO request) {
+        try {
+            return ResultUtil.success(agentCoachService.recordEvent(userId, request));
+        } catch (Exception e) {
+            return ResultUtil.error("记录常驻教练事件失败: " + e.getMessage());
         }
     }
 

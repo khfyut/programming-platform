@@ -412,33 +412,7 @@ public class LearningServiceImpl implements LearningService {
 
         Long chapterId = level.getChapterId();
         PathChapter chapter = learningPathMapper.selectChapterById(chapterId);
-        if (chapter == null) {
-            return false;
-        }
-
-        List<PathLevel> chapterLevels = learningPathMapper.selectLevelsByChapterId(chapterId);
-        int currentLevelIndex = -1;
-        for (int i = 0; i < chapterLevels.size(); i++) {
-            if (chapterLevels.get(i).getId().equals(levelId)) {
-                currentLevelIndex = i;
-                break;
-            }
-        }
-
-        if (currentLevelIndex > 0) {
-            UserPathProgress progress = learningPathMapper.selectUserPathProgress(userId, chapter.getPathId());
-            if (progress == null) {
-                return false;
-            }
-
-            Set<Long> completedLevels = parseIdSet(progress.getCompletedLevels());
-            PathLevel previousLevel = chapterLevels.get(currentLevelIndex - 1);
-            if (!isCompleted(completedLevels, previousLevel.getId())) {
-                return false;
-            }
-        }
-
-        return true;
+        return chapter != null;
     }
 
     @Override

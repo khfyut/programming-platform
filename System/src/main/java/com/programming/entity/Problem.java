@@ -23,6 +23,8 @@ public class Problem {
     private String sampleExplanation;
     private Long chapterId;
     private Long levelId;
+    private Long categoryId;
+    private Long subCategoryId;
     
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

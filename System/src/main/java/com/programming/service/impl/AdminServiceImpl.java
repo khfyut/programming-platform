@@ -572,7 +572,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public Map<String, Object> getStatistics() {
         int userCount = userMapper.count();
-        int problemCount = problemMapper.count(null, null, null);
+        int problemCount = problemMapper.count(null, null, null, null);
         int submitCount = submitMapper.countAll();
         
         List<Submit> allSubmits = submitMapper.findAll(0, submitCount);
@@ -834,7 +834,7 @@ public class AdminServiceImpl implements AdminService {
     public Map<String, Object> getDashboardData() {
         Map<String, Object> result = new HashMap<>();
         result.put("userCount", userMapper.count());
-        result.put("problemCount", problemMapper.count(null, null, null));
+        result.put("problemCount", problemMapper.count(null, null, null, null));
         result.put("submitCount", submitMapper.countAll());
         result.put("activeUsers", userMapper.countActiveUsers());
         return result;
@@ -844,7 +844,7 @@ public class AdminServiceImpl implements AdminService {
     public Map<String, Object> getHomeStatistics() {
         Map<String, Object> result = new HashMap<>();
         result.put("userCount", userMapper.count());
-        result.put("problemCount", problemMapper.count(null, null, null));
+        result.put("problemCount", problemMapper.count(null, null, null, null));
         result.put("pathCount", learningPathMapper.selectAllPaths().size());
         return result;
     }

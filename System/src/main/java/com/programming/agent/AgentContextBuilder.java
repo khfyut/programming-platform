@@ -2,6 +2,7 @@ package com.programming.agent;
 
 import com.alibaba.fastjson2.JSON;
 import com.programming.agent.dto.AgentContextDTO;
+import com.programming.agent.dto.AgentCoachChatRequestDTO;
 import com.programming.agent.dto.ProblemContextDTO;
 import com.programming.agent.dto.SubmissionContextDTO;
 import com.programming.entity.LearningPath;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
@@ -138,6 +140,47 @@ public class AgentContextBuilder {
         return context;
     }
 
+    public AgentContextDTO buildForGlobalGuideChat(AgentCoachChatRequestDTO request) {
+        Problem placeholder = new Problem();
+        placeholder.setId(0L);
+        placeholder.setTitle(firstNonBlank(pageTitle(request == null ? null : request.getPageType()), "global guide"));
+        placeholder.setContent("Global learning assistant guide context");
+        placeholder.setLanguage("java");
+
+        String message = request == null ? null : request.getMessage();
+        boolean requestedFullSolution = isExplicitAnswerRequest(message);
+        AgentContextDTO context = build(
+                placeholder,
+                null,
+                null,
+                AgentProtocolConstants.TRIGGER_GLOBAL_GUIDE_CHAT,
+                detectGlobalGuideIntent(message),
+                message,
+                requestedFullSolution,
+                null,
+                "java",
+                null,
+                null,
+                0
+        );
+        context.setScene("global_guide");
+        context.setActionHint("global_guide_chat");
+        context.setPolicyProfile(AgentPolicyProfile.GLOBAL_GUIDE.name());
+        context.setCandidateActions(List.of(
+                AgentProtocolConstants.ACTION_EXPLAIN,
+                AgentProtocolConstants.ACTION_RECOMMEND,
+                AgentProtocolConstants.ACTION_CLARIFY_INTENT
+        ));
+        context.setFailureEvidenceLevel("NONE");
+        context.setFailureSignals(Map.of("context", List.of(), "strong", List.of(), "weak", List.of()));
+        context.setLearningSummary(Map.of(
+                "current_route", request == null ? "" : firstNonBlank(request.getCurrentRoute(), ""),
+                "page_type", request == null ? "" : firstNonBlank(request.getPageType(), ""),
+                "metadata", request == null || request.getMetadata() == null ? Map.of() : request.getMetadata()
+        ));
+        return context;
+    }
+
     private AgentContextDTO build(Problem problem,
                                   Submit submit,
                                   UserProblemInteraction interaction,
@@ -215,11 +258,12 @@ public class AgentContextBuilder {
             return AgentProtocolConstants.INTENT_ASK_FOR_FULL_SOLUTION;
         }
         String normalized = message == null ? "" : message.toLowerCase();
-        if (normalized.contains("答案") || normalized.contains("完整代码") || normalized.contains("参考代码")) {
-            return AgentProtocolConstants.INTENT_ASK_FOR_FULL_SOLUTION;
-        }
-        if (normalized.contains("思路") || normalized.contains("怎么做") || normalized.contains("解法")) {
+        if (containsAny(normalized, "思路", "怎么做", "怎么想", "解法", "方向", "起步")) {
             return AgentProtocolConstants.INTENT_ASK_PROBLEM_SOLVING_IDEA;
+        }
+        if (containsAny(normalized, "答案", "完整代码", "参考代码", "全部代码", "标准答案")
+                && !negatesSolutionRequest(normalized)) {
+            return AgentProtocolConstants.INTENT_ASK_FOR_FULL_SOLUTION;
         }
         if (normalized.contains("提示")) {
             return AgentProtocolConstants.INTENT_ASK_FOR_HINT;
@@ -243,6 +287,22 @@ public class AgentContextBuilder {
         return normalized.isBlank() ? AgentProtocolConstants.INTENT_UNKNOWN : AgentProtocolConstants.INTENT_GENERAL_CHAT;
     }
 
+    private boolean containsAny(String value, String... keywords) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        for (String keyword : keywords) {
+            if (keyword != null && !keyword.isBlank() && value.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean negatesSolutionRequest(String normalized) {
+        return containsAny(normalized, "不要给", "先不要给", "别给", "不直接给", "不要直接给", "不用给", "无需给");
+    }
+
     private String statusFromCoach(ProblemCoachContext context, Submit submit) {
         if (context.getLatestResultCode() != null) {
             return mapResultToErrorType(context.getLatestResultCode());
@@ -254,6 +314,41 @@ public class AgentContextBuilder {
             return "RUN_FAILED";
         }
         return "NONE";
+    }
+
+    private String detectGlobalGuideIntent(String message) {
+        String normalized = message == null ? "" : message.toLowerCase();
+        if (containsAny(normalized, "当前页", "页面", "这里", "page")) {
+            return AgentProtocolConstants.INTENT_ASK_FOR_EXPLANATION;
+        }
+        if (containsAny(normalized, "下一步", "开始", "练习", "推荐", "next", "start")) {
+            return AgentProtocolConstants.INTENT_ASK_FOR_NEXT_STEP;
+        }
+        if (isExplicitAnswerRequest(message)) {
+            return AgentProtocolConstants.INTENT_ASK_FOR_FULL_SOLUTION;
+        }
+        if (normalized.isBlank()) {
+            return AgentProtocolConstants.INTENT_UNKNOWN;
+        }
+        return AgentProtocolConstants.INTENT_GENERAL_CHAT;
+    }
+
+    private boolean isExplicitAnswerRequest(String message) {
+        String normalized = message == null ? "" : message.toLowerCase();
+        return containsAny(normalized, "答案", "完整代码", "直接给", "solution", "answer", "complete code")
+                && !negatesSolutionRequest(normalized);
+    }
+
+    private String pageTitle(String pageType) {
+        String normalized = pageType == null ? "" : pageType.trim().toUpperCase();
+        return switch (normalized) {
+            case "PROBLEM_LIST" -> "题库";
+            case "PROBLEM" -> "题目页";
+            case "WRONG_BOOK", "WRONG_BOOK_DETAIL" -> "错题本";
+            case "LEARNING_PATH" -> "学习路径";
+            case "PROFILE_ANALYSIS" -> "学习分析";
+            default -> "学习助手";
+        };
     }
 
     public String mapResultToErrorType(Integer result) {

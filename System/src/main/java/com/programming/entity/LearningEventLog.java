@@ -25,6 +25,7 @@ public class LearningEventLog {
     private String requestId;
     private Boolean executed;
     private String blockedReason;
+    private String policyProfile;
     private String entryRefType;
     private Long entryRefId;
     private Long pathId;

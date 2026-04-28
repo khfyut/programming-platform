@@ -1,65 +1,42 @@
 <template>
   <div class="leetcode-problems-page">
     <div class="problems-container">
-      <div class="knowledge-categories">
-        <div class="category-list">
-          <span
-            v-for="tag in visibleKnowledgeTags"
-            :key="tag.name"
-            class="knowledge-tag"
-            :class="{ active: selectedKnowledge === tag.name }"
-            @click="selectKnowledge(tag.name)"
-          >
-            {{ tag.name }}
-            <span class="tag-num">{{ tag.count }}</span>
-          </span>
-          <span
-            v-if="knowledgeTags.length > 12"
-            class="knowledge-tag expand"
-            :class="{ expanded: showAllKnowledge }"
-            @click="toggleKnowledgeExpand"
-          >
-            {{ showAllKnowledge ? '收起' : '展开' }}
-            <el-icon class="expand-icon"><ArrowDown /></el-icon>
-          </span>
-        </div>
-      </div>
-
-      <div class="language-categories">
-        <div class="lang-filter-list">
+      <div class="category-filter-section">
+        <div class="category-filter-list">
           <button
-            class="lang-filter-btn"
-            :class="{ active: selectedLang === 'all' }"
-            @click="selectLang('all')"
+            class="category-filter-btn"
+            :class="{ active: selectedCategoryId === 'all' }"
+            @click="selectCategory('all')"
           >
-            <el-icon class="lang-icon"><Menu /></el-icon>
-            <span>全部题目</span>
+            <el-icon class="category-icon"><Menu /></el-icon>
+            <span>全部分类</span>
+            <span class="category-count">{{ allCategoryCount }}</span>
           </button>
+
           <button
-            v-for="lang in languageTypes"
-            :key="lang.value"
-            class="lang-filter-btn"
-            :class="{ active: selectedLang === lang.value }"
-            @click="selectLang(lang.value)"
+            v-for="category in visibleProblemCategories"
+            :key="category.id"
+            class="category-filter-btn"
+            :class="{ active: selectedCategoryId === String(category.id) }"
+            @click="selectCategory(category.id)"
           >
-            <el-icon class="lang-icon" :style="{ color: lang.color }">
-              <component :is="resolveLanguageIcon(lang.icon)" />
-            </el-icon>
-            <span>{{ lang.label }}</span>
+            <span>{{ category.name }}</span>
+            <span class="category-count">{{ category.count }}</span>
+          </button>
+
+          <button
+            v-if="problemCategories.length > 12"
+            class="category-filter-btn expand"
+            :class="{ expanded: showAllCategories }"
+            @click="toggleCategoryExpand"
+          >
+            <span>{{ showAllCategories ? '收起' : '展开' }}</span>
+            <el-icon class="expand-icon"><ArrowDown /></el-icon>
           </button>
         </div>
       </div>
 
       <div class="search-filter-bar">
-        <div class="search-box">
-          <el-icon class="search-icon"><Search /></el-icon>
-          <input
-            v-model="searchKeyword"
-            type="text"
-            placeholder="搜索题目..."
-            @keyup.enter="handleSearch"
-          />
-        </div>
         <div class="filter-actions">
           <button class="action-btn" :class="{ active: sortMode !== 'default' }" @click="toggleSort">
             <el-icon><Sort /></el-icon>
@@ -147,7 +124,6 @@ import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useProblemStore } from '@/stores/problem'
 import {
-  Search,
   Sort,
   Close,
   CircleCheck,
@@ -173,16 +149,16 @@ const problemStore = useProblemStore()
 const {
   loading,
   problemList,
-  knowledgeTags,
+  problemCategories,
   languageTypes,
-  searchKeyword,
-  selectedKnowledge,
+  selectedCategoryId,
   selectedLang,
   solvedCount,
-  showAllKnowledge,
+  showAllCategories,
   sortMode,
   pagination,
-  visibleKnowledgeTags,
+  visibleProblemCategories,
+  allCategoryCount,
   sortLabel,
   hasActiveFilters
 } = storeToRefs(problemStore)
@@ -190,11 +166,10 @@ const {
 const {
   initialize,
   fetchProblems,
-  selectKnowledge,
+  selectCategory,
   selectLang,
-  toggleKnowledgeExpand,
+  toggleCategoryExpand,
   toggleSort,
-  handleSearch,
   clearFilters,
   toggleFavorite
 } = problemStore
@@ -274,70 +249,17 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-.knowledge-categories {
-  margin-bottom: 12px;
-}
-
-.category-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  align-items: center;
-}
-
-.knowledge-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: #6b7280;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  padding: 4px 0;
-}
-
-.knowledge-tag:hover {
-  color: #1f2937;
-}
-
-.knowledge-tag.active {
-  color: #1f2937;
-  font-weight: 500;
-}
-
-.tag-num {
-  color: #9ca3af;
-  font-size: 12px;
-}
-
-.knowledge-tag.expand {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.knowledge-tag.expand.expanded .expand-icon {
-  transform: rotate(180deg);
-}
-
-.expand-icon {
-  font-size: 12px;
-  transition: transform 0.2s ease;
-}
-
-.language-categories {
+.category-filter-section {
   margin-bottom: 16px;
 }
 
-.lang-filter-list {
+.category-filter-list {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.lang-filter-btn {
+.category-filter-btn {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -352,28 +274,44 @@ onMounted(() => {
   transition: all 0.2s ease;
 }
 
-.lang-filter-btn:hover {
+.category-filter-btn:hover {
   background: #f9fafb;
   border-color: #d1d5db;
 }
 
-.lang-filter-btn.active {
+.category-filter-btn.active {
   background: #1f2937;
   border-color: #1f2937;
   color: #ffffff;
 }
 
-.lang-filter-btn.active .lang-icon {
-  color: #ffffff !important;
+.category-count {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
-.lang-icon {
+.category-icon {
   font-size: 16px;
+}
+
+.category-filter-btn.active .category-count,
+.category-filter-btn.active .category-icon {
+  color: #ffffff;
+}
+
+.category-filter-btn.expand.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+.expand-icon {
+  font-size: 12px;
+  transition: transform 0.2s ease;
 }
 
 .search-filter-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px 16px;
@@ -381,42 +319,6 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.search-box {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.search-box:focus-within {
-  background: #ffffff;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.search-icon {
-  color: #9ca3af;
-  font-size: 16px;
-}
-
-.search-box input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #1f2937;
-  outline: none;
-}
-
-.search-box input::placeholder {
-  color: #9ca3af;
 }
 
 .filter-actions {
@@ -781,10 +683,14 @@ onMounted(() => {
     padding: 16px;
   }
 
-  .category-list {
+  .category-filter-list {
     overflow-x: auto;
     flex-wrap: nowrap;
     padding-bottom: 8px;
+  }
+
+  .category-filter-btn {
+    flex: 0 0 auto;
   }
 
   .search-filter-bar {

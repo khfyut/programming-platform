@@ -40,10 +40,10 @@ public class ProblemServiceImpl implements ProblemService {
     private RuntimeCatalogService runtimeCatalogService;
 
     @Override
-    public Map<String, Object> getProblemList(int page, int size, Integer difficulty, String language, String knowledge, Long userId) {
+    public Map<String, Object> getProblemList(int page, int size, Integer difficulty, String language, String knowledge, Long categoryId, Long userId) {
         int offset = (page - 1) * size;
-        List<Problem> problems = problemMapper.findByPage(offset, size, difficulty, language, knowledge);
-        int total = problemMapper.count(difficulty, language, knowledge);
+        List<Problem> problems = problemMapper.findByPage(offset, size, difficulty, language, knowledge, categoryId);
+        int total = problemMapper.count(difficulty, language, knowledge, categoryId);
 
         Set<Long> solvedProblemIds = new HashSet<>();
         Set<Long> attemptedProblemIds = new HashSet<>();
@@ -207,6 +207,11 @@ public class ProblemServiceImpl implements ProblemService {
         return languages;
     }
 
+    @Override
+    public List<Map<String, Object>> getCategories() {
+        return problemMapper.getCategoryStats();
+    }
+
     private void fillUserProblemStates(Long userId, Set<Long> solvedProblemIds, Set<Long> attemptedProblemIds,
                                        Set<Long> favoritedProblemIds) {
         List<Long> solved = submitMapper.findPassedProblemIdsByUserId(userId);
@@ -263,6 +268,8 @@ public class ProblemServiceImpl implements ProblemService {
             dto.setLanguage(problem.getLanguage());
             dto.setTags(problem.getTags());
             dto.setKnowledgePoints(problem.getKnowledgePoints());
+            dto.setCategoryId(problem.getCategoryId());
+            dto.setSubCategoryId(problem.getSubCategoryId());
             dto.setCreateTime(problem.getCreateTime());
 
             dto.setIsSolved(solvedProblemIds.contains(problem.getId()));

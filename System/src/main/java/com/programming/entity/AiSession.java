@@ -13,6 +13,7 @@ public class AiSession {
     private Integer status;
     private String sessionType;
     private Long relatedProblemId;
+    private Long relatedWrongItemId;
     private Long lastSubmitId;
     private String metadataJson;
     private LocalDateTime createTime;

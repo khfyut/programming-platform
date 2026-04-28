@@ -132,7 +132,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, ArrowLeft, Check, Clock, Document, Lock } from '@element-plus/icons-vue'
-import { getPathDetail, getPathProgress, unlockLevel } from '@/api/learn'
+import { getPathDetail, getPathProgress } from '@/api/learn'
+import { normalizeLearningPathChapters, normalizeProgress, toCompletedLevelSet } from '@/utils/learningPathProgress'
 
 const route = useRoute()
 const router = useRouter()
@@ -170,80 +171,6 @@ const resetPathData = (showError = false) => {
   }
 }
 
-const normalizeProgress = (raw) => {
-  if (!raw || typeof raw !== 'object') {
-    return {
-      completedLevels: 0,
-      totalLevels: 0,
-      progress: 0,
-      currentChapterId: null,
-      currentLevelId: null,
-      completedLevelIds: []
-    }
-  }
-
-  return {
-    completedLevels: Number(raw.completedLevels || 0),
-    totalLevels: Number(raw.totalLevels || 0),
-    progress: Number(raw.progress || 0),
-    currentChapterId: raw.currentChapterId ? Number(raw.currentChapterId) : null,
-    currentLevelId: raw.currentLevelId ? Number(raw.currentLevelId) : null,
-    completedLevelIds: Array.isArray(raw.completedLevelIds) ? raw.completedLevelIds.map((id) => Number(id)) : []
-  }
-}
-
-const toCompletedLevelSet = (raw) => {
-  const set = new Set()
-  const normalized = normalizeProgress(raw)
-  normalized.completedLevelIds
-    .filter((id) => !Number.isNaN(id))
-    .forEach((id) => set.add(id))
-  return set
-}
-
-const normalizeChapters = (rawChapters, completedSet, currentChapterId, currentLevelId) => {
-  let fallbackCurrentAssigned = false
-
-  return (rawChapters || []).map((chapter, chapterIndex) => {
-    const chapterId = Number(chapter.id)
-    const levels = (chapter.levels || []).map((level, index, allLevels) => {
-      const levelId = Number(level.id)
-      const previousLevelId = Number(allLevels[index - 1]?.id)
-      const problemCount = level.problemCount ?? (level.problemIds ? level.problemIds.split(',').filter(Boolean).length : 0)
-
-      let status = 'locked'
-      if (completedSet.has(levelId)) {
-        status = 'completed'
-      } else if (currentLevelId && currentLevelId === levelId) {
-        status = 'current'
-        fallbackCurrentAssigned = true
-      } else if (
-        currentChapterId &&
-        currentChapterId === chapterId &&
-        (index === 0 || completedSet.has(previousLevelId))
-      ) {
-        status = 'available'
-      } else if (!currentLevelId && !fallbackCurrentAssigned && (index === 0 || completedSet.has(previousLevelId))) {
-        status = 'current'
-        fallbackCurrentAssigned = true
-      }
-
-      return {
-        ...level,
-        order: level.orderNum ?? level.order ?? index + 1,
-        problemCount,
-        status
-      }
-    })
-
-    return {
-      ...chapter,
-      order: chapter.orderNum ?? chapter.order ?? chapterIndex + 1,
-      levels
-    }
-  })
-}
-
 const fetchPathDetail = async () => {
   if (!pathId.value) {
     resetPathData(true)
@@ -266,7 +193,7 @@ const fetchPathDetail = async () => {
     progress.value = normalizeProgress(progressRes?.data)
     const completedSet = toCompletedLevelSet(progressRes?.data)
 
-    chapters.value = normalizeChapters(
+    chapters.value = normalizeLearningPathChapters(
       pathRes.data.chapters,
       completedSet,
       progress.value.currentChapterId,
@@ -339,22 +266,6 @@ const startLevel = async (level) => {
   if (level.status === 'locked') {
     ElMessage.warning('该关卡尚未解锁')
     return
-  }
-
-  if (level.status === 'available') {
-    try {
-      const res = await unlockLevel(level.id)
-      if (res?.code !== 200 || res?.data !== true) {
-        ElMessage.error(res?.msg || '解锁失败')
-        return
-      }
-      await fetchPathDetail()
-      ElMessage.success('关卡已解锁')
-    } catch (error) {
-      console.error('解锁关卡失败:', error)
-      ElMessage.error('解锁失败')
-      return
-    }
   }
 
   goToLevel(level)

@@ -111,11 +111,13 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Edit, Right, User, Lock, Trophy, Monitor, ChatDotRound } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { getSafeRedirectPath } from '@/utils/navigation'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref(null)
@@ -142,7 +144,7 @@ const handleLogin = async () => {
     const success = await userStore.login(form.username, form.password)
     if (success) {
       ElMessage.success('登录成功')
-      router.push('/')
+      router.replace(getSafeRedirectPath(route.query.redirect))
     } else {
       ElMessage.error('用户名或密码错误')
     }

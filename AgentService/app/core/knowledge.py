@@ -87,7 +87,7 @@ class KnowledgeRetriever:
                 bundle.teaching_cards,
                 bundle,
                 "template:teaching:array",
-                "数组题要特别关注下标范围、遍历顺序和是否重复使用同一个元素。",
+                "数组题要特别关注下标范围、遍历顺序，以及是否重复使用同一个元素。",
                 "teaching",
             )
 

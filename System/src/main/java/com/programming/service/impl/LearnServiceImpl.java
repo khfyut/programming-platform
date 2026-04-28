@@ -428,7 +428,7 @@ public class LearnServiceImpl implements LearnService {
             return;
         }
 
-        List<Problem> fallbackProblems = problemMapper.findByPage(0, 10, difficulty, preferredLanguage, null);
+        List<Problem> fallbackProblems = problemMapper.findByPage(0, 10, difficulty, preferredLanguage, null, null);
         for (Problem problem : fallbackProblems) {
             if (problem == null || problem.getId() == null || excludedProblemIds.contains(problem.getId())) {
                 continue;

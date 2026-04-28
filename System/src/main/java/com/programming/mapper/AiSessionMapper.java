@@ -12,6 +12,7 @@ public interface AiSessionMapper {
     AiSession selectSessionBySessionId(String sessionId);
     List<AiSession> selectSessionsByUserId(Long userId);
     AiSession selectLatestProblemCoachSession(@Param("userId") Long userId, @Param("problemId") Long problemId);
+    AiSession selectLatestWrongBookReviewSession(@Param("userId") Long userId, @Param("wrongItemId") Long wrongItemId);
     void insertSession(AiSession session);
     void updateSession(AiSession session);
     void deleteSession(Long id);

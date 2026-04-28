@@ -28,6 +28,7 @@ public class AdminWebMvcConfig implements WebMvcConfigurer {
                         "/api/problem/*/test-cases/sample",
                         "/api/problem/tag/*",
                         "/api/problem/languages",
+                        "/api/problem/categories",
                         "/api/community/posts",
                         "/api/community/post/*",
                         "/api/community/post/*/comments",

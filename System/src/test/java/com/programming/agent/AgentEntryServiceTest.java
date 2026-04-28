@@ -2,10 +2,13 @@ package com.programming.agent;
 
 import com.programming.agent.dto.AgentContextDTO;
 import com.programming.agent.dto.AgentDecisionDTO;
+import com.programming.agent.orchestrator.LearningAgentEvent;
+import com.programming.agent.orchestrator.LearningAgentOrchestrator;
 import com.programming.entity.LearningEventLog;
 import com.programming.entity.LearningPath;
 import com.programming.entity.PathLevel;
 import com.programming.entity.Problem;
+import com.programming.entity.Submit;
 import com.programming.entity.UserProblemInteraction;
 import com.programming.entity.WrongBookItem;
 import com.programming.mapper.LearningEventLogMapper;
@@ -27,9 +30,12 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +48,10 @@ class AgentEntryServiceTest {
     private AgentContextBuilder contextBuilder;
     @Mock
     private AgentDecisionEnforcer decisionEnforcer;
+    @Mock
+    private DecisionContextReducer decisionContextReducer;
+    @Mock
+    private LearningAgentOrchestrator learningAgentOrchestrator;
     @Mock
     private SubmitMapper submitMapper;
     @Mock
@@ -73,7 +83,8 @@ class AgentEntryServiceTest {
         when(userProblemInteractionMapper.findByUserAndProblem(userId, 100L)).thenReturn(interaction);
         when(contextBuilder.buildForWrongBookEntry(problem, item, interaction)).thenReturn(context);
         when(agentClient.getDecision(context)).thenReturn(decision);
-        when(decisionEnforcer.enforce(context, decision)).thenReturn(AgentExecutionResult.executed());
+        when(decisionEnforcer.enforce(context, decision, AgentPolicyProfile.WRONG_BOOK_REFLECTION))
+                .thenReturn(AgentExecutionResult.executed());
 
         AgentDecisionDTO result = agentService.processWrongBookReflection(userId, wrongItemId);
 
@@ -81,11 +92,19 @@ class AgentEntryServiceTest {
         assertEquals("reflection", result.getContentType());
         assertEquals("REVIEW_AFTER_SOLUTION", result.getPedagogicalGoal());
         verify(userProblemInteractionMapper).incrementReflectCount(userId, 100L);
+        verify(decisionContextReducer).reduce(context);
         ArgumentCaptor<LearningEventLog> logCaptor = ArgumentCaptor.forClass(LearningEventLog.class);
         verify(learningEventLogMapper).insert(logCaptor.capture());
         assertEquals("WRONG_BOOK", logCaptor.getValue().getEntryRefType());
         assertEquals(wrongItemId, logCaptor.getValue().getEntryRefId());
         assertEquals(wrongItemId, logCaptor.getValue().getWrongItemId());
+        assertEquals("WRONG_BOOK_REFLECTION", logCaptor.getValue().getPolicyProfile());
+        ArgumentCaptor<LearningAgentEvent> eventCaptor = ArgumentCaptor.forClass(LearningAgentEvent.class);
+        verify(learningAgentOrchestrator).prepare(eventCaptor.capture(), org.mockito.ArgumentMatchers.same(context));
+        assertEquals(AgentPolicyProfile.WRONG_BOOK_REFLECTION, eventCaptor.getValue().getPolicyProfile());
+        assertEquals("WRONG_BOOK_ENTRY", eventCaptor.getValue().getEventType());
+        assertEquals(userId, eventCaptor.getValue().getUserId());
+        assertEquals(wrongItemId, eventCaptor.getValue().getWrongItemId());
     }
 
     @Test
@@ -108,7 +127,8 @@ class AgentEntryServiceTest {
         when(learningService.getLevelDetail(levelId)).thenReturn(level);
         when(contextBuilder.buildForLearningPathEntry(path, level, new ArrayList<>(), null)).thenReturn(context);
         when(agentClient.getDecision(context)).thenReturn(decision);
-        when(decisionEnforcer.enforce(context, decision)).thenReturn(AgentExecutionResult.executed());
+        when(decisionEnforcer.enforce(context, decision, AgentPolicyProfile.LEARNING_PATH))
+                .thenReturn(AgentExecutionResult.executed());
 
         AgentDecisionDTO result = agentService.processLearningPathRecommendation(userId, pathId, levelId);
 
@@ -123,6 +143,120 @@ class AgentEntryServiceTest {
         assertEquals(pathId, logCaptor.getValue().getPathId());
         assertEquals(levelId, logCaptor.getValue().getLevelId());
         assertEquals(null, logCaptor.getValue().getProblemId());
+        assertEquals("LEARNING_PATH", logCaptor.getValue().getPolicyProfile());
+        ArgumentCaptor<LearningAgentEvent> eventCaptor = ArgumentCaptor.forClass(LearningAgentEvent.class);
+        verify(learningAgentOrchestrator).prepare(eventCaptor.capture(), org.mockito.ArgumentMatchers.same(context));
+        assertEquals(AgentPolicyProfile.LEARNING_PATH, eventCaptor.getValue().getPolicyProfile());
+        assertEquals("LEARNING_PATH_ENTRY", eventCaptor.getValue().getEventType());
+        assertEquals(pathId, eventCaptor.getValue().getPathId());
+        assertEquals(levelId, eventCaptor.getValue().getLevelId());
+    }
+
+    @Test
+    void violationRetryAddsStructuredViolationBeforeSecondAgentCall() {
+        Long userId = 7L;
+        Long wrongItemId = 31L;
+        WrongBookItem item = wrongItem(wrongItemId, 100L, 900L);
+        Problem problem = problem(100L);
+        UserProblemInteraction interaction = interaction(userId, 100L);
+        AgentContextDTO context = context("req-wrong", "WRONG_BOOK_ENTRY", "ASK_FOR_ERROR_ANALYSIS");
+        AgentDecisionDTO blocked = decision("req-wrong", "REVEAL_ANSWER", "solution", "REVIEW_AFTER_SOLUTION");
+        blocked.setAnswerScope("reference_code");
+        AgentDecisionDTO retried = decision("req-wrong", "REFLECT", "reflection", "REVIEW_AFTER_SOLUTION");
+        retried.setAnswerScope("full_solution");
+
+        when(wrongBookService.getWrongBookItemById(userId, wrongItemId)).thenReturn(item);
+        when(problemMapper.findById(100L)).thenReturn(problem);
+        when(userProblemInteractionMapper.findByUserAndProblem(userId, 100L)).thenReturn(interaction);
+        when(contextBuilder.buildForWrongBookEntry(problem, item, interaction)).thenReturn(context);
+        when(agentClient.getDecision(context)).thenReturn(blocked, retried);
+        when(decisionEnforcer.enforce(context, blocked, AgentPolicyProfile.WRONG_BOOK_REFLECTION))
+                .thenReturn(AgentExecutionResult.blocked("reference_code requires explicit request in wrong_book scene"));
+        when(decisionEnforcer.enforce(context, retried, AgentPolicyProfile.WRONG_BOOK_REFLECTION))
+                .thenReturn(AgentExecutionResult.executed());
+
+        AgentDecisionDTO result = agentService.processWrongBookReflection(userId, wrongItemId);
+
+        assertEquals("REFLECT", result.getActionType());
+        assertNotNull(context.getViolation());
+        assertEquals("REVEAL_ANSWER", context.getViolation().get("blocked_action"));
+        assertEquals("reference_code requires explicit request in wrong_book scene", context.getViolation().get("blocked_reason"));
+        verify(agentClient, times(2)).getDecision(context);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void problemCoachBlockedRetryUsesEvidenceScopedViolationAndUserSafeReply() {
+        Long userId = 7L;
+        Long submitId = 900L;
+        Submit submit = submit(userId, submitId, 100L, 1);
+        Problem problem = problem(100L);
+        UserProblemInteraction interaction = interaction(userId, 100L);
+        interaction.setConsecutiveFailures(0);
+        AgentContextDTO context = context("req-problem", "PROBLEM_PAGE_CHAT", "ASK_FOR_FULL_SOLUTION");
+        context.setScene("problem_coach");
+        context.setFailureEvidenceLevel(DecisionContextReducer.LEVEL_WEAK);
+        context.setRequestedFullSolution(true);
+        AgentDecisionDTO blocked = decision("req-problem", "EXPLAIN", "explanation", "EXPLAIN_CONCEPT");
+        blocked.setAnswerScope("partial_solution");
+        AgentDecisionDTO retried = decision("req-problem", "HINT", "hint", "GIVE_LIGHT_HINT");
+        retried.setAnswerScope("partial_solution");
+        String internalReason = "HINT answer_scope partial_solution exceeds allowed_scope hint";
+
+        when(submitMapper.findById(submitId)).thenReturn(submit);
+        when(problemMapper.findById(100L)).thenReturn(problem);
+        when(submitMapper.findRecentByUserAndProblem(userId, 100L, 20)).thenReturn(List.of(submit));
+        when(userProblemInteractionMapper.findByUserAndProblem(userId, 100L)).thenReturn(interaction);
+        when(contextBuilder.buildForSubmission(problem, submit, interaction, 1)).thenReturn(context);
+        when(agentClient.getDecision(context)).thenReturn(blocked, retried);
+        when(decisionEnforcer.enforce(context, blocked, AgentPolicyProfile.PROBLEM_COACH))
+                .thenReturn(AgentExecutionResult.blocked("EXPLAIN answer_scope partial_solution exceeds allowed_scope hint"));
+        when(decisionEnforcer.enforce(context, retried, AgentPolicyProfile.PROBLEM_COACH))
+                .thenReturn(AgentExecutionResult.blocked(internalReason));
+
+        AgentDecisionDTO result = agentService.processSubmission(userId, submitId);
+
+        assertNotNull(context.getViolation());
+        assertEquals(List.of("concept_only", "hint_only"),
+                (List<String>) context.getViolation().get("allowed_scopes"));
+        assertEquals(internalReason, result.getBlockedReason());
+        assertFalse(result.getMainResponse().contains("answer_scope"));
+        assertFalse(result.getMainResponse().contains("allowed_scope"));
+        assertFalse(result.getMainResponse().contains(internalReason));
+        verify(agentClient, times(2)).getDecision(context);
+    }
+
+    @Test
+    void clarifyIntentDecisionRecordsEventWithoutChangingLearningCounters() {
+        Long userId = 7L;
+        Long submitId = 900L;
+        Submit submit = submit(userId, submitId, 100L, 1);
+        Problem problem = problem(100L);
+        UserProblemInteraction interaction = interaction(userId, 100L);
+        AgentContextDTO context = context("req-clarify", "PROBLEM_PAGE_CHAT", "UNKNOWN");
+        context.setScene("problem_coach");
+        AgentDecisionDTO decision = decision("req-clarify", "CLARIFY_INTENT", "clarification", "CLARIFY_USER_INTENT");
+        decision.setAnswerScope("concept_only");
+
+        when(submitMapper.findById(submitId)).thenReturn(submit);
+        when(problemMapper.findById(100L)).thenReturn(problem);
+        when(submitMapper.findRecentByUserAndProblem(userId, 100L, 20)).thenReturn(List.of(submit));
+        when(userProblemInteractionMapper.findByUserAndProblem(userId, 100L)).thenReturn(interaction);
+        when(contextBuilder.buildForSubmission(problem, submit, interaction, 1)).thenReturn(context);
+        when(agentClient.getDecision(context)).thenReturn(decision);
+        when(decisionEnforcer.enforce(context, decision, AgentPolicyProfile.PROBLEM_COACH))
+                .thenReturn(AgentExecutionResult.executed());
+
+        AgentDecisionDTO result = agentService.processSubmission(userId, submitId);
+
+        assertEquals("CLARIFY_INTENT", result.getActionType());
+        verify(userProblemInteractionMapper, never()).incrementHintCount(any(), any());
+        verify(userProblemInteractionMapper, never()).incrementDiagnoseCount(any(), any());
+        verify(userProblemInteractionMapper, never()).incrementExplainCount(any(), any());
+        ArgumentCaptor<LearningEventLog> logCaptor = ArgumentCaptor.forClass(LearningEventLog.class);
+        verify(learningEventLogMapper).insert(logCaptor.capture());
+        assertEquals("CLARIFY_INTENT", logCaptor.getValue().getActionType());
+        assertEquals("clarification", logCaptor.getValue().getContentType());
     }
 
     @Test
@@ -164,6 +298,17 @@ class AgentEntryServiceTest {
         item.setErrorMessage("WA");
         item.setKnowledgePoints("array,hashmap");
         return item;
+    }
+
+    private Submit submit(Long userId, Long submitId, Long problemId, Integer result) {
+        Submit submit = new Submit();
+        submit.setId(submitId);
+        submit.setUserId(userId);
+        submit.setProblemId(problemId);
+        submit.setResult(result);
+        submit.setCode("class Solution {}");
+        submit.setLanguage("java");
+        return submit;
     }
 
     private Problem problem(Long id) {

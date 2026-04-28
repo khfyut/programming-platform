@@ -1,125 +1,118 @@
 <template>
-  <div class="problem-coach-shell" :class="{ open: panelVisible }">
-    <div class="coach-rail">
-      <button class="coach-toggle" type="button" @click="togglePanel">
-        <el-icon><ChatDotRound /></el-icon>
-        <span>{{ panelVisible ? '收起陪练' : '陪练 Agent' }}</span>
-      </button>
+  <section class="problem-coach-panel">
+    <header class="coach-header">
+      <div class="coach-heading">
+        <div class="coach-title-row">
+          <el-icon><ChatDotRound /></el-icon>
+          <h2>题目陪练</h2>
+        </div>
+        <p>{{ problemTitle || '围绕当前题目继续追问思路、报错和下一步。' }}</p>
+      </div>
+      <div class="coach-status">当前：{{ statusLabel }}</div>
+    </header>
+
+    <div class="coach-thread">
+      <div ref="messageListRef" class="message-list" v-loading="loading">
+        <div v-if="!messages.length && summary" class="message-item assistant latest-summary">
+          <div class="message-role">陪练</div>
+          <pre class="message-content">{{ summary }}</pre>
+        </div>
+        <div v-else-if="!messages.length" class="thread-empty">
+          可以直接问解题思路、下一步提示、报错原因，也可以先运行或提交，让陪练根据结果分析。
+        </div>
+
+        <div
+          v-for="(message, index) in messages"
+          :key="`${message.role}-${index}-${message.createTime || ''}`"
+          class="message-item"
+          :class="message.role"
+        >
+          <div class="message-role">{{ message.role === 'assistant' ? '陪练' : '我' }}</div>
+          <pre class="message-content">{{ message.content }}</pre>
+        </div>
+
+        <div v-if="sending" class="message-item assistant working-message">
+          <div class="message-role">陪练</div>
+          <div class="working-status">
+            <span></span>
+            {{ workingStep || '正在分析当前问题' }}
+          </div>
+        </div>
+      </div>
     </div>
 
-    <aside v-if="panelVisible" class="coach-sidebar">
-      <div class="coach-header">
-        <div>
-          <div class="coach-title">题目陪练</div>
-          <div class="coach-subtitle">{{ problemTitle || '围绕当前题持续追问' }}</div>
-        </div>
-        <el-tag size="small" :type="canRevealFullSolution ? 'success' : 'info'">
-          {{ canRevealFullSolution ? '可索要修正版' : '提示模式' }}
-        </el-tag>
-      </div>
+    <div v-if="visibleActions.length" class="coach-actions">
+      <el-button
+        v-for="action in visibleActions"
+        :key="`${action.type || action.actionType}-${action.label || action.title}`"
+        size="small"
+        plain
+        class="action-btn"
+        @click="handleAction(action)"
+      >
+        {{ action.label || action.title || '继续追问' }}
+      </el-button>
+    </div>
 
-      <div v-if="summary" class="coach-summary">
-        <div class="section-title">当前诊断</div>
-        <p>{{ summary }}</p>
+    <div class="coach-composer">
+      <el-input
+        v-model="input"
+        type="textarea"
+        :rows="3"
+        resize="none"
+        placeholder="继续追问，例如：为什么这个边界条件会错？"
+        @keydown.ctrl.enter.prevent="submitMessage"
+      />
+      <div class="composer-actions">
+        <span class="composer-tip">Ctrl+Enter 发送</span>
+        <el-button type="primary" :loading="sending" @click="submitMessage">
+          发送
+        </el-button>
       </div>
+    </div>
 
-      <div v-if="decisionMeta.length" class="coach-decision-meta">
-        <el-tag v-for="item in decisionMeta" :key="item.label" size="small" effect="plain">
-          {{ item.label }}：{{ item.value }}
-        </el-tag>
-      </div>
+    <el-collapse v-if="hasLearningHints" v-model="learningHintPanels" class="coach-hints">
+      <el-collapse-item title="学习提示" name="hints">
+        <div class="hint-stack">
+          <p v-if="nextSuggestion" class="hint-text">{{ nextSuggestion }}</p>
+          <p v-if="friendlyErrorTag" class="hint-text">错误方向：{{ friendlyErrorTag }}</p>
 
-      <div v-if="nextSuggestion || weakPoints.length" class="coach-learning-notes">
-        <p v-if="nextSuggestion">{{ nextSuggestion }}</p>
-        <div v-if="weakPoints.length" class="weak-tags">
-          <el-tag v-for="point in weakPoints" :key="point" size="small" type="warning">
-            {{ point }}
-          </el-tag>
-        </div>
-      </div>
-
-      <div class="coach-actions">
-        <div class="section-title">快捷操作</div>
-        <div class="action-grid">
-          <el-button
-            v-for="action in actions"
-            :key="`${action.type}-${action.label}`"
-            size="small"
-            plain
-            class="action-btn"
-            @click="handleAction(action)"
-          >
-            {{ action.label }}
-          </el-button>
-        </div>
-      </div>
-
-      <div v-if="recommendations.length" class="coach-recommendations">
-        <div class="section-title">下一步推荐</div>
-        <button
-          v-for="card in recommendations"
-          :key="`${card.type}-${card.targetId}`"
-          type="button"
-          class="recommend-card"
-          @click="openRecommendation(card)"
-        >
-          <div class="recommend-badge">{{ cardTypeLabel(card.type) }}</div>
-          <div class="recommend-title">{{ card.title }}</div>
-          <div class="recommend-description">{{ card.description }}</div>
-          <div class="recommend-reason">{{ card.reason }}</div>
-        </button>
-      </div>
-
-      <div class="coach-thread">
-        <div class="section-title">对话线程</div>
-        <div ref="messageListRef" class="message-list" v-loading="loading">
-          <div v-if="!messages.length" class="thread-empty">
-            失败后会自动给出摘要，也可以现在直接追问思路、报错和下一步练习。
+          <div v-if="weakPoints.length" class="weak-tags">
+            <span v-for="point in weakPoints" :key="point" class="weak-tag">
+              {{ point }}
+            </span>
           </div>
-          <div
-            v-for="(message, index) in messages"
-            :key="`${message.role}-${index}-${message.createTime || ''}`"
-            class="message-item"
-            :class="message.role"
-          >
-            <div class="message-role">{{ message.role === 'assistant' ? '陪练' : '我' }}</div>
-            <pre class="message-content">{{ message.content }}</pre>
+
+          <div v-if="recommendations.length" class="coach-recommendations">
+            <button
+              v-for="card in recommendations"
+              :key="`${card.type}-${card.targetId}`"
+              type="button"
+              class="recommend-row"
+              @click="openRecommendation(card)"
+            >
+              <span class="recommend-badge">{{ cardTypeLabel(card.type) }}</span>
+              <span class="recommend-main">
+                <strong>{{ card.title }}</strong>
+                <span>{{ card.description || card.reason }}</span>
+              </span>
+            </button>
           </div>
         </div>
-      </div>
-
-      <div class="coach-composer">
-        <el-input
-          v-model="input"
-          type="textarea"
-          :rows="3"
-          resize="none"
-          placeholder="继续追问，例如：为什么这个边界条件会错？"
-          @keydown.ctrl.enter.prevent="submitMessage"
-        />
-        <div class="composer-actions">
-          <span class="composer-tip">`Ctrl+Enter` 发送</span>
-          <el-button type="primary" :loading="sending" @click="submitMessage">
-            发送
-          </el-button>
-        </div>
-      </div>
-    </aside>
-  </div>
+      </el-collapse-item>
+    </el-collapse>
+  </section>
 </template>
 
 <script setup>
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound } from '@element-plus/icons-vue'
 import { chatProblemAgent, getLatestProblemAgentSession, sendAgentFeedback } from '@/api/problemAgent'
+import { getAgentWorkingSteps } from '@/utils/agentWorkingSteps'
 
 const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false
-  },
   problemId: {
     type: [Number, String],
     default: null
@@ -138,7 +131,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:visible', 'apply-draft'])
+const emit = defineEmits(['apply-draft'])
 
 const router = useRouter()
 const messageListRef = ref(null)
@@ -153,23 +146,107 @@ const recommendations = ref([])
 const draftCode = ref('')
 const canRevealFullSolution = ref(false)
 const actionType = ref('')
-const pedagogicalGoal = ref('')
 const contentType = ref('')
 const nextSuggestion = ref('')
 const errorTag = ref('')
 const weakPoints = ref([])
 const requestId = ref('')
 const latestSubmitId = ref(null)
+const learningHintPanels = ref([])
+const workingStep = ref('')
+const workingTimer = ref(null)
 
 const numericProblemId = computed(() => {
   const value = Number(props.problemId)
   return Number.isFinite(value) && value > 0 ? value : null
 })
 
-const panelVisible = computed({
-  get: () => props.visible,
-  set: (value) => emit('update:visible', value)
+const statusLabel = computed(() => {
+  if (sending.value) return '正在分析'
+  if (loading.value) return '加载会话'
+
+  if (actionType.value === 'CLARIFY_INTENT' || contentType.value === 'clarification') {
+    return '\u786e\u8ba4\u610f\u56fe'
+  }
+
+  const actionLabels = {
+    GUIDE_IDEA: '思路引导',
+    HINT: '轻提示',
+    DIAGNOSE: '错误诊断',
+    EXPLAIN: '知识讲解',
+    RECOMMEND: '下一步建议',
+    REFLECT: '复盘',
+    REVEAL_ANSWER: '参考修正版'
+  }
+
+  const contentLabels = {
+    guidance: '思路引导',
+    hint: '轻提示',
+    diagnosis: '错误诊断',
+    explanation: '知识讲解',
+    recommendation: '下一步建议',
+    reflection: '复盘',
+    solution: '参考修正版'
+  }
+
+  return actionLabels[actionType.value] || contentLabels[contentType.value] || '随时提问'
 })
+
+const friendlyErrorTag = computed(() => {
+  const normalized = String(errorTag.value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_')
+
+  const labels = {
+    WA: '输出不匹配',
+    WRONG_ANSWER: '输出不匹配',
+    CE: '编译错误',
+    COMPILE_ERROR: '编译错误',
+    RE: '运行错误',
+    RTE: '运行错误',
+    RUNTIME_ERROR: '运行错误',
+    TLE: '超时或复杂度问题',
+    TIME_LIMIT_EXCEEDED: '超时或复杂度问题',
+    OUTPUT_FORMAT: '输出格式',
+    INPUT_PARSING: '输入解析',
+    BOUNDARY: '边界条件',
+    NULL_POINTER: '空值处理',
+    TYPE_ERROR: '类型处理'
+  }
+
+  return labels[normalized] || ''
+})
+
+const visibleActions = computed(() => {
+  const seen = new Set()
+  return actions.value
+    .filter((action) => {
+      const type = action?.type || action?.actionType || ''
+      if (type === 'reveal_solution' && !canRevealFullSolution.value) {
+        return false
+      }
+      if (type === 'apply_draft' && !draftCode.value) {
+        return false
+      }
+      const key = `${type}-${action?.label || action?.title || ''}`
+      if (seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    .slice(0, 3)
+})
+
+const hasLearningHints = computed(() =>
+  Boolean(
+    nextSuggestion.value ||
+      friendlyErrorTag.value ||
+      weakPoints.value.length ||
+      recommendations.value.length
+  )
+)
 
 const resetConversation = () => {
   sessionId.value = ''
@@ -180,7 +257,6 @@ const resetConversation = () => {
   draftCode.value = ''
   canRevealFullSolution.value = false
   actionType.value = ''
-  pedagogicalGoal.value = ''
   contentType.value = ''
   nextSuggestion.value = ''
   errorTag.value = ''
@@ -188,6 +264,8 @@ const resetConversation = () => {
   requestId.value = ''
   latestSubmitId.value = null
   input.value = ''
+  learningHintPanels.value = []
+  stopWorkingSteps()
 }
 
 const scrollToBottom = async () => {
@@ -198,6 +276,28 @@ const scrollToBottom = async () => {
   }
 }
 
+const stopWorkingSteps = () => {
+  if (workingTimer.value) {
+    window.clearInterval(workingTimer.value)
+    workingTimer.value = null
+  }
+  workingStep.value = ''
+}
+
+const startWorkingSteps = (payload = {}) => {
+  stopWorkingSteps()
+  const steps = getAgentWorkingSteps({
+    scene: 'problem_coach',
+    triggerType: payload.triggerType
+  })
+  let index = 0
+  workingStep.value = steps[index] || '正在分析当前问题'
+  workingTimer.value = window.setInterval(() => {
+    index = Math.min(index + 1, steps.length - 1)
+    workingStep.value = steps[index]
+  }, 1800)
+}
+
 const readCoachMetadata = (payload = {}) => {
   const snapshot =
     payload.contextSnapshot && typeof payload.contextSnapshot === 'object' && !Array.isArray(payload.contextSnapshot)
@@ -206,7 +306,6 @@ const readCoachMetadata = (payload = {}) => {
 
   return {
     actionType: payload.actionType || snapshot.actionType || '',
-    pedagogicalGoal: payload.pedagogicalGoal || snapshot.pedagogicalGoal || '',
     contentType: payload.contentType || snapshot.contentType || '',
     nextSuggestion: payload.nextSuggestion || snapshot.nextSuggestion || '',
     errorTag: payload.errorTag || snapshot.errorTag || '',
@@ -234,13 +333,13 @@ const applySessionPayload = async (payload) => {
   canRevealFullSolution.value = Boolean(payload.canRevealFullSolution)
   const metadata = readCoachMetadata(payload)
   actionType.value = metadata.actionType
-  pedagogicalGoal.value = metadata.pedagogicalGoal
   contentType.value = metadata.contentType
   nextSuggestion.value = metadata.nextSuggestion
   errorTag.value = metadata.errorTag
   weakPoints.value = metadata.weakPoints
   requestId.value = metadata.requestId
   latestSubmitId.value = metadata.latestSubmitId
+  learningHintPanels.value = []
   await scrollToBottom()
 }
 
@@ -269,13 +368,13 @@ const applyChatPayload = async (payload, requestPayload) => {
   canRevealFullSolution.value = Boolean(payload.canRevealFullSolution)
   const metadata = readCoachMetadata(payload)
   actionType.value = metadata.actionType
-  pedagogicalGoal.value = metadata.pedagogicalGoal
   contentType.value = metadata.contentType
   nextSuggestion.value = metadata.nextSuggestion
   errorTag.value = metadata.errorTag
   weakPoints.value = metadata.weakPoints
   requestId.value = metadata.requestId
   latestSubmitId.value = metadata.latestSubmitId || requestPayload?.submitId || null
+  learningHintPanels.value = []
 
   if (requestPayload) {
     messages.value.push({
@@ -307,7 +406,7 @@ const sendFeedback = async (feedbackType, metadata = {}) => {
       metadata
     })
   } catch (error) {
-    console.error('记录Agent反馈失败:', error)
+    console.error('记录 Agent 反馈失败:', error)
   }
 }
 
@@ -335,7 +434,7 @@ const loadLatestSession = async () => {
 
 const sendAgentRequest = async (payload = {}) => {
   if (!numericProblemId.value || sending.value) {
-    return
+    return null
   }
 
   const requestPayload = {
@@ -353,10 +452,15 @@ const sendAgentRequest = async (payload = {}) => {
   }
 
   sending.value = true
+  messages.value.push({
+    role: 'user',
+    content: createDisplayUserMessage(requestPayload)
+  })
+  startWorkingSteps(requestPayload)
   try {
     const res = await chatProblemAgent(requestPayload)
     if (res.code === 200 && res.data) {
-      await applyChatPayload(res.data, requestPayload)
+      await applyChatPayload(res.data, null)
       return res.data
     }
     ElMessage.error(res.msg || '题目陪练暂时不可用')
@@ -367,6 +471,7 @@ const sendAgentRequest = async (payload = {}) => {
     return null
   } finally {
     sending.value = false
+    stopWorkingSteps()
   }
 }
 
@@ -380,15 +485,10 @@ const submitMessage = async () => {
   await sendAgentRequest({ message, triggerType: 'manual' })
 }
 
-const togglePanel = async () => {
-  panelVisible.value = !panelVisible.value
-  if (panelVisible.value && !messages.value.length) {
-    await loadLatestSession()
-  }
-}
-
 const handleAction = async (action) => {
-  if (action.type === 'apply_draft') {
+  const type = action.type || action.actionType || ''
+
+  if (type === 'apply_draft') {
     if (!draftCode.value) {
       ElMessage.warning('当前没有可覆盖的参考修正版')
       return
@@ -398,7 +498,7 @@ const handleAction = async (action) => {
     return
   }
 
-  if (action.type === 'reveal_solution') {
+  if (type === 'reveal_solution') {
     await sendFeedback('revealed_solution', { source: 'quick_action', label: action.label })
     await sendAgentRequest({
       triggerType: 'manual',
@@ -408,7 +508,7 @@ const handleAction = async (action) => {
     return
   }
 
-  if (action.type === 'open_recommendation' && action.route) {
+  if (type === 'open_recommendation' && action.route) {
     await sendFeedback('accepted', { source: 'recommendation_action', label: action.label, route: action.route })
     router.push(action.route)
     return
@@ -417,14 +517,19 @@ const handleAction = async (action) => {
   await sendFeedback('asked_followup', { source: 'quick_action', label: action.label })
   await sendAgentRequest({
     triggerType: 'manual',
-    message: action.prompt || action.label
+    message: action.prompt || action.label || action.title || '继续帮我分析'
   })
 }
 
-const openRecommendation = (card) => {
+const openRecommendation = async (card) => {
   if (!card?.route) {
     return
   }
+  await sendFeedback('accepted', {
+    source: 'recommendation_card',
+    type: card.type,
+    targetId: card.targetId
+  })
   router.push(card.route)
 }
 
@@ -441,17 +546,7 @@ const cardTypeLabel = (type) => {
   return '推荐'
 }
 
-const decisionMeta = computed(() =>
-  [
-    { label: '动作', value: actionType.value },
-    { label: '目标', value: pedagogicalGoal.value },
-    { label: '类型', value: contentType.value },
-    { label: '错误', value: errorTag.value }
-  ].filter((item) => item.value)
-)
-
 const openWithPrompt = async ({ prompt, selectedCode } = {}) => {
-  panelVisible.value = true
   await sendAgentRequest({
     triggerType: 'manual',
     message: prompt || '请帮我分析当前选中的代码。',
@@ -460,7 +555,6 @@ const openWithPrompt = async ({ prompt, selectedCode } = {}) => {
 }
 
 const triggerFailure = async (payload = {}) => {
-  panelVisible.value = true
   await sendAgentRequest({
     triggerType: payload.triggerType || 'run_failed',
     latestResultCode: payload.latestResultCode,
@@ -483,6 +577,10 @@ watch(
   { immediate: true }
 )
 
+onBeforeUnmount(() => {
+  stopWorkingSteps()
+})
+
 defineExpose({
   openWithPrompt,
   triggerFailure,
@@ -491,207 +589,72 @@ defineExpose({
 </script>
 
 <style scoped>
-.problem-coach-shell {
-  width: 64px;
+.problem-coach-panel {
   height: 100%;
-  display: flex;
-  flex-shrink: 0;
-  border-left: 1px solid #dbe3ef;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-  transition: width 0.25s ease;
-}
-
-.problem-coach-shell.open {
-  width: 360px;
-}
-
-.coach-rail {
-  width: 64px;
-  border-right: 1px solid rgba(148, 163, 184, 0.18);
-  display: flex;
-  justify-content: center;
-  padding: 16px 0;
-}
-
-.coach-toggle {
-  width: 44px;
-  min-height: 180px;
-  border: none;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #0f4c81 0%, #1d74c8 100%);
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px 8px;
-  box-shadow: 0 18px 32px rgba(15, 76, 129, 0.18);
-}
-
-.coach-toggle span {
-  writing-mode: vertical-rl;
-  font-size: 13px;
-  letter-spacing: 1px;
-}
-
-.coach-sidebar {
-  flex: 1;
-  min-width: 0;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 18px 18px 16px 16px;
-  overflow: hidden;
+  color: var(--problem-text, #1f2937);
 }
 
 .coach-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--problem-border, #dbe3ef);
 }
 
-.coach-title {
-  font-size: 17px;
-  font-weight: 700;
-  color: #102a43;
+.coach-heading {
+  min-width: 0;
 }
 
-.coach-subtitle {
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #5f7389;
-}
-
-.coach-summary,
-.coach-decision-meta,
-.coach-learning-notes,
-.coach-actions,
-.coach-recommendations,
-.coach-thread,
-.coach-composer {
+.coach-title-row {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.coach-summary {
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(15, 76, 129, 0.1);
-}
-
-.coach-summary p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #243b53;
-}
-
-.coach-decision-meta,
-.weak-tags {
-  display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.coach-learning-notes {
-  padding: 12px;
+.coach-title-row .el-icon {
+  color: var(--problem-primary, #1890ff);
+}
+
+.coach-title-row h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--problem-text, #1f2937);
+}
+
+.coach-heading p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--problem-text-secondary, #64748b);
+}
+
+.coach-status {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1px solid rgba(24, 144, 255, 0.24);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(15, 76, 129, 0.1);
-}
-
-.coach-learning-notes p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #243b53;
-}
-
-.section-title {
+  background: rgba(24, 144, 255, 0.06);
+  color: #0f5da8;
   font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #52667a;
-}
-
-.action-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.action-btn {
-  margin: 0;
-  white-space: normal;
-}
-
-.coach-recommendations {
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.recommend-card {
-  width: 100%;
-  border: 1px solid rgba(15, 76, 129, 0.08);
-  border-radius: 16px;
-  background: #fff;
-  padding: 12px;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition:
-    transform 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.recommend-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(29, 116, 200, 0.28);
-  box-shadow: 0 12px 24px rgba(15, 76, 129, 0.08);
-}
-
-.recommend-badge {
-  width: fit-content;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(29, 116, 200, 0.08);
-  color: #1d74c8;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.recommend-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #102a43;
-}
-
-.recommend-description,
-.recommend-reason {
-  font-size: 12px;
-  line-height: 1.6;
-  color: #52667a;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .coach-thread {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 .message-list {
-  flex: 1;
-  min-height: 180px;
+  height: 100%;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
   display: flex;
@@ -700,45 +663,108 @@ defineExpose({
 }
 
 .thread-empty {
-  border: 1px dashed rgba(95, 115, 137, 0.32);
-  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
   padding: 14px;
   font-size: 13px;
-  line-height: 1.6;
-  color: #5f7389;
-  background: rgba(255, 255, 255, 0.72);
+  line-height: 1.7;
+  color: var(--problem-text-secondary, #64748b);
+  background: #f8fafc;
 }
 
 .message-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(15, 76, 129, 0.08);
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
 }
 
 .message-item.user {
-  background: rgba(29, 116, 200, 0.08);
+  border-color: rgba(24, 144, 255, 0.22);
+  background: rgba(24, 144, 255, 0.06);
+}
+
+.latest-summary {
+  background: #fff;
 }
 
 .message-role {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #52667a;
+  color: var(--problem-text-secondary, #64748b);
 }
 
 .message-content {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-size: 13px;
-  line-height: 1.65;
-  color: #102a43;
+  font-size: 14px;
+  line-height: 1.75;
+  color: #1f2937;
   font-family: inherit;
+}
+
+.working-message {
+  border-color: rgba(24, 144, 255, 0.18);
+  background: #f8fbff;
+}
+
+.working-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.working-status span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1890ff;
+  animation: workingPulse 1.2s infinite;
+}
+
+@keyframes workingPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.coach-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action-btn {
+  margin: 0;
+  border-radius: 8px;
+}
+
+.coach-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  order: 5;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  background: var(--problem-surface, #fff);
 }
 
 .composer-actions {
@@ -750,36 +776,130 @@ defineExpose({
 
 .composer-tip {
   font-size: 12px;
-  color: #7b8794;
+  color: #94a3b8;
 }
 
-@media (max-width: 1280px) {
-  .problem-coach-shell {
-    width: 100%;
-    height: auto;
-    border-left: none;
-    border-top: 1px solid #dbe3ef;
+.coach-hints {
+  order: 4;
+  flex: 0 0 auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.coach-hints :deep(.el-collapse-item__header) {
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 0;
+  font-weight: 600;
+  color: #334155;
+  background: #f8fafc;
+}
+
+.coach-hints :deep(.el-collapse-item__wrap) {
+  border-bottom: 0;
+}
+
+.coach-hints :deep(.el-collapse-item__content) {
+  padding: 12px;
+}
+
+.hint-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hint-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #334155;
+}
+
+.weak-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weak-tag {
+  padding: 3px 8px;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+}
+
+.coach-recommendations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recommend-row {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.recommend-row:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.recommend-badge {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(24, 144, 255, 0.08);
+  color: #0f5da8;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.recommend-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recommend-main strong {
+  font-size: 13px;
+  color: #1f2937;
+}
+
+.recommend-main span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .coach-header {
+    flex-direction: column;
   }
 
-  .problem-coach-shell.open {
-    width: 100%;
+  .coach-status {
+    white-space: normal;
   }
 
-  .coach-rail {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-    padding: 12px;
+  .message-list {
+    min-height: 0;
   }
 
-  .coach-toggle {
-    width: 100%;
-    min-height: auto;
-    flex-direction: row;
-  }
-
-  .coach-toggle span {
-    writing-mode: initial;
+  .composer-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 </style>

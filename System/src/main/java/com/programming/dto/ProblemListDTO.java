@@ -11,6 +11,8 @@ public class ProblemListDTO {
     private String language;
     private String tags;
     private String knowledgePoints;
+    private Long categoryId;
+    private Long subCategoryId;
     private LocalDateTime createTime;
     
     // 用户相关状态

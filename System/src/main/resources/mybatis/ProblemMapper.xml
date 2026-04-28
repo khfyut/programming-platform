@@ -17,6 +17,8 @@
         <result column="knowledge_points" property="knowledgePoints"/>
         <result column="hints" property="hints"/>
         <result column="sample_explanation" property="sampleExplanation"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="sub_category_id" property="subCategoryId"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
@@ -49,6 +51,17 @@
             </if>
             <if test="knowledge != null and knowledge != ''">
                 AND FIND_IN_SET(#{knowledge}, knowledge_points) > 0
+            </if>
+            <if test="categoryId != null">
+                AND (
+                    category_id = #{categoryId}
+                    OR sub_category_id = #{categoryId}
+                    OR sub_category_id IN (
+                        SELECT child.id
+                        FROM problem_category child
+                        WHERE child.parent_id = #{categoryId}
+                    )
+                )
             </if>
         </where>
         ORDER BY id DESC
@@ -91,6 +104,17 @@
             </if>
             <if test="knowledge != null and knowledge != ''">
                 AND FIND_IN_SET(#{knowledge}, knowledge_points) > 0
+            </if>
+            <if test="categoryId != null">
+                AND (
+                    category_id = #{categoryId}
+                    OR sub_category_id = #{categoryId}
+                    OR sub_category_id IN (
+                        SELECT child.id
+                        FROM problem_category child
+                        WHERE child.parent_id = #{categoryId}
+                    )
+                )
             </if>
         </where>
     </select>
@@ -159,7 +183,7 @@
     <select id="getLanguageStats" resultType="java.util.Map">
         SELECT language, COUNT(*) as problemCount
         FROM (
-            SELECT LOWER(psl.language_code) AS language, psl.problem_id
+            SELECT LOWER(psl.language_code) COLLATE utf8mb4_unicode_ci AS language, psl.problem_id
             FROM problem_supported_language psl
             INNER JOIN problem p ON p.id = psl.problem_id
             WHERE psl.status = 'ACTIVE'
@@ -167,7 +191,7 @@
 
             UNION ALL
 
-            SELECT LOWER(problem.language) AS language, problem.id AS problem_id
+            SELECT LOWER(problem.language) COLLATE utf8mb4_unicode_ci AS language, problem.id AS problem_id
             FROM problem
             WHERE problem.language IS NOT NULL
               AND COALESCE(problem.status, 'PUBLISHED') = 'PUBLISHED'
@@ -179,6 +203,31 @@
         ) language_union
         GROUP BY language
         ORDER BY problemCount DESC
+    </select>
+
+    <select id="getCategoryStats" resultType="java.util.Map">
+        SELECT
+            pc.id,
+            pc.name,
+            pc.parent_id AS parentId,
+            pc.sort_order AS sortOrder,
+            COUNT(DISTINCT p.id) AS problemCount
+        FROM problem_category pc
+        LEFT JOIN problem p
+          ON COALESCE(p.status, 'PUBLISHED') = 'PUBLISHED'
+         AND (
+              p.category_id = pc.id
+              OR p.sub_category_id = pc.id
+              OR p.sub_category_id IN (
+                  SELECT child.id
+                  FROM problem_category child
+                  WHERE child.parent_id = pc.id
+              )
+         )
+        WHERE pc.parent_id IS NULL
+        GROUP BY pc.id, pc.name, pc.parent_id, pc.sort_order
+        HAVING problemCount > 0
+        ORDER BY pc.sort_order ASC, pc.id ASC
     </select>
 
 </mapper>

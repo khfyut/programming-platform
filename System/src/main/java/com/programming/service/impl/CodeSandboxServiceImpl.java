@@ -40,26 +40,26 @@ public class CodeSandboxServiceImpl implements CodeSandboxService {
 
     @Override
     public List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs) {
-        return executeBatch(code, language, inputs, null, null);
+        return executeBatch(code, language, inputs, null, null, null);
     }
 
     @Override
-    public List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs, Integer timeLimit, Integer memoryLimit) {
-        return executeBatch(code, language, inputs, timeLimit, memoryLimit);
+    public List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs, Integer timeLimit, Integer memoryLimit, Double cpuLimit) {
+        return executeBatch(code, language, inputs, timeLimit, memoryLimit, cpuLimit);
     }
 
     private List<CodeExecutionResult> executeBatch(String code, String language, List<String> inputs,
-                                                   Integer timeLimit, Integer memoryLimit) {
+                                                   Integer timeLimit, Integer memoryLimit, Double cpuLimit) {
         List<CodeExecutionResult> results = new ArrayList<>();
         List<Future<CodeExecutionResult>> futures = new ArrayList<>();
 
         for (String input : inputs) {
             Future<CodeExecutionResult> future = executorService.submit(() -> {
                 try {
-                    if (timeLimit == null && memoryLimit == null) {
+                    if (timeLimit == null && memoryLimit == null && cpuLimit == null) {
                         return dockerUtil.executeCode(code, language, input);
                     }
-                    return dockerUtil.executeCode(code, language, input, timeLimit, memoryLimit);
+                    return dockerUtil.executeCode(code, language, input, timeLimit, memoryLimit, cpuLimit);
                 } catch (Exception e) {
                     log.error("Code execution exception", e);
                     CodeExecutionResult result = new CodeExecutionResult();

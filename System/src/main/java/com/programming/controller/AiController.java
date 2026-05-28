@@ -81,11 +81,11 @@ public class AiController {
         }
     }
 
-    @DeleteMapping("/history/{id}")
-    public ResultUtil deleteHistory(@PathVariable Long id, HttpServletRequest request) {
+    @DeleteMapping("/history/{sessionKey}")
+    public ResultUtil deleteHistory(@PathVariable String sessionKey, HttpServletRequest request) {
         try {
             Long userId = (Long) request.getAttribute("userId");
-            aiService.deleteSession(userId, id);
+            aiService.deleteSession(userId, sessionKey);
             return ResultUtil.success("删除成功");
         } catch (Exception e) {
             return ResultUtil.error("删除失败：" + e.getMessage());

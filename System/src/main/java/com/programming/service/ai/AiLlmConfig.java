@@ -8,10 +8,10 @@ public record AiLlmConfig(
         String apiKey
 ) {
     public String normalizedProvider() {
-        return provider == null || provider.isBlank() ? "ollama" : provider.trim().toLowerCase();
+        return provider == null || provider.isBlank() ? "openai-compatible" : provider.trim().toLowerCase();
     }
 
     public String normalizedModel() {
-        return model == null || model.isBlank() ? "gemma4:e2b" : model.trim();
+        return model == null || model.isBlank() ? "deepseek-v4-flash" : model.trim();
     }
 }

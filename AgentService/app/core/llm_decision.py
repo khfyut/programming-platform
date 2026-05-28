@@ -6,7 +6,7 @@ from typing import Any
 
 from app.core.content import CONTENT_TYPE_BY_ACTION, GOAL_BY_ACTION
 from app.core.intent import INTENT_CONFIDENCE_THRESHOLD, IntentUnderstanding, IntentUnderstandingEngine
-from app.core.llm_client import OllamaClient
+from app.core.llm_client import OllamaClient, OpenAICompatibleClient
 from app.schemas.context import AgentContext
 from app.schemas.decision import AgentDecision, CandidateAction
 
@@ -29,8 +29,13 @@ class LlmDecisionEngine:
     REQUEST_TIMEOUT_SECONDS = int(os.getenv("AGENT_REQUEST_TIMEOUT_SECONDS", "110"))
     LLM_TIMEOUT_SECONDS = int(os.getenv("AGENT_LLM_TIMEOUT_SECONDS", "100"))
 
-    def __init__(self, client: OllamaClient | None = None):
-        self.client = client or OllamaClient()
+    def __init__(self, client: OllamaClient | OpenAICompatibleClient | None = None):
+        if client is not None:
+            self.client = client
+        elif os.getenv("AGENT_LLM_PROVIDER", "").lower() == "openai":
+            self.client = OpenAICompatibleClient()
+        else:
+            self.client = OllamaClient()
         self.intent_engine = IntentUnderstandingEngine()
 
     def decide(self, context: AgentContext) -> AgentDecision:
@@ -300,9 +305,13 @@ class LlmDecisionEngine:
     def _failure_decision(self, context: AgentContext, failure_code: str, intent: IntentUnderstanding | None = None) -> AgentDecision:
         messages = {
             "MODEL_TIMEOUT": "模型响应超时，暂时无法完成这次 Agent 决策。你可以缩小问题范围，或补充当前代码和具体错误后重试。",
-            "LLM_UNAVAILABLE": "大模型服务暂时不可用，当前 Python AgentService 没有连上 Ollama。请确认 Ollama 已启动，模型已安装，并且 AGENT_OLLAMA_URL 配置正确。",
-            "MODEL_NOT_FOUND": "当前配置的模型不存在。请确认 AGENT_OLLAMA_MODEL 对应的 Ollama 模型已经安装，或修改模型配置后重试。",
-            "MODEL_HTTP_ERROR": "大模型服务返回了异常状态，暂时无法完成这次 Agent 决策。请检查 Ollama 服务日志和模型配置。",
+            "LLM_UNAVAILABLE": (
+                "大模型服务暂时不可用。"
+                "如果使用 Ollama，请确认服务已启动且模型已安装；"
+                "如果使用远程 API（DeepSeek 等），请确认网络通畅且 API Key 配置正确。"
+            ),
+            "MODEL_NOT_FOUND": "当前配置的模型不存在。请确认 LLM 模型名称配置正确，或修改模型配置后重试。",
+            "MODEL_HTTP_ERROR": "大模型服务返回了异常状态，暂时无法完成这次 Agent 决策。请检查 LLM 服务日志和 API 配置。",
             "MODEL_ERROR": "大模型调用发生异常，暂时无法完成这次 Agent 决策。请检查 AgentService 日志中的模型错误详情。",
             "INVALID_JSON": "暂时无法生成稳定的结构化决策。你可以换一种更具体的问法，例如只问题意、提示、错误原因或相似题推荐。",
             "SAFETY_BLOCKED": "当前请求被安全策略拦截，暂不能直接给完整答案。可以先要一个提示或错误定位。",

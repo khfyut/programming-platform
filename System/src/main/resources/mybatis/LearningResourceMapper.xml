@@ -31,4 +31,11 @@
     <delete id="deleteResource" parameterType="java.lang.Long">
         DELETE FROM learning_resource WHERE id = #{id}
     </delete>
+
+    <delete id="deleteByLevelIdAndTypeAndName">
+        DELETE FROM learning_resource
+        WHERE level_id = #{levelId}
+          AND type = #{type}
+          AND name = #{name}
+    </delete>
 </mapper>

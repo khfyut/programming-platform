@@ -576,7 +576,7 @@ watch(
 )
 
 const deleteSession = async (session) => {
-  const targetId = session?.id || session?.sessionId
+  const targetId = getSessionId(session)
   if (!targetId) return
 
   try {

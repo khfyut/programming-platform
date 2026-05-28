@@ -13,5 +13,5 @@ public interface CodeSandboxService {
     
     List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs);
     
-    List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs, Integer timeLimit, Integer memoryLimit);
+    List<CodeExecutionResult> runCodeBatch(String code, String language, List<String> inputs, Integer timeLimit, Integer memoryLimit, Double cpuLimit);
 }

@@ -131,7 +131,8 @@ public class SubmitServiceImpl implements SubmitService {
                 language,
                 inputs,
                 problem.getTimeLimit(),
-                problem.getMemoryLimit()
+                problem.getMemoryLimit(),
+                problem.getCpuLimit()
         );
     }
 

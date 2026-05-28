@@ -120,8 +120,8 @@
     </select>
 
     <insert id="insert" parameterType="com.programming.entity.Problem" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO problem (title, content, input, output, difficulty, language, time_limit, memory_limit, tags, knowledge_points, hints, sample_explanation)
-        VALUES (#{title}, #{content}, #{input}, #{output}, #{difficulty}, #{language}, #{timeLimit}, #{memoryLimit}, #{tags}, #{knowledgePoints}, #{hints}, #{sampleExplanation})
+        INSERT INTO problem (title, content, input, output, difficulty, language, time_limit, memory_limit, cpu_limit, tags, knowledge_points, hints, sample_explanation)
+        VALUES (#{title}, #{content}, #{input}, #{output}, #{difficulty}, #{language}, #{timeLimit}, #{memoryLimit}, #{cpuLimit}, #{tags}, #{knowledgePoints}, #{hints}, #{sampleExplanation})
     </insert>
 
     <update id="update" parameterType="com.programming.entity.Problem">
@@ -134,6 +134,7 @@
             language = #{language},
             time_limit = #{timeLimit},
             memory_limit = #{memoryLimit},
+            cpu_limit = #{cpuLimit},
             tags = #{tags},
             knowledge_points = #{knowledgePoints},
             hints = #{hints},

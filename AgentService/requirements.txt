@@ -1,7 +1,4 @@
-# web框架，类似springboot
 fastapi==0.109.0
-# 服务器，类似tomcat，用于部署fastapi应用
 uvicorn==0.27.0
-# 数据模型，类似lombok的data注解，用于定义pojo
 pydantic==2.5.0
-# uvicorn (服务器) → 运行 → fastapi (应用) → 使用 → pydantic (数据验证)
+python-dotenv==1.0.0

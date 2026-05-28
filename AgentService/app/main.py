@@ -1,5 +1,8 @@
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI
 
 from app.core.content import CONTENT_TYPE_BY_ACTION, ContentGenerator, PedagogicalGoalBuilder

@@ -309,10 +309,10 @@ public class AiServiceImpl implements AiService {
     }
 
     @Override
-    public void deleteSession(Long userId, Long id) {
-        AiSession session = requireOwnedSessionById(userId, id);
+    public void deleteSession(Long userId, String sessionKey) {
+        AiSession session = requireOwnedSessionByKey(userId, sessionKey);
         aiSessionMapper.deleteMessagesBySessionId(session.getSessionId());
-        aiSessionMapper.deleteSession(id);
+        aiSessionMapper.deleteSession(session.getId());
     }
 
     @Override
@@ -481,7 +481,7 @@ public class AiServiceImpl implements AiService {
         if (code != null && !code.isBlank()) {
             answer.append("针对当前代码，优先检查循环终止条件、变量更新顺序和输出格式。");
         }
-        answer.append("如果需要真实模型回答，请确认 Ollama 已启动且模型可用。");
+        answer.append("如果需要真实模型回答，请确认 AI 服务配置正确（provider/model/api-key）。");
         return answer.toString();
     }
 
@@ -555,6 +555,20 @@ public class AiServiceImpl implements AiService {
             throw new RuntimeException("Session not found");
         }
         return session;
+    }
+
+    private AiSession requireOwnedSessionByKey(Long userId, String sessionKey) {
+        if (sessionKey == null || sessionKey.isBlank()) {
+            throw new RuntimeException("Session not found");
+        }
+        if (sessionKey.chars().allMatch(Character::isDigit)) {
+            try {
+                return requireOwnedSessionById(userId, Long.parseLong(sessionKey));
+            } catch (NumberFormatException ignored) {
+                // Fall through and try the public session id.
+            }
+        }
+        return requireOwnedSessionBySessionId(userId, sessionKey);
     }
 
     private AiSession requireOwnedSessionBySessionId(Long userId, String sessionId) {

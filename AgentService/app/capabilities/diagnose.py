@@ -1,7 +1,15 @@
 from typing import List, Optional
 
-from app.core.llm_client import OllamaClient
+import os
+
+from app.core.llm_client import OllamaClient, OpenAICompatibleClient
 from app.schemas.context import AgentContext
+
+
+def _create_llm_client():
+    if os.getenv("AGENT_LLM_PROVIDER", "").lower() == "openai":
+        return OpenAICompatibleClient()
+    return OllamaClient()
 
 
 class DiagnosisResult:
@@ -18,7 +26,7 @@ class DiagnosisEngine:
     """诊断引擎：调用 LLM 分析错误原因，并返回结构化结果。"""
 
     def __init__(self):
-        self.llm = OllamaClient()
+        self.llm = _create_llm_client()
 
     def diagnose(self, context: AgentContext) -> DiagnosisResult:
         result = DiagnosisResult()

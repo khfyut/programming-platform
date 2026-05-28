@@ -13,4 +13,7 @@ public interface LearningResourceMapper {
     void insertResource(LearningResource resource);
     void updateResource(LearningResource resource);
     void deleteResource(Long id);
+    void deleteByLevelIdAndTypeAndName(@Param("levelId") Long levelId,
+                                       @Param("type") String type,
+                                       @Param("name") String name);
 }

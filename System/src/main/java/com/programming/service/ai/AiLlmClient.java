@@ -101,7 +101,7 @@ public class AiLlmClient {
             throw new IOException("OpenAI-compatible API key is not configured");
         }
         String apiUrl = trimTrailingSlash(config.apiUrl() == null || config.apiUrl().isBlank()
-                ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                ? "https://api.deepseek.com/v1"
                 : config.apiUrl());
 
         JSONObject requestBody = new JSONObject();
@@ -197,7 +197,7 @@ public class AiLlmClient {
             throw new IOException("OpenAI-compatible API key is not configured");
         }
         String apiUrl = trimTrailingSlash(config.apiUrl() == null || config.apiUrl().isBlank()
-                ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                ? "https://api.deepseek.com/v1"
                 : config.apiUrl());
 
         JSONObject requestBody = new JSONObject();

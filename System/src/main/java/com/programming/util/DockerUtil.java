@@ -91,6 +91,11 @@ public class DockerUtil {
         return executeCode(code, language, input, limits);
     }
 
+    public CodeExecutionResult executeCode(String code, String language, String input, Integer timeLimit, Integer memoryLimit, Double cpuLimit) {
+        SandboxLimits limits = limitResolver.resolve(timeLimit, memoryLimit, cpuLimit);
+        return executeCode(code, language, input, limits);
+    }
+
     private CodeExecutionResult executeCode(String code, String language, String input, SandboxLimits limits) {
         if (forceLocalExecution) {
             return localExecutionUtil.executeCode(code, language, input, limits);
@@ -135,7 +140,7 @@ public class DockerUtil {
         WaitContainerResultCallback waitCallback = null;
 
         try {
-            containerId = createContainer(imageName, runCommand, limits.memoryBytes());
+            containerId = createContainer(imageName, runCommand, limits.memoryBytes(), limits.cpuLimit());
 
             AtomicLong peakMemoryBytes = new AtomicLong(0);
             dockerClient.startContainerCmd(containerId).exec();
@@ -187,12 +192,18 @@ public class DockerUtil {
         return result;
     }
 
-    private String createContainer(String imageName, String runCommand, long memoryBytes) {
+    private String createContainer(String imageName, String runCommand,
+                                    long memoryBytes, Double cpuLimit) {
+        var hostConfig = HostConfig.newHostConfig()
+                .withMemory(memoryBytes)
+                .withNetworkMode("none");
+
+        if (cpuLimit != null && cpuLimit > 0) {
+            hostConfig.withNanoCPUs((long) (cpuLimit * 1_000_000_000L));
+        }
+
         return dockerClient.createContainerCmd(imageName)
-                .withHostConfig(HostConfig.newHostConfig()
-                        .withMemory(memoryBytes)
-                        .withNetworkMode("none")
-                )
+                .withHostConfig(hostConfig)
                 .withCmd("/bin/sh", "-c", runCommand)
                 .exec()
                 .getId();

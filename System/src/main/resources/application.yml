@@ -49,12 +49,13 @@ programming:
     host: ${PROGRAMMING_DOCKER_HOST:tcp://127.0.0.1:2375}
     timeout: ${PROGRAMMING_DOCKER_TIMEOUT:2000}
     memory: ${PROGRAMMING_DOCKER_MEMORY:134217728}
+    cpu: ${PROGRAMMING_DOCKER_CPU:0.5}
   ai:
-    provider: ${PROGRAMMING_AI_PROVIDER:ollama}
-    model: ${PROGRAMMING_AI_MODEL:gemma4:e2b}
+    provider: ${PROGRAMMING_AI_PROVIDER:openai-compatible}
+    model: ${PROGRAMMING_AI_MODEL:deepseek-v4-flash}
     ollama-url: ${PROGRAMMING_AI_OLLAMA_URL:http://127.0.0.1:11434}
-    api-key: ${PROGRAMMING_AI_API_KEY:}
-    api-url: ${PROGRAMMING_AI_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    api-key: ${PROGRAMMING_AI_API_KEY:sk-placeholder}
+    api-url: ${PROGRAMMING_AI_API_URL:https://api.deepseek.com/v1}
     prompt: ${PROGRAMMING_AI_PROMPT:你是专业的编程助教，只回答编程学习相关问题。回答要清晰、有步骤，优先解释思路，再给必要示例。}
 
 server:

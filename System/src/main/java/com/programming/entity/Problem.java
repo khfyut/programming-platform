@@ -17,6 +17,7 @@ public class Problem {
     
     private Integer timeLimit;
     private Integer memoryLimit;
+    private Double  cpuLimit;
     private String tags;
     private String knowledgePoints;
     private String hints;

@@ -22,10 +22,18 @@ public class SandboxResourceLimitResolver {
     @Value("${programming.docker.memory}")
     private long defaultMemory;
 
+    @Value("${programming.docker.cpu}")
+    private double defaultCpu;
+
     public SandboxLimits resolve(Integer requestedTimeLimit, Integer requestedMemoryLimit) {
+        return resolve(requestedTimeLimit, requestedMemoryLimit, null);
+    }
+
+    public SandboxLimits resolve(Integer requestedTimeLimit, Integer requestedMemoryLimit, Double cpuLimit) {
         return new SandboxLimits(
                 resolveTimeoutMillis(requestedTimeLimit),
-                resolveMemoryLimitBytes(requestedMemoryLimit)
+                resolveMemoryLimitBytes(requestedMemoryLimit),
+                cpuLimit != null ? cpuLimit : defaultCpu
         );
     }
 

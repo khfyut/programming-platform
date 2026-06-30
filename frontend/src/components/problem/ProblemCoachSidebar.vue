@@ -15,7 +15,7 @@
       <div ref="messageListRef" class="message-list" v-loading="loading">
         <div v-if="!messages.length && summary" class="message-item assistant latest-summary">
           <div class="message-role">陪练</div>
-          <pre class="message-content">{{ summary }}</pre>
+          <div class="message-content" v-html="renderMarkdown(summary)"></div>
         </div>
         <div v-else-if="!messages.length" class="thread-empty">
           可以直接问解题思路、下一步提示、报错原因，也可以先运行或提交，让陪练根据结果分析。
@@ -28,7 +28,7 @@
           :class="message.role"
         >
           <div class="message-role">{{ message.role === 'assistant' ? '陪练' : '我' }}</div>
-          <pre class="message-content">{{ message.content }}</pre>
+          <div class="message-content" v-html="renderMarkdown(message.content)"></div>
         </div>
 
         <div v-if="sending" class="message-item assistant working-message">
@@ -109,6 +109,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound } from '@element-plus/icons-vue'
+import { renderMarkdown } from '@/utils/markdown'
 import { chatProblemAgent, getLatestProblemAgentSession, sendAgentFeedback } from '@/api/problemAgent'
 import { getAgentWorkingSteps } from '@/utils/agentWorkingSteps'
 

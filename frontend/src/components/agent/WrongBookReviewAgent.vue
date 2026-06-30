@@ -27,7 +27,7 @@
             <dd>{{ currentJudgement.mainIssue }}</dd>
           </div>
         </dl>
-        <p class="reflection-text">{{ reflectionText }}</p>
+        <p class="reflection-text" v-html="renderMarkdown(reflectionText)"></p>
         <div v-if="weakPoints.length" class="tag-row">
           <span v-for="point in weakPoints" :key="point">{{ point }}</span>
         </div>
@@ -60,7 +60,7 @@
             :class="[message.role, { working: message.working }]"
           >
             <span>{{ message.role === 'user' ? '我' : 'AI' }}</span>
-            <p>{{ message.content }}</p>
+            <p v-html="renderMarkdown(message.content)"></p>
           </div>
         </div>
         <div v-else class="agent-state compact">
@@ -102,6 +102,7 @@ import {
   normalizeWrongBookAgentState
 } from '@/utils/wrongBookAgent'
 import { getAgentWorkingSteps } from '@/utils/agentWorkingSteps'
+import { renderMarkdown } from '@/utils/markdown'
 
 const props = defineProps({
   wrongItem: {

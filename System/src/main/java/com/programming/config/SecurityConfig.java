@@ -1,6 +1,7 @@
 package com.programming.config;
 
 import com.programming.security.JwtAuthenticationFilter;
+import com.programming.security.InternalApiFilter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -42,7 +43,7 @@ public class SecurityConfig {
     };
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter)
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter, InternalApiFilter internalApiFilter)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -69,6 +70,8 @@ public class SecurityConfig {
                         .requestMatchers(ADMIN_API_PATTERNS).hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
+                // InternalApiFilter 在 JWT 之前，共享密钥匹配后跳过 JWT
+                .addFilterBefore(internalApiFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

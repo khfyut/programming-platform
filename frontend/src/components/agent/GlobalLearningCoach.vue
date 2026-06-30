@@ -68,7 +68,7 @@
                 >
                   {{ part.text }}
                 </button>
-                <span v-else>{{ part.text }}</span>
+                <span v-else v-html="renderMarkdown(part.text)"></span>
               </template>
             </div>
           </div>
@@ -140,6 +140,7 @@ import {
   shouldShowGlobalLearningCoachNudge
 } from '@/utils/globalLearningCoach'
 import { getWrongBookReflectionRoute } from '@/utils/wrongBookAgent'
+import { renderMarkdown } from '@/utils/markdown'
 
 const ONBOARDING_SEEN_KEY = 'globalLearningCoach.onboardingSeen'
 

@@ -18,7 +18,7 @@ import java.util.UUID;
 @Component
 public class AgentClient {
 
-    private static final String AGENT_SERVICE_URL = "http://localhost:8000/decision";
+    private static final String AGENT_SERVICE_URL = "http://localhost:8766/decision";
     private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
     private static final int CONNECT_TIMEOUT_SECONDS = intSetting("AGENT_CLIENT_CONNECT_TIMEOUT_SECONDS", 5);
     private static final int READ_TIMEOUT_SECONDS = intSetting("AGENT_CLIENT_READ_TIMEOUT_SECONDS", 130);
